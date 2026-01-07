@@ -9,13 +9,26 @@
         exit;
     }
 
+    header('X-Content-Type-Options: nosniff');
+    header('X-Frame-Options: DENY');
+    header('Referrer-Policy: no-referrer');
+    header('Permissions-Policy: geolocation=(), camera=(), microphone=()');
+    header("Content-Security-Policy: default-src 'self';
+        style-src 'self' https://cdnjs.cloudflare.com 'unsafe-inline';
+        script-src 'self';
+        img-src 'self' https://img.shields.io;
+        font-src https://cdnjs.cloudflare.com;
+        object-src 'none';
+        base-uri 'self';
+        frame-ancestors 'none'");
+
     // Security: prevent directory traversal
-    $realRoot = realpath('.');
+    $realRoot = rtrim(realpath('.'), DIRECTORY_SEPARATOR) . DIRECTORY_SEPARATOR;
     $currentPath = isset($_GET['path']) ? rtrim((string)$_GET['path'], '/') : '';
     $basePath = $currentPath ? './' . str_replace('\\', '/', $currentPath) : '.';
     $realBase = realpath($basePath);
     
-    $isValidPath = $realBase !== false && strpos($realBase, $realRoot) === 0;
+    $isValidPath = $realBase !== false && strpos($realBase . DIRECTORY_SEPARATOR, $realRoot) === 0;
 
     // Create breadcrumbs array
     $breadcrumbs = [];
@@ -201,7 +214,7 @@
         </div>
 
         <?php if (!empty($footer)): ?>
-        <footer><?php echo $footer; ?></footer>
+        <footer><?php echo htmlspecialchars($footer, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8'); ?></footer>
         <?php endif; ?>
 
         <footer>
