@@ -3,6 +3,45 @@
     $subtitle = "The Easy Way To List Files In A Directory";
     $footer = "Made with ❤️ by Blind Trevor";
     
+    // Security: prevent directory traversal
+    $realRoot = rtrim(realpath('.'), DIRECTORY_SEPARATOR) . DIRECTORY_SEPARATOR;
+    
+    // Secure download handler
+    if (isset($_GET['download'])) {
+        $rel = (string)$_GET['download'];
+        $full = realpath($realRoot . $rel);
+        
+        // Validate path is within root and file exists
+        if ($full === false || strpos($full . DIRECTORY_SEPARATOR, $realRoot) !== 0) {
+            http_response_code(404);
+            exit('Not found');
+        }
+        
+        // Ensure it's a file, not a directory
+        if (!is_file($full)) {
+            http_response_code(404);
+            exit('Not found');
+        }
+        
+        // Block dangerous extensions to prevent code execution
+        $blocked = ['php', 'phtml', 'phar', 'cgi', 'pl', 'sh', 'bat', 'exe'];
+        $ext = strtolower(pathinfo($full, PATHINFO_EXTENSION));
+        if (in_array($ext, $blocked, true)) {
+            http_response_code(403);
+            exit('Forbidden');
+        }
+        
+        // Set secure download headers
+        header('Content-Type: application/octet-stream');
+        header('Content-Disposition: attachment; filename="' . basename($full) . '"');
+        header('X-Content-Type-Options: nosniff');
+        header('Content-Length: ' . filesize($full));
+        
+        // Serve the file
+        readfile($full);
+        exit;
+    }
+    
     // Redirect if path=.
     if (isset($_GET['path']) && $_GET['path'] === '.') {
         header('Location: ' . strtok($_SERVER['REQUEST_URI'], '?'));
@@ -21,9 +60,6 @@
         object-src 'none';
         base-uri 'self';
         frame-ancestors 'none'");
-
-    // Security: prevent directory traversal
-    $realRoot = rtrim(realpath('.'), DIRECTORY_SEPARATOR) . DIRECTORY_SEPARATOR;
     $currentPath = isset($_GET['path']) ? rtrim((string)$_GET['path'], '/') : '';
     $basePath = $currentPath ? './' . str_replace('\\', '/', $currentPath) : '.';
     $realBase = realpath($basePath);
@@ -84,21 +120,20 @@
             $href = '?path=' . rawurlencode($currentPath ? $currentPath . '/' . $entry : $entry);
             $iconClass = 'fa-solid fa-folder';
             $iconColor = '#f6a623';
-            $downloadAttr = '';
             $linkClass = 'class="dir-link"';
         } else {
-            $href = $currentPath ? $currentPath . '/' . $entry : $entry;
+            // Use secure download handler for files
+            $filePath = $currentPath ? $currentPath . '/' . $entry : $entry;
+            $href = '?download=' . rawurlencode($filePath);
             [$iconClass, $iconColor] = getFileIcon($entry);
-            $downloadAttr = ' download';
             $linkClass = '';
         }
 
         $label = htmlspecialchars($entry, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
 
         printf(
-            '<li><a href="%s" %s %s><span class="file-icon" style="color:%s;"><i class="%s"></i></span><span class="file-name">%s</span></a></li>' . PHP_EOL,
+            '<li><a href="%s" %s><span class="file-icon" style="color:%s;"><i class="%s"></i></span><span class="file-name">%s</span></a></li>' . PHP_EOL,
             htmlspecialchars($href, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8'),
-            $downloadAttr,
             $linkClass,
             htmlspecialchars($iconColor, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8'),
             htmlspecialchars($iconClass, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8'),
