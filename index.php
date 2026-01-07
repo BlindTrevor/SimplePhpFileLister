@@ -147,7 +147,9 @@
                     // Show parent directory link if not at root
                     if ($currentPath) {
                         $parentPath = dirname($currentPath);
-                        printf('<li><a href="?path=%s"><span class="file-icon" style="color:#f6a623;"><i class="fa-solid fa-arrow-up"></i></span><span class="file-name">..</span></a></li>' . PHP_EOL, $parentPath ? rawurlencode($parentPath) : '');
+                        if ($currentPath !== '.') {
+                            printf('<li><a href="?path=%s"><span class="file-icon" style="color:#f6a623;"><i class="fa-solid fa-arrow-up"></i></span><span class="file-name">..</span></a></li>' . PHP_EOL, $parentPath ? rawurlencode($parentPath) : '');
+                        }
                     }
 
                     $dirs = [];
@@ -158,8 +160,17 @@
                             if (in_array($entry, ['.', '..', 'index.php'], true)) {
                                 continue;
                             }
+                            // Hide dotfiles
+                            if ($entry[0] === '.') {
+                                continue;
+                            }
                             $fullPath = $basePath . '/' . $entry;
                             $realPath = realpath($fullPath);
+                            
+                            // Reject symbolic links
+                            if (is_link($fullPath)) {
+                                continue;
+                            }
                             
                             // Reject paths outside base directory
                             if ($realPath === false || strpos($realPath, $realRoot) !== 0) {
@@ -189,7 +200,6 @@
                 ?>
             </ul>
         </div>
-        <?php echo $realBase; ?>
 		<?php if(!empty($footer)){ ?>
         <footer>
 			<?php echo $footer; ?>
