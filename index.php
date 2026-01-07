@@ -116,7 +116,19 @@
                         if ($entry !== "." && $entry !== ".." && $entry !== "index.php") {
                             echo "<li>";
                             echo "<a href=\"$entry\" download>";
-                            echo "<span class=\"file-icon\">📄</span>";
+                            $icon = match(strtolower(pathinfo($entry, PATHINFO_EXTENSION))) {
+                                'pdf' => '📕',
+                                'doc', 'docx' => '📄',
+                                'xls', 'xlsx' => '📊',
+                                'ppt', 'pptx' => '🎯',
+                                'zip', 'rar', '7z' => '📦',
+                                'jpg', 'jpeg', 'png', 'gif' => '🖼️',
+                                'mp3', 'wav', 'flac' => '🎵',
+                                'mp4', 'mov', 'avi' => '🎬',
+                                'txt' => '📝',
+                                default => '📄'
+                            };
+                            echo "<span class=\"file-icon\">$icon</span>";
                             echo "<span class=\"file-name\">$entry</span>";
                             echo "</a>";
                             echo "</li>";
