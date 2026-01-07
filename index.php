@@ -39,11 +39,12 @@
         // Set secure download headers with properly escaped filename
         $filename = basename($full);
         // Remove control characters and dangerous chars for header injection prevention
-        // while preserving Unicode characters for international filenames
-        $safeFilename = preg_replace('/[\x00-\x1F\x7F"\\\\]|[\r\n]/', '', $filename);
+        $safeFilename = preg_replace('/[\x00-\x1F\x7F"\\\\\\\\]|[\r\n]/', '', $filename);
+        // Use RFC 2231 encoding for Unicode filename support
+        $encodedFilename = rawurlencode($filename);
         
         header('Content-Type: application/octet-stream');
-        header('Content-Disposition: attachment; filename="' . $safeFilename . '"');
+        header("Content-Disposition: attachment; filename=\"{$safeFilename}\"; filename*=UTF-8''{$encodedFilename}");
         header('X-Content-Type-Options: nosniff');
         header('Content-Length: ' . filesize($full));
         
