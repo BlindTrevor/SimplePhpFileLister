@@ -1,7 +1,7 @@
 <?php
-$title = "Simple PHP File Lister";
-$subtitle = "Click a file to download";
-$footer = "";
+    $title = "Simple PHP File Lister";
+    $subtitle = "Click a file to download";
+    $footer = "";
 ?>
 <!DOCTYPE html>
 <html lang="en">
