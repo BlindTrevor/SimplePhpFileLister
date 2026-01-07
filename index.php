@@ -118,7 +118,7 @@
                         $iconColor = '#f6a623';
                         $downloadAttr = '';
                     } else {
-                        $href = rawurlencode($currentPath ? $currentPath . '/' . $entry : $entry);
+                        $href = $currentPath ? $currentPath . '/' . $entry : $entry;
                         [$iconClass, $iconColor] = getFileIcon($entry);
                         $downloadAttr = ' download';
                     }
@@ -135,19 +135,18 @@
                     );
                 }
 
+                $realRoot = realpath('.');
                 $currentPath = isset($_GET['path']) ? rtrim((string)$_GET['path'], '/') : '';
                 $basePath = $currentPath ? './' . str_replace('\\', '/', $currentPath) : '.';
                 
                 // Security: prevent directory traversal
                 $realBase = realpath($basePath);
-                $realRoot = realpath('.');
                 if ($realBase === false || strpos($realBase, $realRoot) !== 0) {
                     echo '<li>Invalid path</li>';
                 } else {
                     // Show parent directory link if not at root
                     if ($currentPath) {
                         $parentPath = dirname($currentPath);
-                        $parentLabel = $parentPath ? htmlspecialchars($parentPath) : 'Root';
                         printf('<li><a href="?path=%s"><span class="file-icon" style="color:#f6a623;"><i class="fa-solid fa-arrow-up"></i></span><span class="file-name">..</span></a></li>' . PHP_EOL, $parentPath ? rawurlencode($parentPath) : '');
                     }
 
@@ -159,7 +158,15 @@
                             if (in_array($entry, ['.', '..', 'index.php'], true)) {
                                 continue;
                             }
-                            $isDir = is_dir($basePath . '/' . $entry);
+                            $fullPath = $basePath . '/' . $entry;
+                            $realPath = realpath($fullPath);
+                            
+                            // Reject paths outside base directory
+                            if ($realPath === false || strpos($realPath, $realRoot) !== 0) {
+                                continue;
+                            }
+                            
+                            $isDir = is_dir($fullPath);
                             if ($isDir) {
                                 $dirs[] = $entry;
                             } else {
@@ -179,10 +186,10 @@
                         renderItem($entry, false, $currentPath);
                     }
                 }
-                
                 ?>
             </ul>
         </div>
+        <?php echo $realBase; ?>
 		<?php if(!empty($footer)){ ?>
         <footer>
 			<?php echo $footer; ?>
