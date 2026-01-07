@@ -1,8 +1,13 @@
+<?php
+$title = "Simple PHP File Lister";
+$subtitle = "Click a file to download";
+$footer = "";
+?>
 <!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>Simple PHP File Lister</title>
+    <title><?php echo htmlspecialchars($title); ?></title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/7.0.1/css/all.min.css">
     <style>
         :root {
@@ -68,8 +73,8 @@
 <body>
     <div class="container">
         <div class="card">
-            <h1>Simple PHP File Lister</h1>
-            <div class="subtitle">Click a file to download.</div>
+            <h1><?php echo htmlspecialchars($title); ?></h1>
+            <div class="subtitle"><?php echo htmlspecialchars($subtitle); ?></div>
 
             <ul class="file-list">
                 <?php
@@ -124,8 +129,17 @@
                 ?>
             </ul>
         </div>
-
-        <footer>Simple PHP File Lister - &copy; Andrew Samuel 2026</footer>
+		<?php if(!empty($footer)){ ?>
+        <footer>
+			<?php echo $footer; ?>
+		</footer>
+		<?php } ?>
+		<footer>
+			<a href="https://github.com/BlindTrevor/SimplePhpFileLister/" target="_blank"><img src="https://img.shields.io/badge/Simple_PHP-File_Lister-magenta"/></a>
+			<img src="https://img.shields.io/github/last-commit/BlindTrevor/SimplePhpFileLister"/>
+			<img src="https://img.shields.io/github/issues/BlindTrevor/SimplePhpFileLister"/>
+			<img src="https://img.shields.io/github/repo-size/BlindTrevor/SimplePhpFileLister"/>
+		</footer>
     </div>
 </body>
 </html>
