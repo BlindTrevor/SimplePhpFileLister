@@ -26,7 +26,8 @@
         
         // Block dangerous extensions to prevent code execution
         $blocked = ['php', 'phtml', 'phar', 'cgi', 'pl', 'sh', 'bat', 'exe', 
-                    'jsp', 'asp', 'aspx', 'py', 'rb', 'ps1', 'vbs', 'htaccess'];
+                    'jsp', 'asp', 'aspx', 'py', 'rb', 'ps1', 'vbs', 'htaccess',
+                    'scr', 'com', 'jar'];
         $ext = strtolower(pathinfo($full, PATHINFO_EXTENSION));
         if (in_array($ext, $blocked, true)) {
             http_response_code(403);
@@ -35,10 +36,9 @@
         
         // Set secure download headers with properly escaped filename
         $filename = basename($full);
-        // Remove control characters and characters that could enable header injection
+        // Remove control characters and dangerous chars for header injection prevention
         // while preserving Unicode characters for international filenames
-        $safeFilename = preg_replace('/[\x00-\x1F\x7F"\\\\]/', '', $filename);
-        $safeFilename = str_replace(["\r", "\n"], '', $safeFilename);
+        $safeFilename = preg_replace('/[\x00-\x1F\x7F"\\\\\\r\\n]/', '', $filename);
         
         header('Content-Type: application/octet-stream');
         header('Content-Disposition: attachment; filename="' . $safeFilename . '"');
