@@ -171,10 +171,7 @@
 		</footer>
 		<?php } ?>
 		<footer>
-			<a href="https://github.com/BlindTrevor/SimplePhpFileLister/" target="_blank"><img src="https://img.shields.io/badge/Simple_PHP-File_Lister-magenta"/></a>
-			<img src="https://img.shields.io/github/last-commit/BlindTrevor/SimplePhpFileLister"/>
-			<img src="https://img.shields.io/github/issues/BlindTrevor/SimplePhpFileLister"/>
-			<img src="https://img.shields.io/github/repo-size/BlindTrevor/SimplePhpFileLister"/>
+			<a href="https://github.com/BlindTrevor/SimplePhpFileLister/" target="_blank"><img src="https://img.shields.io/badge/Created_By_Blind_Trevor-Simple_PHP_File_Lister-magenta"/></a>
 		</footer>
     </div>
 </body>
