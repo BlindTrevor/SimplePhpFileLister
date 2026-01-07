@@ -2,6 +2,12 @@
     $title = "Simple PHP File Lister";
     $subtitle = "Click a file to download";
     $footer = "";
+    
+    // Redirect if path=.
+    if (isset($_GET['path']) && $_GET['path'] === '.') {
+        header('Location: ' . strtok($_SERVER['REQUEST_URI'], '?'));
+        exit;
+    }
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -41,6 +47,34 @@
         h1 { margin: 0 0 8px 0; font-size: 1.6rem; }
         .subtitle { margin-bottom: 24px; color: var(--muted); font-size: 0.95rem; }
 
+        .breadcrumbs {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-bottom: 24px;
+            padding: 12px 16px;
+            background: #fafafa;
+            border-radius: 8px;
+            border: 1px solid var(--border);
+            font-size: 0.9rem;
+            flex-wrap: wrap;
+        }
+
+        .breadcrumbs a {
+            color: var(--accent);
+            text-decoration: none;
+            transition: color 0.2s ease;
+        }
+
+        .breadcrumbs a:hover {
+            color: #3f37c5;
+            text-decoration: underline;
+        }
+
+        .breadcrumbs > a:first-child {
+            font-weight: 500;
+        }
+
         .file-list { list-style: none; padding: 0; margin: 0; }
         .file-list li + li { margin-top: 10px; }
 
@@ -71,11 +105,41 @@
 </head>
 
 <body>
+    <?php
+        $realRoot = realpath('.');
+        $currentPath = isset($_GET['path']) ? rtrim((string)$_GET['path'], '/') : '';
+        $basePath = $currentPath ? './' . str_replace('\\', '/', $currentPath) : '.';
+
+        // Create breadcrumbs array
+        $breadcrumbs = [];
+        $pathParts = explode('/', $currentPath);
+        $accumulatedPath = '';
+
+        foreach ($pathParts as $part) {
+            if ($part !== '') {
+                $accumulatedPath .= ($accumulatedPath ? '/' : '') . $part;
+                $breadcrumbs[] = [
+                    'name' => htmlspecialchars($part, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8'),
+                    'path' => $accumulatedPath
+                ];
+            }
+        }
+    ?>
     <div class="container">
         <div class="card">
             <h1><?php echo htmlspecialchars($title); ?></h1>
             <div class="subtitle"><?php echo htmlspecialchars($subtitle); ?></div>
-
+            <?php if (!empty($breadcrumbs)): ?>
+            <div class="breadcrumbs">
+                <a href="<?php echo strtok($_SERVER['REQUEST_URI'], '?'); ?>">Home</a>
+                <?php foreach ($breadcrumbs as $index => $breadcrumb): ?>
+                    &gt;
+                    <a href="?path=<?php echo rawurlencode($breadcrumb['path']); ?>">
+                        <?php echo $breadcrumb['name']; ?>
+                    </a>
+                <?php endforeach; ?>
+            </div>
+            <?php endif; ?>
             <ul class="file-list">
                 <?php
                 function getFileIcon(string $path): array {
@@ -135,9 +199,7 @@
                     );
                 }
 
-                $realRoot = realpath('.');
-                $currentPath = isset($_GET['path']) ? rtrim((string)$_GET['path'], '/') : '';
-                $basePath = $currentPath ? './' . str_replace('\\', '/', $currentPath) : '.';
+
                 
                 // Security: prevent directory traversal
                 $realBase = realpath($basePath);
