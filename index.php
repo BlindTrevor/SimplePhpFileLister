@@ -111,56 +111,74 @@
                     return $extMap[$ext] ?? ['fa-regular fa-file', $colors['default']];
                 }
 
-                function renderItem(string $entry, bool $isDir): void {
-					$href = rawurlencode($entry);
-					$label = htmlspecialchars($entry, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
+                function renderItem(string $entry, bool $isDir, string $currentPath): void {
+                    if ($isDir) {
+                        $href = '?path=' . rawurlencode($currentPath ? $currentPath . '/' . $entry : $entry);
+                        $iconClass = 'fa-solid fa-folder';
+                        $iconColor = '#f6a623';
+                        $downloadAttr = '';
+                    } else {
+                        $href = rawurlencode($currentPath ? $currentPath . '/' . $entry : $entry);
+                        [$iconClass, $iconColor] = getFileIcon($entry);
+                        $downloadAttr = ' download';
+                    }
 
-					if ($isDir) {
-						$iconClass = 'fa-solid fa-folder';
-						$iconColor = '#f6a623'; // folder color override; tweak to your theme
-						$downloadAttr = '';
-					} else {
-						[$iconClass, $iconColor] = getFileIcon($entry);
-						$downloadAttr = ' download';
-					}
+                    $label = htmlspecialchars($entry, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
 
-					printf(
-						'<li><a href="%s" %s><span class="file-icon" style="color:%s;"><i class="%s"></i></span><span class="file-name">%s</span></a></li>' . PHP_EOL,
-						$href,
-						$downloadAttr,
-						htmlspecialchars($iconColor, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8'),
-						htmlspecialchars($iconClass, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8'),
-						$label
-					);
-				}
+                    printf(
+                        '<li><a href="%s" %s><span class="file-icon" style="color:%s;"><i class="%s"></i></span><span class="file-name">%s</span></a></li>' . PHP_EOL,
+                        htmlspecialchars($href, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8'),
+                        $downloadAttr,
+                        htmlspecialchars($iconColor, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8'),
+                        htmlspecialchars($iconClass, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8'),
+                        $label
+                    );
+                }
 
-				$dirs = [];
-				$files = [];
+                $currentPath = isset($_GET['path']) ? rtrim((string)$_GET['path'], '/') : '';
+                $basePath = $currentPath ? './' . str_replace('\\', '/', $currentPath) : '.';
+                
+                // Security: prevent directory traversal
+                $realBase = realpath($basePath);
+                $realRoot = realpath('.');
+                if ($realBase === false || strpos($realBase, $realRoot) !== 0) {
+                    echo '<li>Invalid path</li>';
+                } else {
+                    // Show parent directory link if not at root
+                    if ($currentPath) {
+                        $parentPath = dirname($currentPath);
+                        $parentLabel = $parentPath ? htmlspecialchars($parentPath) : 'Root';
+                        printf('<li><a href="?path=%s"><span class="file-icon" style="color:#f6a623;"><i class="fa-solid fa-arrow-up"></i></span><span class="file-name">..</span></a></li>' . PHP_EOL, $parentPath ? rawurlencode($parentPath) : '');
+                    }
 
-				if ($handle = opendir('.')) {
-					while (($entry = readdir($handle)) !== false) {
-						if (in_array($entry, ['.', '..', 'index.php'], true)) {
-							continue;
-						}
-						$isDir = is_dir($entry);
-						if ($isDir) {
-							$dirs[] = $entry;
-						} else {
-							$files[] = $entry;
-						}
-					}
-					closedir($handle);
-				}
+                    $dirs = [];
+                    $files = [];
 
-				natcasesort($dirs);
-				natcasesort($files);
+                    if ($handle = opendir($basePath)) {
+                        while (($entry = readdir($handle)) !== false) {
+                            if (in_array($entry, ['.', '..', 'index.php'], true)) {
+                                continue;
+                            }
+                            $isDir = is_dir($basePath . '/' . $entry);
+                            if ($isDir) {
+                                $dirs[] = $entry;
+                            } else {
+                                $files[] = $entry;
+                            }
+                        }
+                        closedir($handle);
+                    }
 
-				foreach ($dirs as $entry) {
-					renderItem($entry, true);
-				}
-				foreach ($files as $entry) {
-					renderItem($entry, false);
-				}
+                    natcasesort($dirs);
+                    natcasesort($files);
+
+                    foreach ($dirs as $entry) {
+                        renderItem($entry, true, $currentPath);
+                    }
+                    foreach ($files as $entry) {
+                        renderItem($entry, false, $currentPath);
+                    }
+                }
                 
                 ?>
             </ul>
