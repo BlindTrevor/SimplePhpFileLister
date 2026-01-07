@@ -100,6 +100,8 @@
         .file-icon { font-size: 1.25rem; color: var(--accent); flex-shrink: 0; }
         .file-name { font-weight: 500; word-break: break-all; }
 
+        .folder-file-count { margin-top: 20px; padding: 12px 16px; background: #f0f0f0; border-radius: 8px; text-align: center; color: var(--muted); }
+
         footer { margin-top: 16px; text-align: center; font-size: 0.85rem; color: var(--muted); }
     </style>
 </head>
@@ -258,6 +260,12 @@
                     foreach ($files as $entry) {
                         renderItem($entry, false, $currentPath);
                     }
+                    
+                    // Display count of folders and files
+                    echo '<li class="folder-file-count">';
+                    echo count($dirs) . ' folder' . (count($dirs) !== 1 ? 's' : '') . ', ';
+                    echo count($files) . ' file' . (count($files) !== 1 ? 's' : '');
+                    echo '</li>';
                 }
                 ?>
             </ul>
