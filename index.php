@@ -103,6 +103,55 @@
         .folder-file-count { margin-top: 20px; padding: 12px 16px; background: #f0f0f0; border-radius: 8px; text-align: center; color: var(--muted); }
 
         footer { margin-top: 16px; text-align: center; font-size: 0.85rem; color: var(--muted); }
+
+                
+        /* Loading overlay */
+        .loading-overlay {
+            position: fixed;
+            inset: 0;
+            background: rgba(255, 255, 255, 0.85);
+            backdrop-filter: saturate(180%) blur(2px);
+            display: none; /* hidden by default */
+            align-items: center;
+            justify-content: center;
+            z-index: 9999;
+        }
+
+        /* Spinner */
+        .loading-spinner {
+            width: 56px;
+            height: 56px;
+            border: 6px solid #e5e7eb;     /* light border */
+            border-top-color: var(--accent); /* primary color */
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+        }
+
+        /* Optional status text for accessibility */
+        .loading-text {
+            margin-top: 14px;
+            color: var(--muted);
+            font-size: 0.95rem;
+            text-align: center;
+        }
+
+        /* Motion accessibility */
+        @media (prefers-reduced-motion: reduce) {
+            .loading-spinner {
+                animation: none;
+                border-top-color: #e5e7eb;
+            }
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        /* Utility class to show overlay */
+        .loading-overlay.is-active {
+            display: flex;
+        }
+
     </style>
 </head>
 
@@ -136,7 +185,7 @@
                 <a href="<?php echo strtok($_SERVER['REQUEST_URI'], '?'); ?>">Home</a>
                 <?php foreach ($breadcrumbs as $index => $breadcrumb): ?>
                     &gt;
-                    <a href="?path=<?php echo rawurlencode($breadcrumb['path']); ?>">
+                    <a href="?path=<?php echo rawurlencode($breadcrumb['path']); ?>" class="dir-link">
                         <?php echo $breadcrumb['name']; ?>
                     </a>
                 <?php endforeach; ?>
@@ -183,18 +232,21 @@
                         $iconClass = 'fa-solid fa-folder';
                         $iconColor = '#f6a623';
                         $downloadAttr = '';
+                        $linkClass = 'class="dir-link"';
                     } else {
                         $href = $currentPath ? $currentPath . '/' . $entry : $entry;
                         [$iconClass, $iconColor] = getFileIcon($entry);
                         $downloadAttr = ' download';
+                        $linkClass = '';
                     }
 
                     $label = htmlspecialchars($entry, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
 
                     printf(
-                        '<li><a href="%s" %s><span class="file-icon" style="color:%s;"><i class="%s"></i></span><span class="file-name">%s</span></a></li>' . PHP_EOL,
+                        '<li><a href="%s" %s %s><span class="file-icon" style="color:%s;"><i class="%s"></i></span><span class="file-name">%s</span></a></li>' . PHP_EOL,
                         htmlspecialchars($href, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8'),
                         $downloadAttr,
+                        $linkClass,
                         htmlspecialchars($iconColor, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8'),
                         htmlspecialchars($iconClass, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8'),
                         $label
@@ -212,7 +264,7 @@
                     if ($currentPath) {
                         $parentPath = dirname($currentPath);
                         if ($currentPath !== '.') {
-                            printf('<li><a href="?path=%s"><span class="file-icon" style="color:#f6a623;"><i class="fa-solid fa-arrow-up"></i></span><span class="file-name">..</span></a></li>' . PHP_EOL, $parentPath ? rawurlencode($parentPath) : '');
+                            printf('<li><a href="?path=%s" class="dir-link"><span class="file-icon" style="color:#f6a623;"><i class="fa-solid fa-arrow-up"></i></span><span class="file-name">..</span></a></li>' . PHP_EOL, $parentPath ? rawurlencode($parentPath) : '');
                         }
                     }
 
@@ -279,5 +331,62 @@
 			<a href="https://github.com/BlindTrevor/SimplePhpFileLister/" target="_blank"><img src="https://img.shields.io/badge/Created_by_Blind_Trevor-Simple_PHP_File_Lister-magenta"/></a>
 		</footer>
     </div>
+
+    <!-- Loading overlay (hidden by default) -->
+    <div class="loading-overlay" aria-hidden="true">
+    <div role="status" aria-live="polite" aria-label="Loading">
+        <div class="loading-spinner" aria-hidden="true"></div>
+        <div class="loading-text">Loading directory…</div>
+    </div>
+    </div>
+
 </body>
+
+
+<script>
+(function() {
+  const overlay = document.querySelector('.loading-overlay');
+
+  function showOverlay() {
+    if (!overlay) return;
+    overlay.classList.add('is-active');
+    overlay.setAttribute('aria-hidden', 'false');
+  }
+
+  function hideOverlay() {
+    if (!overlay) return;
+    overlay.classList.remove('is-active');
+    overlay.setAttribute('aria-hidden', 'true');
+  }
+
+  // Hide overlay once this page is ready (covers normal load)
+  document.addEventListener('DOMContentLoaded', hideOverlay);
+
+  // Show overlay on directory link clicks (single-page intent)
+  document.addEventListener('click', function(e) {
+    const a = e.target.closest('a');
+    if (!a) return;
+
+    // Ignore if user is opening in new tab/window
+    const isModified = e.metaKey || e.ctrlKey || e.shiftKey || e.button === 1;
+    if (isModified) return;
+
+    // Directory links use class="dir-link" and no download attribute
+    const isDirLink = a.classList.contains('dir-link') && !a.hasAttribute('download');
+
+    if (isDirLink) {
+      showOverlay();
+      // Allow navigation to proceed naturally (full page reload)
+    }
+  }, { capture: true });
+
+  // Also show overlay when leaving the page (back/forward or any navigation)
+  window.addEventListener('beforeunload', function() {
+    // Some browsers may ignore DOM changes here, but it works in most modern ones
+    showOverlay();
+  });
+})();
+</script>
+
+
 </html>
