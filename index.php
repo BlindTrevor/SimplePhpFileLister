@@ -6,6 +6,11 @@
     // Security: prevent directory traversal
     $realRoot = rtrim(realpath('.'), DIRECTORY_SEPARATOR) . DIRECTORY_SEPARATOR;
     
+    // Blocked file extensions to prevent code execution
+    define('BLOCKED_EXTENSIONS', ['php', 'phtml', 'phar', 'cgi', 'pl', 'sh', 'bat', 'exe', 
+                                   'jsp', 'asp', 'aspx', 'py', 'rb', 'ps1', 'vbs', 'htaccess',
+                                   'scr', 'com', 'jar']);
+    
     // Secure download handler
     if (isset($_GET['download'])) {
         $rel = (string)$_GET['download'];
@@ -25,11 +30,8 @@
         }
         
         // Block dangerous extensions to prevent code execution
-        $blocked = ['php', 'phtml', 'phar', 'cgi', 'pl', 'sh', 'bat', 'exe', 
-                    'jsp', 'asp', 'aspx', 'py', 'rb', 'ps1', 'vbs', 'htaccess',
-                    'scr', 'com', 'jar'];
         $ext = strtolower(pathinfo($full, PATHINFO_EXTENSION));
-        if (in_array($ext, $blocked, true)) {
+        if (in_array($ext, BLOCKED_EXTENSIONS, true)) {
             http_response_code(403);
             exit('Forbidden');
         }
@@ -38,7 +40,7 @@
         $filename = basename($full);
         // Remove control characters and dangerous chars for header injection prevention
         // while preserving Unicode characters for international filenames
-        $safeFilename = preg_replace('/[\x00-\x1F\x7F"\\\\\\r\\n]/', '', $filename);
+        $safeFilename = preg_replace('/[\x00-\x1F\x7F"\\\\]|[\r\n]/', '', $filename);
         
         header('Content-Type: application/octet-stream');
         header('Content-Disposition: attachment; filename="' . $safeFilename . '"');
