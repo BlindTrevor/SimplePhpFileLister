@@ -115,7 +115,7 @@
 
                         if ($entry !== "." && $entry !== ".." && $entry !== "index.php") {
                             echo "<li>";
-                            echo "<a href=\"$entry\">";
+                            echo "<a href=\"$entry\" download>";
                             echo "<span class=\"file-icon\">📄</span>";
                             echo "<span class=\"file-name\">$entry</span>";
                             echo "</a>";
