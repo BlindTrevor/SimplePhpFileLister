@@ -12,7 +12,8 @@
         $full = realpath($realRoot . $rel);
         
         // Validate path is within root and file exists
-        if ($full === false || strpos($full . DIRECTORY_SEPARATOR, $realRoot) !== 0) {
+        // Since $realRoot ends with DIRECTORY_SEPARATOR, we can safely check if $full starts with it
+        if ($full === false || substr($full, 0, strlen($realRoot)) !== $realRoot) {
             http_response_code(404);
             exit('Not found');
         }
@@ -31,9 +32,14 @@
             exit('Forbidden');
         }
         
-        // Set secure download headers
+        // Set secure download headers with properly escaped filename
+        $filename = basename($full);
+        // Remove any dangerous characters from filename for header
+        $safeFilename = preg_replace('/[^\x20-\x7E]/', '', $filename);
+        $safeFilename = str_replace(['"', '\\', "\r", "\n"], '', $safeFilename);
+        
         header('Content-Type: application/octet-stream');
-        header('Content-Disposition: attachment; filename="' . basename($full) . '"');
+        header('Content-Disposition: attachment; filename="' . $safeFilename . '"');
         header('X-Content-Type-Options: nosniff');
         header('Content-Length: ' . filesize($full));
         
