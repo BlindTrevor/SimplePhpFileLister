@@ -112,88 +112,90 @@
 				
                 function fa_icon_class_for_file(string $path): string
                 {
-                    // Make sure we reference the actual path (defensive if you change dirs later)
-                    $realPath = $path;
-
-                    // Normalise extension
-                    $ext = strtolower(pathinfo($realPath, PATHINFO_EXTENSION));
-
-                    // --- Known extension map first (trust extension for common types) ---
-                    $extMap = [
-                        // Documents
-                        'pdf'  => ['fa-regular fa-file-pdf', '#e74c3c'],
-                        'doc'  => ['fa-regular fa-file-word', '#2980b9'],
-                        'docx' => ['fa-regular fa-file-word', '#2980b9'],
-                        'rtf'  => ['fa-regular fa-file-lines', '#7f8c8d'],
-
-                        // Spreadsheets
-                        'xls'  => ['fa-regular fa-file-excel', '#27ae60'],
-                        'xlsx' => ['fa-regular fa-file-excel', '#27ae60'],
-                        'csv'  => ['fa-solid fa-file-csv', '#27ae60'],
-
-                        // Presentations
-                        'ppt'  => ['fa-regular fa-file-powerpoint', '#e67e22'],
-                        'pptx' => ['fa-regular fa-file-powerpoint', '#e67e22'],
-
-                        // Archives
-                        'zip'  => ['fa-solid fa-file-zipper', '#8e44ad'],
-                        'rar'  => ['fa-solid fa-file-zipper', '#8e44ad'],
-                        '7z'   => ['fa-solid fa-file-zipper', '#8e44ad'],
-                        'tar'  => ['fa-solid fa-file-zipper', '#8e44ad'],
-                        'gz'   => ['fa-solid fa-file-zipper', '#8e44ad'],
-
-                        // Images
-                        'jpg'  => ['fa-regular fa-file-image', '#f39c12'],
-                        'jpeg' => ['fa-regular fa-file-image', '#f39c12'],
-                        'png'  => ['fa-regular fa-file-image', '#f39c12'],
-                        'gif'  => ['fa-regular fa-file-image', '#f39c12'],
-                        'svg'  => ['fa-regular fa-file-image', '#f39c12'],
-                        'webp' => ['fa-regular fa-file-image', '#f39c12'],
-
-                        // Audio
-                        'mp3'  => ['fa-regular fa-file-audio', '#c0392b'],
-                        'wav'  => ['fa-regular fa-file-audio', '#c0392b'],
-                        'flac' => ['fa-regular fa-file-audio', '#c0392b'],
-                        'ogg'  => ['fa-regular fa-file-audio', '#c0392b'],
-                        'm4a'  => ['fa-regular fa-file-audio', '#c0392b'],
-
-                        // Video
-                        'mp4'  => ['fa-regular fa-file-video', '#16a085'],
-                        'mov'  => ['fa-regular fa-file-video', '#16a085'],
-                        'avi'  => ['fa-regular fa-file-video', '#16a085'],
-                        'mkv'  => ['fa-regular fa-file-video', '#16a085'],
-                        'webm' => ['fa-regular fa-file-video', '#16a085'],
-
-                        // Code-ish
-                        'json' => ['fa-regular fa-file-code', '#34495e'],
-                        'xml'  => ['fa-regular fa-file-code', '#34495e'],
-                        'html' => ['fa-regular fa-file-code', '#e74c3c'],
-                        'htm'  => ['fa-regular fa-file-code', '#e74c3c'],
-                        'css'  => ['fa-regular fa-file-code', '#2980b9'],
-                        'js'   => ['fa-regular fa-file-code', '#f1c40f'],
-                        'ts'   => ['fa-regular fa-file-code', '#2b5bae'],
-                        'py'   => ['fa-regular fa-file-code', '#3776ab'],
-                        'php'  => ['fa-regular fa-file-code', '#777bb4'],
-                        'sh'   => ['fa-regular fa-file-code', '#34495e'],
-                        'bat'  => ['fa-regular fa-file-code', '#34495e'],
-                        'ps1'  => ['fa-regular fa-file-code', '#0078d4'],
-                        'sql'  => ['fa-regular fa-file-code', '#336791'],
-                        'yml'  => ['fa-regular fa-file-code', '#cb171e'],
-                        'yaml' => ['fa-regular fa-file-code', '#cb171e'],
-
-                        // Plain text / notes
-                        'txt'  => ['fa-regular fa-file-lines', '#7f8c8d'],
-                        'log'  => ['fa-regular fa-file-lines', '#7f8c8d'],
-                        'md'   => ['fa-regular fa-file-lines', '#083fa1'],
-                        'rtx'  => ['fa-regular fa-file-lines', '#7f8c8d'],
+                    // Color palette
+                    $colors = [
+                        'pdf'       => '#e74c3c',
+                        'word'      => '#2980b9',
+                        'text'      => '#7f8c8d',
+                        'excel'     => '#27ae60',
+                        'powerpoint'=> '#e67e22',
+                        'archive'   => '#8e44ad',
+                        'image'     => '#f39c12',
+                        'audio'     => '#c0392b',
+                        'video'     => '#16a085',
+                        'code'      => '#34495e',
+                        'html'      => '#e74c3c',
+                        'css'       => '#2980b9',
+                        'js'        => '#f1c40f',
+                        'ts'        => '#2b5bae',
+                        'python'    => '#3776ab',
+                        'php'       => '#777bb4',
+                        'powershell'=> '#0078d4',
+                        'sql'       => '#336791',
+                        'yaml'      => '#cb171e',
+                        'markdown'  => '#083fa1',
+                        'default'   => '#95a5a6',
                     ];
 
-                    // If the extension is known, return immediately.
+                    $realPath = $path;
+                    $ext = strtolower(pathinfo($realPath, PATHINFO_EXTENSION));
+
+                    $extMap = [
+                        'pdf'  => ['fa-regular fa-file-pdf', $colors['pdf']],
+                        'doc'  => ['fa-regular fa-file-word', $colors['word']],
+                        'docx' => ['fa-regular fa-file-word', $colors['word']],
+                        'rtf'  => ['fa-regular fa-file-lines', $colors['text']],
+                        'xls'  => ['fa-regular fa-file-excel', $colors['excel']],
+                        'xlsx' => ['fa-regular fa-file-excel', $colors['excel']],
+                        'csv'  => ['fa-solid fa-file-csv', $colors['excel']],
+                        'ppt'  => ['fa-regular fa-file-powerpoint', $colors['powerpoint']],
+                        'pptx' => ['fa-regular fa-file-powerpoint', $colors['powerpoint']],
+                        'zip'  => ['fa-solid fa-file-zipper', $colors['archive']],
+                        'rar'  => ['fa-solid fa-file-zipper', $colors['archive']],
+                        '7z'   => ['fa-solid fa-file-zipper', $colors['archive']],
+                        'tar'  => ['fa-solid fa-file-zipper', $colors['archive']],
+                        'gz'   => ['fa-solid fa-file-zipper', $colors['archive']],
+                        'jpg'  => ['fa-regular fa-file-image', $colors['image']],
+                        'jpeg' => ['fa-regular fa-file-image', $colors['image']],
+                        'png'  => ['fa-regular fa-file-image', $colors['image']],
+                        'gif'  => ['fa-regular fa-file-image', $colors['image']],
+                        'svg'  => ['fa-regular fa-file-image', $colors['image']],
+                        'webp' => ['fa-regular fa-file-image', $colors['image']],
+                        'mp3'  => ['fa-regular fa-file-audio', $colors['audio']],
+                        'wav'  => ['fa-regular fa-file-audio', $colors['audio']],
+                        'flac' => ['fa-regular fa-file-audio', $colors['audio']],
+                        'ogg'  => ['fa-regular fa-file-audio', $colors['audio']],
+                        'm4a'  => ['fa-regular fa-file-audio', $colors['audio']],
+                        'mp4'  => ['fa-regular fa-file-video', $colors['video']],
+                        'mov'  => ['fa-regular fa-file-video', $colors['video']],
+                        'avi'  => ['fa-regular fa-file-video', $colors['video']],
+                        'mkv'  => ['fa-regular fa-file-video', $colors['video']],
+                        'webm' => ['fa-regular fa-file-video', $colors['video']],
+                        'json' => ['fa-regular fa-file-code', $colors['code']],
+                        'xml'  => ['fa-regular fa-file-code', $colors['code']],
+                        'html' => ['fa-regular fa-file-code', $colors['html']],
+                        'htm'  => ['fa-regular fa-file-code', $colors['html']],
+                        'css'  => ['fa-regular fa-file-code', $colors['css']],
+                        'js'   => ['fa-regular fa-file-code', $colors['js']],
+                        'ts'   => ['fa-regular fa-file-code', $colors['ts']],
+                        'py'   => ['fa-regular fa-file-code', $colors['python']],
+                        'php'  => ['fa-regular fa-file-code', $colors['php']],
+                        'sh'   => ['fa-regular fa-file-code', $colors['code']],
+                        'bat'  => ['fa-regular fa-file-code', $colors['code']],
+                        'ps1'  => ['fa-regular fa-file-code', $colors['powershell']],
+                        'sql'  => ['fa-regular fa-file-code', $colors['sql']],
+                        'yml'  => ['fa-regular fa-file-code', $colors['yaml']],
+                        'yaml' => ['fa-regular fa-file-code', $colors['yaml']],
+                        'txt'  => ['fa-regular fa-file-lines', $colors['text']],
+                        'log'  => ['fa-regular fa-file-lines', $colors['text']],
+                        'md'   => ['fa-regular fa-file-lines', $colors['markdown']],
+                        'rtx'  => ['fa-regular fa-file-lines', $colors['text']],
+                    ];
+
                     if ($ext !== '' && isset($extMap[$ext])) {
                         return json_encode($extMap[$ext]);
                     }
 
-                    // --- MIME-based detection only for unknown extensions ---
                     $mime = '';
                     if (function_exists('finfo_open')) {
                         $finfo = finfo_open(FILEINFO_MIME_TYPE);
@@ -212,25 +214,22 @@
                     }
 
                     if ($mime) {
-                        if ($mime === 'application/pdf') return json_encode(['fa-regular fa-file-pdf', '#e74c3c']);
-                        if (str_contains($mime, 'msword') || str_contains($mime, 'wordprocessingml')) return json_encode(['fa-regular fa-file-word', '#2980b9']);
-                        if (str_contains($mime, 'vnd.ms-excel') || str_contains($mime, 'spreadsheetml')) return json_encode(['fa-regular fa-file-excel', '#27ae60']);
-                        if (str_contains($mime, 'vnd.ms-powerpoint') || str_contains($mime, 'presentationml')) return json_encode(['fa-regular fa-file-powerpoint', '#e67e22']);
-
+                        if ($mime === 'application/pdf') return json_encode(['fa-regular fa-file-pdf', $colors['pdf']]);
+                        if (str_contains($mime, 'msword') || str_contains($mime, 'wordprocessingml')) return json_encode(['fa-regular fa-file-word', $colors['word']]);
+                        if (str_contains($mime, 'vnd.ms-excel') || str_contains($mime, 'spreadsheetml')) return json_encode(['fa-regular fa-file-excel', $colors['excel']]);
+                        if (str_contains($mime, 'vnd.ms-powerpoint') || str_contains($mime, 'presentationml')) return json_encode(['fa-regular fa-file-powerpoint', $colors['powerpoint']]);
                         if (str_contains($mime, 'zip') || str_contains($mime, 'x-7z-compressed') || str_contains($mime, 'x-rar-compressed') || str_contains($mime, 'x-zip')) {
-                            return json_encode(['fa-solid fa-file-zipper', '#8e44ad']);
+                            return json_encode(['fa-solid fa-file-zipper', $colors['archive']]);
                         }
-
-                        if (str_starts_with($mime, 'image/')) return json_encode(['fa-regular fa-file-image', '#f39c12']);
-                        if (str_starts_with($mime, 'audio/')) return json_encode(['fa-regular fa-file-audio', '#c0392b']);
-                        if (str_starts_with($mime, 'video/')) return json_encode(['fa-regular fa-file-video', '#16a085']);
-
+                        if (str_starts_with($mime, 'image/')) return json_encode(['fa-regular fa-file-image', $colors['image']]);
+                        if (str_starts_with($mime, 'audio/')) return json_encode(['fa-regular fa-file-audio', $colors['audio']]);
+                        if (str_starts_with($mime, 'video/')) return json_encode(['fa-regular fa-file-video', $colors['video']]);
                         if ($mime === 'text/plain' || str_contains($mime, 'json') || str_contains($mime, 'xml') || str_contains($mime, 'javascript') || str_contains($mime, 'css') || str_contains($mime, 'yaml') || str_contains($mime, 'yml') || str_contains($mime, 'x-shellscript')) {
-                            return json_encode([$mime === 'text/plain' ? 'fa-regular fa-file-lines' : 'fa-regular fa-file-code', '#34495e']);
+                            return json_encode([$mime === 'text/plain' ? 'fa-regular fa-file-lines' : 'fa-regular fa-file-code', $colors['code']]);
                         }
                     }
 
-                    return json_encode(['fa-regular fa-file', '#95a5a6']);
+                    return json_encode(['fa-regular fa-file', $colors['default']]);
                 }
                 
                 if ($handle = opendir('.')) {
