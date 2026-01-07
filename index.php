@@ -12,8 +12,8 @@
         $full = realpath($realRoot . $rel);
         
         // Validate path is within root and file exists
-        // Since $realRoot ends with DIRECTORY_SEPARATOR, we can safely check if $full starts with it
-        if ($full === false || substr($full, 0, strlen($realRoot)) !== $realRoot) {
+        // Use strpos with DIRECTORY_SEPARATOR suffix to handle edge cases
+        if ($full === false || strpos($full . DIRECTORY_SEPARATOR, $realRoot) !== 0) {
             http_response_code(404);
             exit('Not found');
         }
@@ -25,7 +25,8 @@
         }
         
         // Block dangerous extensions to prevent code execution
-        $blocked = ['php', 'phtml', 'phar', 'cgi', 'pl', 'sh', 'bat', 'exe'];
+        $blocked = ['php', 'phtml', 'phar', 'cgi', 'pl', 'sh', 'bat', 'exe', 
+                    'jsp', 'asp', 'aspx', 'py', 'rb', 'ps1', 'vbs', 'htaccess'];
         $ext = strtolower(pathinfo($full, PATHINFO_EXTENSION));
         if (in_array($ext, $blocked, true)) {
             http_response_code(403);
@@ -34,9 +35,10 @@
         
         // Set secure download headers with properly escaped filename
         $filename = basename($full);
-        // Remove any dangerous characters from filename for header
-        $safeFilename = preg_replace('/[^\x20-\x7E]/', '', $filename);
-        $safeFilename = str_replace(['"', '\\', "\r", "\n"], '', $safeFilename);
+        // Remove control characters and characters that could enable header injection
+        // while preserving Unicode characters for international filenames
+        $safeFilename = preg_replace('/[\x00-\x1F\x7F"\\\\]/', '', $filename);
+        $safeFilename = str_replace(["\r", "\n"], '', $safeFilename);
         
         header('Content-Type: application/octet-stream');
         header('Content-Disposition: attachment; filename="' . $safeFilename . '"');
