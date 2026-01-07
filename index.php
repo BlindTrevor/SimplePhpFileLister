@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <title>Shrek the Musical – Band Parts</title>
-
+	<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
     <style>
         :root {
             --bg: #f2f4f8;
@@ -109,6 +109,140 @@
 
             <ul class="file-list">
                 <?php
+				
+				function fa_icon_class_for_file(string $path): string
+                {
+                    $ext  = strtolower(pathinfo($path, PATHINFO_EXTENSION));
+                    $mime = @mime_content_type($path) ?: '';
+
+                    // --- MIME-based detection (broad coverage) ---
+                    if ($mime) {
+                        // PDF
+                        if ($mime === 'application/pdf') {
+                            return 'fa-regular fa-file-pdf';
+                        }
+                        // Word
+                        if (str_contains($mime, 'msword') || str_contains($mime, 'wordprocessingml')) {
+                            return 'fa-regular fa-file-word';
+                        }
+                        // Excel
+                        if (str_contains($mime, 'vnd.ms-excel') || str_contains($mime, 'spreadsheetml')) {
+                            return 'fa-regular fa-file-excel';
+                        }
+                        // PowerPoint
+                        if (str_contains($mime, 'vnd.ms-powerpoint') || str_contains($mime, 'presentationml')) {
+                            return 'fa-regular fa-file-powerpoint';
+                        }
+                        // Archives
+                        if (
+                            str_contains($mime, 'zip') ||
+                            str_contains($mime, 'x-7z-compressed') ||
+                            str_contains($mime, 'x-rar-compressed') ||
+                            str_contains($mime, 'x-zip')
+                        ) {
+                            return 'fa-solid fa-file-zipper';
+                        }
+                        // Images / Audio / Video
+                        if (str_starts_with($mime, 'image/')) return 'fa-regular fa-file-image';
+                        if (str_starts_with($mime, 'audio/')) return 'fa-regular fa-file-audio';
+                        if (str_starts_with($mime, 'video/')) return 'fa-regular fa-file-video';
+
+                        // Code-ish / structured text
+                        if (
+                            $mime === 'text/plain' ||
+                            str_contains($mime, 'json') ||
+                            str_contains($mime, 'xml') ||
+                            str_contains($mime, 'javascript') ||
+                            str_contains($mime, 'css') ||
+                            str_contains($mime, 'yaml') ||
+                            str_contains($mime, 'yml') ||
+                            str_contains($mime, 'x-shellscript')
+                        ) {
+                            return $mime === 'text/plain'
+                                ? 'fa-regular fa-file-lines'
+                                : 'fa-regular fa-file-code';
+                        }
+                    }
+
+                    // --- Extension fallback for tricky/unknown cases ---
+                    $extMap = [
+                        // Documents
+                        'pdf'  => 'fa-regular fa-file-pdf',
+                        'doc'  => 'fa-regular fa-file-word',
+                        'docx' => 'fa-regular fa-file-word',
+                        'rtf'  => 'fa-regular fa-file-lines',
+
+                        // Spreadsheets
+                        'xls'  => 'fa-regular fa-file-excel',
+                        'xlsx' => 'fa-regular fa-file-excel',
+                        'csv'  => 'fa-solid fa-file-csv',
+
+                        // Presentations
+                        'ppt'  => 'fa-regular fa-file-powerpoint',
+                        'pptx' => 'fa-regular fa-file-powerpoint',
+
+                        // Archives
+                        'zip'  => 'fa-solid fa-file-zipper',
+                        'rar'  => 'fa-solid fa-file-zipper',
+                        '7z'   => 'fa-solid fa-file-zipper',
+                        'tar'  => 'fa-solid fa-file-zipper',
+                        'gz'   => 'fa-solid fa-file-zipper',
+
+                        // Images
+                        'jpg'  => 'fa-regular fa-file-image',
+                        'jpeg' => 'fa-regular fa-file-image',
+                        'png'  => 'fa-regular fa-file-image',
+                        'gif'  => 'fa-regular fa-file-image',
+                        'svg'  => 'fa-regular fa-file-image',
+                        'webp' => 'fa-regular fa-file-image',
+
+                        // Audio
+                        'mp3'  => 'fa-regular fa-file-audio',
+                        'wav'  => 'fa-regular fa-file-audio',
+                        'flac' => 'fa-regular fa-file-audio',
+                        'ogg'  => 'fa-regular fa-file-audio',
+                        'm4a'  => 'fa-regular fa-file-audio',
+
+                        // Video
+                        'mp4'  => 'fa-regular fa-file-video',
+                        'mov'  => 'fa-regular fa-file-video',
+                        'avi'  => 'fa-regular fa-file-video',
+                        'mkv'  => 'fa-regular fa-file-video',
+                        'webm' => 'fa-regular fa-file-video',
+
+                        // Code-ish
+                        'json' => 'fa-regular fa-file-code',
+                        'xml'  => 'fa-regular fa-file-code',
+                        'html' => 'fa-regular fa-file-code',
+                        'htm'  => 'fa-regular fa-file-code',
+                        'css'  => 'fa-regular fa-file-code',
+                        'js'   => 'fa-regular fa-file-code',
+                        'ts'   => 'fa-regular fa-file-code',
+                        'py'   => 'fa-regular fa-file-code',
+                        'php'  => 'fa-regular fa-file-code',
+                        'sh'   => 'fa-regular fa-file-code',
+                        'bat'  => 'fa-regular fa-file-code',
+                        'ps1'  => 'fa-regular fa-file-code',
+                        'sql'  => 'fa-regular fa-file-code',
+                        'yml'  => 'fa-regular fa-file-code',
+                        'yaml' => 'fa-regular fa-file-code',
+
+                        // Plain text / notes
+                        'txt'  => 'fa-regular fa-file-lines',
+                        'log'  => 'fa-regular fa-file-lines',
+                        'md'   => 'fa-regular fa-file-lines',
+                        'rtx'  => 'fa-regular fa-file-lines',
+                    ];
+
+                    if (!empty($ext) && isset($extMap[$ext])) {
+                        return $extMap[$ext];
+                    }
+
+                    // Final default
+                    return 'fa-regular fa-file';
+                }
+				
+				
                 if ($handle = opendir('.')) {
 
                     while (false !== ($entry = readdir($handle))) {
@@ -116,19 +250,8 @@
                         if ($entry !== "." && $entry !== ".." && $entry !== "index.php") {
                             echo "<li>";
                             echo "<a href=\"$entry\" download>";
-                            $icon = match(strtolower(pathinfo($entry, PATHINFO_EXTENSION))) {
-                                'pdf' => '📕',
-                                'doc', 'docx' => '📄',
-                                'xls', 'xlsx' => '📊',
-                                'ppt', 'pptx' => '🎯',
-                                'zip', 'rar', '7z' => '📦',
-                                'jpg', 'jpeg', 'png', 'gif' => '🖼️',
-                                'mp3', 'wav', 'flac' => '🎵',
-                                'mp4', 'mov', 'avi' => '🎬',
-                                'txt' => '📝',
-                                default => '📄'
-                            };
-                            echo "<span class=\"file-icon\">$icon</span>";
+							$iconClass = fa_icon_class_for_file($entry);
+                            echo '<span class="file-icon" aria-hidden="true"><i class="' . $iconClass . '"></i></span>';
                             echo "<span class=\"file-name\">$entry</span>";
                             echo "</a>";
                             echo "</li>";
