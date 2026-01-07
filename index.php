@@ -110,168 +110,141 @@
             <ul class="file-list">
                 <?php
 				
-				function fa_icon_class_for_file(string $path): string
-				{
-					// Make sure we reference the actual path (defensive if you change dirs later)
-					$realPath = $path;
+                function fa_icon_class_for_file(string $path): string
+                {
+                    // Make sure we reference the actual path (defensive if you change dirs later)
+                    $realPath = $path;
 
-					// Normalise extension
-					$ext = strtolower(pathinfo($realPath, PATHINFO_EXTENSION));
+                    // Normalise extension
+                    $ext = strtolower(pathinfo($realPath, PATHINFO_EXTENSION));
 
-					// --- Known extension map first (trust extension for common types) ---
-					$extMap = [
-						// Documents
-						'pdf'  => 'fa-regular fa-file-pdf',
-						'doc'  => 'fa-regular fa-file-word',
-						'docx' => 'fa-regular fa-file-word',
-						'rtf'  => 'fa-regular fa-file-lines',
+                    // --- Known extension map first (trust extension for common types) ---
+                    $extMap = [
+                        // Documents
+                        'pdf'  => ['fa-regular fa-file-pdf', '#e74c3c'],
+                        'doc'  => ['fa-regular fa-file-word', '#2980b9'],
+                        'docx' => ['fa-regular fa-file-word', '#2980b9'],
+                        'rtf'  => ['fa-regular fa-file-lines', '#7f8c8d'],
 
-						// Spreadsheets
-						'xls'  => 'fa-regular fa-file-excel',
-						'xlsx' => 'fa-regular fa-file-excel',
-						'csv'  => 'fa-solid fa-file-csv',
+                        // Spreadsheets
+                        'xls'  => ['fa-regular fa-file-excel', '#27ae60'],
+                        'xlsx' => ['fa-regular fa-file-excel', '#27ae60'],
+                        'csv'  => ['fa-solid fa-file-csv', '#27ae60'],
 
-						// Presentations
-						'ppt'  => 'fa-regular fa-file-powerpoint',
-						'pptx' => 'fa-regular fa-file-powerpoint',
+                        // Presentations
+                        'ppt'  => ['fa-regular fa-file-powerpoint', '#e67e22'],
+                        'pptx' => ['fa-regular fa-file-powerpoint', '#e67e22'],
 
-						// Archives
-						'zip'  => 'fa-solid fa-file-zipper',
-						'rar'  => 'fa-solid fa-file-zipper',
-						'7z'   => 'fa-solid fa-file-zipper',
-						'tar'  => 'fa-solid fa-file-zipper',
-						'gz'   => 'fa-solid fa-file-zipper',
+                        // Archives
+                        'zip'  => ['fa-solid fa-file-zipper', '#8e44ad'],
+                        'rar'  => ['fa-solid fa-file-zipper', '#8e44ad'],
+                        '7z'   => ['fa-solid fa-file-zipper', '#8e44ad'],
+                        'tar'  => ['fa-solid fa-file-zipper', '#8e44ad'],
+                        'gz'   => ['fa-solid fa-file-zipper', '#8e44ad'],
 
-						// Images
-						'jpg'  => 'fa-regular fa-file-image',
-						'jpeg' => 'fa-regular fa-file-image',
-						'png'  => 'fa-regular fa-file-image',
-						'gif'  => 'fa-regular fa-file-image',
-						'svg'  => 'fa-regular fa-file-image',
-						'webp' => 'fa-regular fa-file-image',
+                        // Images
+                        'jpg'  => ['fa-regular fa-file-image', '#f39c12'],
+                        'jpeg' => ['fa-regular fa-file-image', '#f39c12'],
+                        'png'  => ['fa-regular fa-file-image', '#f39c12'],
+                        'gif'  => ['fa-regular fa-file-image', '#f39c12'],
+                        'svg'  => ['fa-regular fa-file-image', '#f39c12'],
+                        'webp' => ['fa-regular fa-file-image', '#f39c12'],
 
-						// Audio
-						'mp3'  => 'fa-regular fa-file-audio',
-						'wav'  => 'fa-regular fa-file-audio',
-						'flac' => 'fa-regular fa-file-audio',
-						'ogg'  => 'fa-regular fa-file-audio',
-						'm4a'  => 'fa-regular fa-file-audio',
+                        // Audio
+                        'mp3'  => ['fa-regular fa-file-audio', '#c0392b'],
+                        'wav'  => ['fa-regular fa-file-audio', '#c0392b'],
+                        'flac' => ['fa-regular fa-file-audio', '#c0392b'],
+                        'ogg'  => ['fa-regular fa-file-audio', '#c0392b'],
+                        'm4a'  => ['fa-regular fa-file-audio', '#c0392b'],
 
-						// Video
-						'mp4'  => 'fa-regular fa-file-video',
-						'mov'  => 'fa-regular fa-file-video',
-						'avi'  => 'fa-regular fa-file-video',
-						'mkv'  => 'fa-regular fa-file-video',
-						'webm' => 'fa-regular fa-file-video',
+                        // Video
+                        'mp4'  => ['fa-regular fa-file-video', '#16a085'],
+                        'mov'  => ['fa-regular fa-file-video', '#16a085'],
+                        'avi'  => ['fa-regular fa-file-video', '#16a085'],
+                        'mkv'  => ['fa-regular fa-file-video', '#16a085'],
+                        'webm' => ['fa-regular fa-file-video', '#16a085'],
 
-						// Code-ish
-						'json' => 'fa-regular fa-file-code',
-						'xml'  => 'fa-regular fa-file-code',
-						'html' => 'fa-regular fa-file-code',
-						'htm'  => 'fa-regular fa-file-code',
-						'css'  => 'fa-regular fa-file-code',
-						'js'   => 'fa-regular fa-file-code',
-						'ts'   => 'fa-regular fa-file-code',
-						'py'   => 'fa-regular fa-file-code',
-						'php'  => 'fa-regular fa-file-code',
-						'sh'   => 'fa-regular fa-file-code',
-						'bat'  => 'fa-regular fa-file-code',
-						'ps1'  => 'fa-regular fa-file-code',
-						'sql'  => 'fa-regular fa-file-code',
-						'yml'  => 'fa-regular fa-file-code',
-						'yaml' => 'fa-regular fa-file-code',
+                        // Code-ish
+                        'json' => ['fa-regular fa-file-code', '#34495e'],
+                        'xml'  => ['fa-regular fa-file-code', '#34495e'],
+                        'html' => ['fa-regular fa-file-code', '#e74c3c'],
+                        'htm'  => ['fa-regular fa-file-code', '#e74c3c'],
+                        'css'  => ['fa-regular fa-file-code', '#2980b9'],
+                        'js'   => ['fa-regular fa-file-code', '#f1c40f'],
+                        'ts'   => ['fa-regular fa-file-code', '#2b5bae'],
+                        'py'   => ['fa-regular fa-file-code', '#3776ab'],
+                        'php'  => ['fa-regular fa-file-code', '#777bb4'],
+                        'sh'   => ['fa-regular fa-file-code', '#34495e'],
+                        'bat'  => ['fa-regular fa-file-code', '#34495e'],
+                        'ps1'  => ['fa-regular fa-file-code', '#0078d4'],
+                        'sql'  => ['fa-regular fa-file-code', '#336791'],
+                        'yml'  => ['fa-regular fa-file-code', '#cb171e'],
+                        'yaml' => ['fa-regular fa-file-code', '#cb171e'],
 
-						// Plain text / notes
-						'txt'  => 'fa-regular fa-file-lines',
-						'log'  => 'fa-regular fa-file-lines',
-						'md'   => 'fa-regular fa-file-lines',
-						'rtx'  => 'fa-regular fa-file-lines',
-					];
+                        // Plain text / notes
+                        'txt'  => ['fa-regular fa-file-lines', '#7f8c8d'],
+                        'log'  => ['fa-regular fa-file-lines', '#7f8c8d'],
+                        'md'   => ['fa-regular fa-file-lines', '#083fa1'],
+                        'rtx'  => ['fa-regular fa-file-lines', '#7f8c8d'],
+                    ];
 
-					// If the extension is known, return immediately.
-					if ($ext !== '' && isset($extMap[$ext])) {
-						return $extMap[$ext];
-					}
+                    // If the extension is known, return immediately.
+                    if ($ext !== '' && isset($extMap[$ext])) {
+                        return json_encode($extMap[$ext]);
+                    }
 
-					// --- MIME-based detection only for unknown extensions ---
-					// Prefer finfo over mime_content_type for better reliability
-					$mime = '';
-					if (function_exists('finfo_open')) {
-						$finfo = finfo_open(FILEINFO_MIME_TYPE);
-						if ($finfo) {
-							$detected = @finfo_file($finfo, $realPath);
-							if (is_string($detected)) {
-								$mime = strtolower(trim($detected));
-							}
-							finfo_close($finfo);
-						}
-					} else {
-						// Fallback to mime_content_type if finfo isn't available
-						$detected = @mime_content_type($realPath);
-						if (is_string($detected)) {
-							$mime = strtolower(trim($detected));
-						}
-					}
+                    // --- MIME-based detection only for unknown extensions ---
+                    $mime = '';
+                    if (function_exists('finfo_open')) {
+                        $finfo = finfo_open(FILEINFO_MIME_TYPE);
+                        if ($finfo) {
+                            $detected = @finfo_file($finfo, $realPath);
+                            if (is_string($detected)) {
+                                $mime = strtolower(trim($detected));
+                            }
+                            finfo_close($finfo);
+                        }
+                    } else {
+                        $detected = @mime_content_type($realPath);
+                        if (is_string($detected)) {
+                            $mime = strtolower(trim($detected));
+                        }
+                    }
 
-					if ($mime) {
-						// Documents
-						if ($mime === 'application/pdf') return 'fa-regular fa-file-pdf';
-						if (str_contains($mime, 'msword') || str_contains($mime, 'wordprocessingml')) return 'fa-regular fa-file-word';
-						if (str_contains($mime, 'vnd.ms-excel') || str_contains($mime, 'spreadsheetml')) return 'fa-regular fa-file-excel';
-						if (str_contains($mime, 'vnd.ms-powerpoint') || str_contains($mime, 'presentationml')) return 'fa-regular fa-file-powerpoint';
+                    if ($mime) {
+                        if ($mime === 'application/pdf') return json_encode(['fa-regular fa-file-pdf', '#e74c3c']);
+                        if (str_contains($mime, 'msword') || str_contains($mime, 'wordprocessingml')) return json_encode(['fa-regular fa-file-word', '#2980b9']);
+                        if (str_contains($mime, 'vnd.ms-excel') || str_contains($mime, 'spreadsheetml')) return json_encode(['fa-regular fa-file-excel', '#27ae60']);
+                        if (str_contains($mime, 'vnd.ms-powerpoint') || str_contains($mime, 'presentationml')) return json_encode(['fa-regular fa-file-powerpoint', '#e67e22']);
 
-						// Archives
-						if (
-							str_contains($mime, 'zip') ||
-							str_contains($mime, 'x-7z-compressed') ||
-							str_contains($mime, 'x-rar-compressed') ||
-							str_contains($mime, 'x-zip')
-						) {
-							return 'fa-solid fa-file-zipper';
-						}
+                        if (str_contains($mime, 'zip') || str_contains($mime, 'x-7z-compressed') || str_contains($mime, 'x-rar-compressed') || str_contains($mime, 'x-zip')) {
+                            return json_encode(['fa-solid fa-file-zipper', '#8e44ad']);
+                        }
 
-						// Images / Audio / Video
-						if (str_starts_with($mime, 'image/')) return 'fa-regular fa-file-image';
-						if (str_starts_with($mime, 'audio/')) return 'fa-regular fa-file-audio';
-						if (str_starts_with($mime, 'video/')) return 'fa-regular fa-file-video';
+                        if (str_starts_with($mime, 'image/')) return json_encode(['fa-regular fa-file-image', '#f39c12']);
+                        if (str_starts_with($mime, 'audio/')) return json_encode(['fa-regular fa-file-audio', '#c0392b']);
+                        if (str_starts_with($mime, 'video/')) return json_encode(['fa-regular fa-file-video', '#16a085']);
 
-						// Code-ish / structured text
-						if (
-							$mime === 'text/plain' ||
-							str_contains($mime, 'json') ||
-							str_contains($mime, 'xml') ||
-							str_contains($mime, 'javascript') ||
-							str_contains($mime, 'css') ||
-							str_contains($mime, 'yaml') ||
-							str_contains($mime, 'yml') ||
-							str_contains($mime, 'x-shellscript')
-						) {
-							return $mime === 'text/plain'
-								? 'fa-regular fa-file-lines'
-								: 'fa-regular fa-file-code';
-						}
-					}
+                        if ($mime === 'text/plain' || str_contains($mime, 'json') || str_contains($mime, 'xml') || str_contains($mime, 'javascript') || str_contains($mime, 'css') || str_contains($mime, 'yaml') || str_contains($mime, 'yml') || str_contains($mime, 'x-shellscript')) {
+                            return json_encode([$mime === 'text/plain' ? 'fa-regular fa-file-lines' : 'fa-regular fa-file-code', '#34495e']);
+                        }
+                    }
 
-					// Default
-					return 'fa-regular fa-file';
-				}
-				
-				
+                    return json_encode(['fa-regular fa-file', '#95a5a6']);
+                }
+                
                 if ($handle = opendir('.')) {
-
                     while (false !== ($entry = readdir($handle))) {
-
                         if ($entry !== "." && $entry !== ".." && $entry !== "index.php") {
                             echo "<li>";
                             echo "<a href=\"$entry\" download>";
-							$iconClass = fa_icon_class_for_file($entry);
-                            echo '<span class="file-icon" aria-hidden="true"><i class="' . $iconClass . '"></i></span>';
+                            $iconData = json_decode(fa_icon_class_for_file($entry), true);
+                            echo '<span class="file-icon" style="color: ' . $iconData[1] . ';" aria-hidden="true"><i class="' . $iconData[0] . '"></i></span>';
                             echo "<span class=\"file-name\">$entry</span>";
                             echo "</a>";
                             echo "</li>";
                         }
                     }
-
                     closedir($handle);
                 }
                 ?>
