@@ -111,21 +111,57 @@
                     return $extMap[$ext] ?? ['fa-regular fa-file', $colors['default']];
                 }
 
-                if ($handle = opendir('.')) {
-                    while ($entry = readdir($handle)) {
-                        if (!in_array($entry, ['.', '..', 'index.php'])) {
-                            $icon = getFileIcon($entry);
-                            echo sprintf(
-                                '<li><a href="%s" download><span class="file-icon" style="color:%s;"><i class="%s"></i></span><span class="file-name">%s</span></a></li>',
-                                htmlspecialchars($entry),
-                                $icon[1],
-                                $icon[0],
-                                htmlspecialchars($entry)
-                            );
-                        }
-                    }
-                    closedir($handle);
-                }
+                function renderItem(string $entry, bool $isDir): void {
+					$href = rawurlencode($entry);
+					$label = htmlspecialchars($entry, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
+
+					if ($isDir) {
+						$iconClass = 'fa-solid fa-folder';
+						$iconColor = '#f6a623'; // folder color override; tweak to your theme
+						$downloadAttr = '';
+					} else {
+						[$iconClass, $iconColor] = getFileIcon($entry);
+						$downloadAttr = ' download';
+					}
+
+					printf(
+						'<li><a href="%s" %s><span class="file-icon" style="color:%s;"><i class="%s"></i></span><span class="file-name">%s</span></a></li>' . PHP_EOL,
+						$href,
+						$downloadAttr,
+						htmlspecialchars($iconColor, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8'),
+						htmlspecialchars($iconClass, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8'),
+						$label
+					);
+				}
+
+				$dirs = [];
+				$files = [];
+
+				if ($handle = opendir('.')) {
+					while (($entry = readdir($handle)) !== false) {
+						if (in_array($entry, ['.', '..', 'index.php'], true)) {
+							continue;
+						}
+						$isDir = is_dir($entry);
+						if ($isDir) {
+							$dirs[] = $entry;
+						} else {
+							$files[] = $entry;
+						}
+					}
+					closedir($handle);
+				}
+
+				natcasesort($dirs);
+				natcasesort($files);
+
+				foreach ($dirs as $entry) {
+					renderItem($entry, true);
+				}
+				foreach ($files as $entry) {
+					renderItem($entry, false);
+				}
+                
                 ?>
             </ul>
         </div>
