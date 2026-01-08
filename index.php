@@ -1402,17 +1402,17 @@
                     
                     currentPreview = link;
                     
-                    // Delay showing preview to avoid flickering on quick mouseovers
+                    // Reduced delay from 500ms to 200ms for faster response
                     clearTimeout(showTimeout);
-                    console.log('[Preview] Starting 500ms delay timer before showing preview');
+                    console.log('[Preview] Starting 200ms delay timer before showing preview');
                     showTimeout = setTimeout(() => {
                         if (currentPreview === link) {
-                            console.log('[Preview] 500ms delay complete, calling showPreview()');
+                            console.log('[Preview] 200ms delay complete, calling showPreview()');
                             showPreview(link, e);
                         } else {
-                            console.log('[Preview] 500ms delay complete but preview target changed');
+                            console.log('[Preview] 200ms delay complete but preview target changed');
                         }
-                    }, 500);
+                    }, 200);
                 });
                 
                 document.addEventListener('mousemove', function(e) {
@@ -1432,10 +1432,10 @@
                     // Clear any pending show
                     clearTimeout(showTimeout);
                     
-                    // Hide after a small delay to allow moving to tooltip
+                    // Increased delay from 100ms to 300ms to be more forgiving
                     hideTimeout = setTimeout(() => {
                         hidePreview();
-                    }, 100);
+                    }, 300);
                 });
             })();
         })();
