@@ -1380,62 +1380,68 @@
                     }
                 }
                 
-                // Event delegation for better performance
-                document.addEventListener('mouseover', function(e) {
-                    const link = e.target.closest('a[data-preview]');
-                    if (!link) return;
+                // Use mouseenter/mouseleave to avoid child element interference
+                // We need to attach these after DOM is loaded since they're not delegated
+                function attachPreviewListeners() {
+                    const links = document.querySelectorAll('a[data-preview]');
+                    console.log('[Preview] Attaching listeners to ' + links.length + ' previewable links');
                     
-                    console.log('[Preview] Mouseover detected on link:', {
-                        fileName: link.querySelector('.file-name')?.textContent || 'unknown',
-                        previewType: link.dataset.preview,
-                        filePath: link.dataset.filePath
+                    links.forEach(link => {
+                        link.addEventListener('mouseenter', function(e) {
+                            console.log('[Preview] Mouseenter detected on link:', {
+                                fileName: link.querySelector('.file-name')?.textContent || 'unknown',
+                                previewType: link.dataset.preview,
+                                filePath: link.dataset.filePath
+                            });
+                            
+                            // Clear any pending hide
+                            clearTimeout(hideTimeout);
+                            
+                            // Don't show if already showing for this link
+                            if (currentPreview === link) {
+                                console.log('[Preview] Already showing preview for this link');
+                                return;
+                            }
+                            
+                            currentPreview = link;
+                            
+                            // Reduced delay from 500ms to 200ms for faster response
+                            clearTimeout(showTimeout);
+                            console.log('[Preview] Starting 200ms delay timer before showing preview');
+                            showTimeout = setTimeout(() => {
+                                if (currentPreview === link) {
+                                    console.log('[Preview] 200ms delay complete, calling showPreview()');
+                                    showPreview(link, e);
+                                } else {
+                                    console.log('[Preview] 200ms delay complete but preview target changed');
+                                }
+                            }, 200);
+                        });
+                        
+                        link.addEventListener('mouseleave', function(e) {
+                            console.log('[Preview] Mouseleave detected on link:', {
+                                fileName: link.querySelector('.file-name')?.textContent || 'unknown'
+                            });
+                            
+                            // Clear any pending show
+                            clearTimeout(showTimeout);
+                            
+                            // Increased delay from 100ms to 300ms to be more forgiving
+                            hideTimeout = setTimeout(() => {
+                                hidePreview();
+                            }, 300);
+                        });
                     });
-                    
-                    // Clear any pending hide
-                    clearTimeout(hideTimeout);
-                    
-                    // Don't show if already showing for this link
-                    if (currentPreview === link) {
-                        console.log('[Preview] Already showing preview for this link');
-                        return;
-                    }
-                    
-                    currentPreview = link;
-                    
-                    // Reduced delay from 500ms to 200ms for faster response
-                    clearTimeout(showTimeout);
-                    console.log('[Preview] Starting 200ms delay timer before showing preview');
-                    showTimeout = setTimeout(() => {
-                        if (currentPreview === link) {
-                            console.log('[Preview] 200ms delay complete, calling showPreview()');
-                            showPreview(link, e);
-                        } else {
-                            console.log('[Preview] 200ms delay complete but preview target changed');
-                        }
-                    }, 200);
-                });
+                }
                 
+                // Attach listeners after DOM is ready
+                attachPreviewListeners();
+                
+                // Update tooltip position on mousemove
                 document.addEventListener('mousemove', function(e) {
                     if (tooltip && tooltip.classList.contains('visible')) {
                         positionTooltip(e);
                     }
-                });
-                
-                document.addEventListener('mouseout', function(e) {
-                    const link = e.target.closest('a[data-preview]');
-                    if (!link) return;
-                    
-                    console.log('[Preview] Mouseout detected on link:', {
-                        fileName: link.querySelector('.file-name')?.textContent || 'unknown'
-                    });
-                    
-                    // Clear any pending show
-                    clearTimeout(showTimeout);
-                    
-                    // Increased delay from 100ms to 300ms to be more forgiving
-                    hideTimeout = setTimeout(() => {
-                        hidePreview();
-                    }, 300);
                 });
             })();
         })();
