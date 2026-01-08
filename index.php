@@ -989,10 +989,19 @@
         }
         
         .preview-tooltip .preview-loading {
-            padding: 20px;
-            color: var(--muted);
+            padding: 30px 40px;
+            color: var(--accent);
             text-align: center;
-            font-size: 0.875rem;
+            font-size: 1rem;
+            font-weight: 600;
+            background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+            border-radius: 4px;
+            animation: pulse 1.5s ease-in-out infinite;
+        }
+        
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.6; }
         }
         
         /* Hide preview on mobile/touch devices to avoid conflicts */
@@ -1197,8 +1206,11 @@
                                    !window.matchMedia('(hover: hover) and (pointer: fine)').matches;
                 
                 if (isTouchOnly) {
+                    console.log('[Preview] Disabled: Touch-only device detected');
                     return;
                 }
+                
+                console.log('[Preview] Initialized: Preview functionality enabled');
                 
                 let tooltip = null;
                 let currentPreview = null;
@@ -1245,33 +1257,70 @@
                     const previewType = link.dataset.preview;
                     const filePath = link.dataset.filePath;
                     
-                    if (!previewType || !filePath) return;
+                    console.log('[Preview] showPreview() called:', {
+                        previewType: previewType,
+                        filePath: filePath,
+                        hasDataset: !!link.dataset,
+                        linkElement: link.tagName
+                    });
+                    
+                    if (!previewType || !filePath) {
+                        console.warn('[Preview] Missing data attributes:', {
+                            previewType: previewType,
+                            filePath: filePath
+                        });
+                        return;
+                    }
                     
                     createTooltip();
-                    tooltip.innerHTML = '<div class="preview-loading">Loading preview...</div>';
+                    tooltip.innerHTML = '<div class="preview-loading">⏳ Loading preview...</div>';
                     positionTooltip(e);
                     
                     // Show tooltip after a brief delay
                     setTimeout(() => {
                         tooltip.classList.add('visible');
+                        console.log('[Preview] Tooltip made visible');
                     }, 50);
                     
                     const previewUrl = '?preview=' + encodeURIComponent(filePath);
+                    console.log('[Preview] Fetching from URL:', previewUrl);
                     
                     if (previewType === 'image') {
+                        console.log('[Preview] Creating image element for:', filePath);
                         const img = new Image();
+                        const startTime = Date.now();
+                        
                         img.onload = function() {
+                            const loadTime = Date.now() - startTime;
+                            console.log('[Preview] Image loaded successfully in ' + loadTime + 'ms:', {
+                                filePath: filePath,
+                                width: img.naturalWidth,
+                                height: img.naturalHeight,
+                                stillCurrent: currentPreview === link
+                            });
+                            
                             if (currentPreview === link) {
                                 tooltip.innerHTML = '';
                                 tooltip.appendChild(img);
                                 positionTooltip(e);
+                            } else {
+                                console.log('[Preview] Image loaded but preview already moved to another file');
                             }
                         };
-                        img.onerror = function() {
+                        
+                        img.onerror = function(error) {
+                            const loadTime = Date.now() - startTime;
+                            console.error('[Preview] Image failed to load after ' + loadTime + 'ms:', {
+                                filePath: filePath,
+                                previewUrl: previewUrl,
+                                error: error
+                            });
+                            
                             if (currentPreview === link) {
-                                tooltip.innerHTML = '<div class="preview-error">Unable to load preview</div>';
+                                tooltip.innerHTML = '<div class="preview-error">❌ Unable to load preview</div>';
                             }
                         };
+                        
                         img.src = previewUrl;
                         img.alt = 'Preview';
                     } else if (previewType === 'video') {
@@ -1281,6 +1330,7 @@
                         video.autoplay = false;
                         video.preload = 'metadata';
                         video.onloadedmetadata = function() {
+                            console.log('[Preview] Video metadata loaded:', filePath);
                             if (currentPreview === link) {
                                 tooltip.innerHTML = '';
                                 tooltip.appendChild(video);
@@ -1288,16 +1338,19 @@
                             }
                         };
                         video.onerror = function() {
+                            console.error('[Preview] Video failed to load:', filePath);
                             if (currentPreview === link) {
-                                tooltip.innerHTML = '<div class="preview-error">Unable to load video preview</div>';
+                                tooltip.innerHTML = '<div class="preview-error">❌ Unable to load video preview</div>';
                             }
                         };
                         video.src = previewUrl;
                     } else if (previewType === 'audio') {
+                        console.log('[Preview] Creating audio element for:', filePath);
                         const audio = document.createElement('audio');
                         audio.controls = true;
                         audio.preload = 'metadata';
                         audio.onloadedmetadata = function() {
+                            console.log('[Preview] Audio metadata loaded:', filePath);
                             if (currentPreview === link) {
                                 tooltip.innerHTML = '';
                                 tooltip.appendChild(audio);
@@ -1305,12 +1358,14 @@
                             }
                         };
                         audio.onerror = function() {
+                            console.error('[Preview] Audio failed to load:', filePath);
                             if (currentPreview === link) {
-                                tooltip.innerHTML = '<div class="preview-error">Unable to load audio preview</div>';
+                                tooltip.innerHTML = '<div class="preview-error">❌ Unable to load audio preview</div>';
                             }
                         };
                         audio.src = previewUrl;
                     } else if (previewType === 'pdf') {
+                        console.log('[Preview] PDF preview requested (showing message):', filePath);
                         // PDF inline preview in a small tooltip is impractical due to size/readability
                         // Instead, show a helpful message prompting user to click to view full document
                         tooltip.innerHTML = '<div class="preview-error">PDF preview not available<br>(Click to view)</div>';
@@ -1318,6 +1373,7 @@
                 }
                 
                 function hidePreview() {
+                    console.log('[Preview] hidePreview() called');
                     if (tooltip) {
                         tooltip.classList.remove('visible');
                         currentPreview = null;
@@ -1329,19 +1385,32 @@
                     const link = e.target.closest('a[data-preview]');
                     if (!link) return;
                     
+                    console.log('[Preview] Mouseover detected on link:', {
+                        fileName: link.querySelector('.file-name')?.textContent || 'unknown',
+                        previewType: link.dataset.preview,
+                        filePath: link.dataset.filePath
+                    });
+                    
                     // Clear any pending hide
                     clearTimeout(hideTimeout);
                     
                     // Don't show if already showing for this link
-                    if (currentPreview === link) return;
+                    if (currentPreview === link) {
+                        console.log('[Preview] Already showing preview for this link');
+                        return;
+                    }
                     
                     currentPreview = link;
                     
                     // Delay showing preview to avoid flickering on quick mouseovers
                     clearTimeout(showTimeout);
+                    console.log('[Preview] Starting 500ms delay timer before showing preview');
                     showTimeout = setTimeout(() => {
                         if (currentPreview === link) {
+                            console.log('[Preview] 500ms delay complete, calling showPreview()');
                             showPreview(link, e);
+                        } else {
+                            console.log('[Preview] 500ms delay complete but preview target changed');
                         }
                     }, 500);
                 });
@@ -1355,6 +1424,10 @@
                 document.addEventListener('mouseout', function(e) {
                     const link = e.target.closest('a[data-preview]');
                     if (!link) return;
+                    
+                    console.log('[Preview] Mouseout detected on link:', {
+                        fileName: link.querySelector('.file-name')?.textContent || 'unknown'
+                    });
                     
                     // Clear any pending show
                     clearTimeout(showTimeout);
