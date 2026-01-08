@@ -270,6 +270,52 @@
             $sizeHtml
         );
     }
+
+    function hasDownloadableContent(string $dir, string $realRoot): bool {
+        $hasContent = false;
+        
+        $checkContent = function($checkDir) use (&$checkContent, $realRoot, &$hasContent) {
+            $handle = opendir($checkDir);
+            if ($handle === false) {
+                return;
+            }
+            
+            while (($entry = readdir($handle)) !== false) {
+                if ($hasContent) break; // Early exit if we found content
+                
+                if (in_array($entry, ['.', '..', 'index.php'], true) || $entry[0] === '.') {
+                    continue;
+                }
+                
+                $fullPath = $checkDir . '/' . $entry;
+                $realPath = realpath($fullPath);
+                
+                // Skip invalid paths, symlinks
+                if (is_link($fullPath) || $realPath === false || 
+                    strpos($realPath . DIRECTORY_SEPARATOR, $realRoot) !== 0) {
+                    continue;
+                }
+                
+                if (is_dir($fullPath)) {
+                    // Recurse into directory (early exit in loop handles found content)
+                    $checkContent($fullPath);
+                } else {
+                    // Skip dangerous extensions
+                    $ext = strtolower(pathinfo($entry, PATHINFO_EXTENSION));
+                    if (in_array($ext, BLOCKED_EXTENSIONS, true)) {
+                        continue;
+                    }
+                    
+                    $hasContent = true;
+                    break;
+                }
+            }
+            closedir($handle);
+        };
+        
+        $checkContent($dir);
+        return $hasContent;
+    }
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -449,16 +495,23 @@
             font-weight: 500;
         }
         
-        .folder-file-count { 
-            margin-top: 24px; 
-            padding: 16px 20px; 
+        .stats-container {
+            margin-top: 24px;
+            padding: 16px 20px;
             background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
-            border-radius: 10px; 
-            text-align: center; 
+            border-radius: 10px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 20px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+        }
+        
+        .folder-file-count {
             color: var(--muted);
             font-size: clamp(0.813rem, 2vw, 0.9rem);
             font-weight: 500;
-            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+            flex: 1;
         }
         
         footer { 
@@ -559,8 +612,8 @@
             text-decoration: none; 
             cursor: pointer; 
             transition: all 0.3s ease; 
-            margin-bottom: 20px;
             box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
+            white-space: nowrap;
         }
         
         .download-all-btn:hover { 
@@ -643,9 +696,16 @@
                 font-size: 0.875rem;
             }
             
-            .folder-file-count {
+            .stats-container {
+                flex-direction: column;
+                align-items: stretch;
+                gap: 12px;
                 padding: 14px 16px;
+            }
+            
+            .folder-file-count {
                 font-size: 0.813rem;
+                text-align: center;
             }
         }
         
@@ -763,68 +823,6 @@
             </div>
             <?php endif; ?>
 
-            <?php
-                // Show download all button if there are downloadable files or directories
-                if ($isValidPath) {
-                    $hasContent = false;
-                    
-                    // Recursive function to check if there's any downloadable content
-                    $checkContent = function($dir) use (&$checkContent, $realRoot, &$hasContent) {
-                        $handle = opendir($dir);
-                        if ($handle === false) {
-                            return;
-                        }
-                        
-                        while (($entry = readdir($handle)) !== false) {
-                            if ($hasContent) break; // Early exit if we found content
-                            
-                            if (in_array($entry, ['.', '..', 'index.php'], true) || $entry[0] === '.') {
-                                continue;
-                            }
-                            
-                            $fullPath = $dir . '/' . $entry;
-                            $realPath = realpath($fullPath);
-                            
-                            // Skip invalid paths, symlinks
-                            if (is_link($fullPath) || $realPath === false || 
-                                strpos($realPath . DIRECTORY_SEPARATOR, $realRoot) !== 0) {
-                                continue;
-                            }
-                            
-                            if (is_dir($fullPath)) {
-                                // Recurse into directory only if we haven't found content yet
-                                if (!$hasContent) {
-                                    $checkContent($fullPath);
-                                }
-                            } else {
-                                // Skip dangerous extensions
-                                $ext = strtolower(pathinfo($entry, PATHINFO_EXTENSION));
-                                if (in_array($ext, BLOCKED_EXTENSIONS, true)) {
-                                    continue;
-                                }
-                                
-                                $hasContent = true;
-                                break;
-                            }
-                        }
-                        closedir($handle);
-                    };
-                    
-                    $checkContent($basePath);
-                    
-                    if ($hasContent) {
-                        $downloadAllUrl = '?download_all_zip=1';
-                        if ($currentPath) {
-                            $downloadAllUrl .= '&path=' . rawurlencode($currentPath);
-                        }
-                        echo '<a href="' . htmlspecialchars($downloadAllUrl, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8') . '" class="download-all-btn" target="_blank" rel="noopener noreferrer">';
-                        echo '<i class="fa-solid fa-download"></i>';
-                        echo 'Download All as ZIP';
-                        echo '</a>';
-                    }
-                }
-            ?>
-
             <ul class="file-list">
                 <?php
                 if (!$isValidPath) {
@@ -880,17 +878,38 @@
                     foreach ($files as $file) {
                         renderItem($file['name'], false, $currentPath, $file['size']);
                     }
-
-                    echo '<li class="folder-file-count">';
-                    echo count($dirs) . ' folder' . (count($dirs) !== 1 ? 's' : '') . ', ';
-                    echo count($files) . ' file' . (count($files) !== 1 ? 's' : '');
-                    if ($totalSize > 0) {
-                        echo ' (' . htmlspecialchars(formatFileSize($totalSize), ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8') . ' total)';
-                    }
-                    echo '</li>';
                 }
                 ?>
             </ul>
+
+            <?php
+            // Unified stats container with folder/file count and download button
+            if ($isValidPath) {
+                $statsHtml = '';
+                $statsHtml .= count($dirs) . ' folder' . (count($dirs) !== 1 ? 's' : '') . ', ';
+                $statsHtml .= count($files) . ' file' . (count($files) !== 1 ? 's' : '');
+                if ($totalSize > 0) {
+                    $statsHtml .= ' (' . htmlspecialchars(formatFileSize($totalSize), ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8') . ' total)';
+                }
+                
+                echo '<div class="stats-container">';
+                echo '<div class="folder-file-count">' . $statsHtml . '</div>';
+                
+                // Show download button if there's any downloadable content
+                if (hasDownloadableContent($basePath, $realRoot)) {
+                    $downloadAllUrl = '?download_all_zip=1';
+                    if ($currentPath) {
+                        $downloadAllUrl .= '&path=' . rawurlencode($currentPath);
+                    }
+                    echo '<a href="' . htmlspecialchars($downloadAllUrl, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8') . '" class="download-all-btn" target="_blank" rel="noopener noreferrer">';
+                    echo '<i class="fa-solid fa-download"></i>';
+                    echo 'Download All as ZIP';
+                    echo '</a>';
+                }
+                
+                echo '</div>';
+            }
+            ?>
         </div>
 
         <?php if (!empty($footer)): ?>
