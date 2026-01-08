@@ -111,6 +111,14 @@
             $zipFilename = $safeFolderName . '.zip';
         }
         
+        // Open file for reading before sending headers
+        $fp = fopen($tempZip, 'rb');
+        if ($fp === false) {
+            @unlink($tempZip);
+            http_response_code(500);
+            exit('Failed to read ZIP file');
+        }
+        
         // Send the zip file
         $safeFilename = preg_replace('/[\x00-\x1F\x7F"\\\\]|[\r\n]/', '', $zipFilename);
         $encodedFilename = rawurlencode($zipFilename);
@@ -120,7 +128,14 @@
         header('X-Content-Type-Options: nosniff');
         header('Content-Length: ' . filesize($tempZip));
         
-        readfile($tempZip);
+        // Disable output buffering for efficient streaming of large files
+        while (ob_get_level() > 0) {
+            ob_end_clean();
+        }
+        
+        // Stream file content and cleanup
+        fpassthru($fp);
+        fclose($fp);
         @unlink($tempZip);
         exit;
     }
@@ -150,6 +165,14 @@
             exit('Forbidden');
         }
         
+        // Open file for reading before sending headers
+        $fp = fopen($full, 'rb');
+        if ($fp === false) {
+            // No cleanup needed for regular files (unlike temp ZIP files)
+            http_response_code(500);
+            exit('Failed to read file');
+        }
+        
         // Set secure download headers with properly escaped filename
         $filename = basename($full);
         // Remove control characters and dangerous chars for header injection prevention
@@ -162,8 +185,14 @@
         header('X-Content-Type-Options: nosniff');
         header('Content-Length: ' . filesize($full));
         
-        // Serve the file
-        readfile($full);
+        // Disable output buffering for efficient streaming of large files
+        while (ob_get_level() > 0) {
+            ob_end_clean();
+        }
+        
+        // Stream file content
+        fpassthru($fp);
+        fclose($fp);
         exit;
     }
     
