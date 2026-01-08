@@ -23,7 +23,7 @@
         $basePath = $currentPath ? './' . str_replace('\\', '/', $currentPath) : '.';
         $realBase = realpath($basePath);
         
-        // Validate path is within root
+        // Validate path is within root (use DIRECTORY_SEPARATOR suffix to prevent edge case bypasses)
         if ($realBase === false || strpos($realBase . DIRECTORY_SEPARATOR, $realRoot) !== 0) {
             http_response_code(404);
             exit('Not found');
@@ -87,7 +87,7 @@
         }
         
         // Send the zip file
-        $safeFilename = preg_replace('/[\x00-\x1F\x7F"\\\\\\\\]|[\r\n]/', '', $zipFilename);
+        $safeFilename = preg_replace('/[\x00-\x1F\x7F"\\\\]|[\r\n]/', '', $zipFilename);
         $encodedFilename = rawurlencode($zipFilename);
         
         header('Content-Type: application/zip');
@@ -128,7 +128,7 @@
         // Set secure download headers with properly escaped filename
         $filename = basename($full);
         // Remove control characters and dangerous chars for header injection prevention
-        $safeFilename = preg_replace('/[\x00-\x1F\x7F"\\\\\\\\]|[\r\n]/', '', $filename);
+        $safeFilename = preg_replace('/[\x00-\x1F\x7F"\\\\]|[\r\n]/', '', $filename);
         // Use RFC 2231 encoding for Unicode filename support
         $encodedFilename = rawurlencode($filename);
         
@@ -325,7 +325,7 @@
             <?php endif; ?>
 
             <?php
-                // Show download all button if there are files in current directory
+                // Show download all button if there are downloadable files in current directory
                 if ($isValidPath) {
                     $hasFiles = false;
                     if ($handle = opendir($basePath)) {
@@ -334,10 +334,22 @@
                                 continue;
                             }
                             $fullPath = $basePath . '/' . $entry;
-                            if (!is_dir($fullPath)) {
-                                $hasFiles = true;
-                                break;
+                            $realPath = realpath($fullPath);
+                            
+                            // Skip invalid paths, symlinks, directories
+                            if (is_link($fullPath) || $realPath === false || 
+                                strpos($realPath, $realRoot) !== 0 || is_dir($fullPath)) {
+                                continue;
                             }
+                            
+                            // Skip dangerous extensions
+                            $ext = strtolower(pathinfo($entry, PATHINFO_EXTENSION));
+                            if (in_array($ext, BLOCKED_EXTENSIONS, true)) {
+                                continue;
+                            }
+                            
+                            $hasFiles = true;
+                            break;
                         }
                         closedir($handle);
                     }
