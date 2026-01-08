@@ -378,7 +378,6 @@ if (isset($_POST['rename'])) {
     
     // Check for dangerous extensions in new name
     $ext = strtolower(pathinfo($newName, PATHINFO_EXTENSION));
-    $oldExt = strtolower(pathinfo($oldPath, PATHINFO_EXTENSION));
     
     // Prevent changing extension to a dangerous one
     if (in_array($ext, BLOCKED_EXTENSIONS, true)) {
@@ -416,12 +415,16 @@ if (isset($_POST['rename'])) {
     $parentDir = dirname($fullOldPath);
     $fullNewPath = $parentDir . DIRECTORY_SEPARATOR . $newName;
     
-    // Validate new path is within root
-    if (strpos($fullNewPath . DIRECTORY_SEPARATOR, $realRoot) !== 0) {
+    // Normalize and validate new path is within root
+    $realNewPath = realpath($parentDir);
+    if ($realNewPath === false || strpos($realNewPath . DIRECTORY_SEPARATOR, $realRoot) !== 0) {
         http_response_code(403);
         echo json_encode(['success' => false, 'error' => 'Invalid operation']);
         exit;
     }
+    
+    // Reconstruct full new path with sanitized name
+    $fullNewPath = $realNewPath . DIRECTORY_SEPARATOR . $newName;
     
     // Check if target already exists
     if (file_exists($fullNewPath)) {
@@ -2217,7 +2220,17 @@ if ($isValidPath) {
                         },
                         body: 'rename=1&old_path=' + encodeURIComponent(currentFilePath) + '&new_name=' + encodeURIComponent(newName)
                     })
-                    .then(response => response.json())
+                    .then(response => {
+                        // Check if response is ok before parsing JSON
+                        if (!response.ok) {
+                            return response.json().then(data => {
+                                throw new Error(data.error || 'Failed to rename');
+                            }).catch(() => {
+                                throw new Error('Failed to rename');
+                            });
+                        }
+                        return response.json();
+                    })
                     .then(data => {
                         if (data.success) {
                             // Reload page to show renamed item
@@ -2229,7 +2242,7 @@ if ($isValidPath) {
                         }
                     })
                     .catch(err => {
-                        showError('An error occurred. Please try again.');
+                        showError(err.message || 'An error occurred. Please try again.');
                         confirmBtn.disabled = false;
                         cancelBtn.disabled = false;
                         console.error('Rename error:', err);
