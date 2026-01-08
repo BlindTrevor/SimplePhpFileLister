@@ -465,8 +465,9 @@
             margin-top: 20px; 
             text-align: center; 
             font-size: clamp(0.75rem, 2vw, 0.875rem);
-            color: rgba(255, 255, 255, 0.9);
+            color: rgba(255, 255, 255, 0.95);
             font-weight: 400;
+            text-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
         }
         
         footer a {
@@ -615,6 +616,7 @@
                 width: 28px;
             }
             
+            /* On mobile: icon and size on first row, name wraps below */
             .file-name {
                 font-size: 0.875rem;
                 flex: 1 1 100%;
@@ -677,6 +679,7 @@
                 padding: 28px 24px;
             }
             
+            /* Use 85% width for better readability on tablet screens */
             .container {
                 max-width: 85%;
             }
