@@ -338,14 +338,6 @@
             'mp4' => 'video/mp4',
             'webm' => 'video/webm',
             'ogv' => 'video/ogg',
-            // Audio
-            'mp3' => 'audio/mpeg',
-            'wav' => 'audio/wav',
-            'oga' => 'audio/ogg',
-            'flac' => 'audio/flac',
-            'm4a' => 'audio/mp4',
-            // Documents
-            'pdf' => 'application/pdf',
         ];
         
         return $mimeTypes[$ext] ?? null;
