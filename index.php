@@ -1,10 +1,90 @@
 <?php
+    // Security: prevent directory traversal
+    $realRoot = rtrim(realpath('.'), DIRECTORY_SEPARATOR) . DIRECTORY_SEPARATOR;
+    
+    // FAST PATH: Secure preview handler (for inline display in browser)
+    // This is placed at the top for maximum performance - exits immediately without loading anything else
+    // NOTE: MIME types array is intentionally duplicated here (also in getPreviewMimeType()) 
+    //       to avoid loading any functions. This duplication is a performance optimization.
+    //       When updating supported file types, update BOTH locations.
+    if (isset($_GET['preview'])) {
+        $rel = (string)$_GET['preview'];
+        $full = realpath($realRoot . $rel);
+        
+        // Validate path is within root and file exists
+        if ($full === false || strpos($full . DIRECTORY_SEPARATOR, $realRoot) !== 0) {
+            http_response_code(404);
+            exit('Not found');
+        }
+        
+        // Ensure it's a file, not a directory
+        if (!is_file($full)) {
+            http_response_code(404);
+            exit('Not found');
+        }
+        
+        // Get file extension and determine MIME type (inlined for speed)
+        $ext = strtolower(pathinfo($full, PATHINFO_EXTENSION));
+        $mimeTypes = [
+            // Images
+            'jpg' => 'image/jpeg',
+            'jpeg' => 'image/jpeg',
+            'png' => 'image/png',
+            'gif' => 'image/gif',
+            'webp' => 'image/webp',
+            'svg' => 'image/svg+xml',
+            'bmp' => 'image/bmp',
+            'ico' => 'image/x-icon',
+            // Videos
+            'mp4' => 'video/mp4',
+            'webm' => 'video/webm',
+            'ogv' => 'video/ogg',
+            // Audio
+            'mp3' => 'audio/mpeg',
+            'wav' => 'audio/wav',
+            'oga' => 'audio/ogg',
+            'flac' => 'audio/flac',
+            'm4a' => 'audio/mp4',
+            // Documents
+            'pdf' => 'application/pdf',
+        ];
+        
+        // Only allow previewable file types
+        if (!isset($mimeTypes[$ext])) {
+            http_response_code(403);
+            exit('Preview not supported for this file type');
+        }
+        
+        $mimeType = $mimeTypes[$ext];
+        
+        // Open file for reading before sending headers
+        $fp = fopen($full, 'rb');
+        if ($fp === false) {
+            http_response_code(500);
+            exit('Failed to read file');
+        }
+        
+        // Set headers for inline display
+        header('Content-Type: ' . $mimeType);
+        header('Content-Disposition: inline');
+        header('X-Content-Type-Options: nosniff');
+        header('Content-Length: ' . filesize($full));
+        header('Cache-Control: public, max-age=3600');
+        
+        // Disable output buffering for efficient streaming
+        while (ob_get_level() > 0) {
+            ob_end_clean();
+        }
+        
+        // Stream file content
+        fpassthru($fp);
+        fclose($fp);
+        exit;
+    }
+    
     $title = "Simple PHP File Lister";
     $subtitle = "The Easy Way To List Files In A Directory";
     $footer = "Made with ❤️ by Blind Trevor";
-    
-    // Security: prevent directory traversal
-    $realRoot = rtrim(realpath('.'), DIRECTORY_SEPARATOR) . DIRECTORY_SEPARATOR;
     
     // Blocked file extensions to prevent code execution
     define('BLOCKED_EXTENSIONS', ['php', 'phtml', 'phar', 'cgi', 'pl', 'sh', 'bat', 'exe', 
@@ -209,7 +289,7 @@
     header('X-Frame-Options: DENY');
     header('Referrer-Policy: no-referrer');
     header('Permissions-Policy: geolocation=(), camera=(), microphone=()');
-    header("Content-Security-Policy: default-src 'self'; style-src 'self' https://cdnjs.cloudflare.com 'nonce-{$cspNonce}'; script-src 'self' 'nonce-{$cspNonce}'; img-src 'self' https://img.shields.io; font-src https://cdnjs.cloudflare.com; object-src 'none'; base-uri 'self'; frame-ancestors 'none'");
+    header("Content-Security-Policy: default-src 'self'; style-src 'self' https://cdnjs.cloudflare.com 'nonce-{$cspNonce}'; script-src 'self' 'nonce-{$cspNonce}'; img-src 'self' https://img.shields.io data: blob:; font-src https://cdnjs.cloudflare.com; media-src 'self' blob:; object-src 'none'; base-uri 'self'; frame-ancestors 'none'");
     $currentPath = isset($_GET['path']) ? rtrim((string)$_GET['path'], '/') : '';
     $basePath = $currentPath ? './' . str_replace('\\', '/', $currentPath) : '.';
     $realBase = realpath($basePath);
@@ -230,6 +310,44 @@
                 ];
             }
         }
+    }
+
+    function getPreviewableFileTypes(): array {
+        return [
+            'image' => ['jpg', 'jpeg', 'png', 'gif', 'webp', 'svg', 'bmp', 'ico'],
+            'video' => ['mp4', 'webm', 'ogv'],
+            'audio' => ['mp3', 'wav', 'oga', 'flac', 'm4a'],
+            // PDF preview is limited in tooltips, shown as placeholder message
+            'pdf' => ['pdf'],
+        ];
+    }
+
+    function getPreviewMimeType(string $ext): ?string {
+        $mimeTypes = [
+            // Images
+            'jpg' => 'image/jpeg',
+            'jpeg' => 'image/jpeg',
+            'png' => 'image/png',
+            'gif' => 'image/gif',
+            'webp' => 'image/webp',
+            'svg' => 'image/svg+xml',
+            'bmp' => 'image/bmp',
+            'ico' => 'image/x-icon',
+            // Videos
+            'mp4' => 'video/mp4',
+            'webm' => 'video/webm',
+            'ogv' => 'video/ogg',
+            // Audio
+            'mp3' => 'audio/mpeg',
+            'wav' => 'audio/wav',
+            'oga' => 'audio/ogg',
+            'flac' => 'audio/flac',
+            'm4a' => 'audio/mp4',
+            // Documents
+            'pdf' => 'application/pdf',
+        ];
+        
+        return $mimeTypes[$ext] ?? null;
     }
 
     function formatFileSize(int $bytes): string {
@@ -277,6 +395,7 @@
             $colorClass = 'icon-folder';
             $linkAttributes = 'class="dir-link"';
             $sizeHtml = '';
+            $dataAttributes = '';
         } else {
             // Use secure download handler for files
             $filePath = $currentPath ? $currentPath . '/' . $entry : $entry;
@@ -285,14 +404,30 @@
             // Open downloads in new tab to prevent loading overlay on main page
             $linkAttributes = 'target="_blank" rel="noopener noreferrer"';
             $sizeHtml = '<span class="file-size">' . htmlspecialchars(formatFileSize($fileSize), ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8') . '</span>';
+            
+            // Add data attributes for preview functionality
+            $ext = strtolower(pathinfo($entry, PATHINFO_EXTENSION));
+            $previewTypes = getPreviewableFileTypes();
+            
+            $dataAttributes = '';
+            if (in_array($ext, $previewTypes['image'])) {
+                $dataAttributes = ' data-preview="image" data-file-path="' . htmlspecialchars($filePath, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8') . '"';
+            } elseif (in_array($ext, $previewTypes['video'])) {
+                $dataAttributes = ' data-preview="video" data-file-path="' . htmlspecialchars($filePath, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8') . '"';
+            } elseif (in_array($ext, $previewTypes['audio'])) {
+                $dataAttributes = ' data-preview="audio" data-file-path="' . htmlspecialchars($filePath, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8') . '"';
+            } elseif (in_array($ext, $previewTypes['pdf'])) {
+                $dataAttributes = ' data-preview="pdf" data-file-path="' . htmlspecialchars($filePath, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8') . '"';
+            }
         }
 
         $label = htmlspecialchars($entry, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
 
         printf(
-            '<li><a href="%s" %s><span class="file-icon %s"><i class="%s"></i></span><span class="file-name">%s</span>%s</a></li>' . PHP_EOL,
+            '<li><a href="%s" %s%s><span class="file-icon %s"><i class="%s"></i></span><span class="file-name">%s</span>%s</a></li>' . PHP_EOL,
             htmlspecialchars($href, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8'),
             $linkAttributes,
+            $dataAttributes,
             htmlspecialchars($colorClass, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8'),
             htmlspecialchars($iconClass, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8'),
             $label,
@@ -809,6 +944,73 @@
             }
         }
         
+        /* Thumbnail preview tooltip */
+        .preview-tooltip {
+            position: fixed;
+            z-index: 10000;
+            pointer-events: none;
+            opacity: 0;
+            transition: opacity 0.2s ease-in-out;
+            background: white;
+            border: 2px solid var(--border);
+            border-radius: 8px;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
+            padding: 8px;
+            max-width: 400px;
+            max-height: 400px;
+        }
+        
+        .preview-tooltip.visible {
+            opacity: 1;
+        }
+        
+        .preview-tooltip img,
+        .preview-tooltip video,
+        .preview-tooltip audio {
+            max-width: 100%;
+            max-height: 380px;
+            display: block;
+            border-radius: 4px;
+        }
+        
+        .preview-tooltip video {
+            background: #000;
+        }
+        
+        .preview-tooltip audio {
+            width: 100%;
+        }
+        
+        .preview-tooltip .preview-error {
+            padding: 20px;
+            color: var(--muted);
+            text-align: center;
+            font-size: 0.875rem;
+        }
+        
+        .preview-tooltip .preview-loading {
+            padding: 30px 40px;
+            color: var(--accent);
+            text-align: center;
+            font-size: 1rem;
+            font-weight: 600;
+            background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+            border-radius: 4px;
+            animation: pulse 1.5s ease-in-out infinite;
+        }
+        
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.6; }
+        }
+        
+        /* Hide preview on mobile/touch devices to avoid conflicts */
+        @media (hover: none) and (pointer: coarse) {
+            .preview-tooltip {
+                display: none;
+            }
+        }
+        
         /* Print styles */
         @media print {
             body {
@@ -995,6 +1197,264 @@
             }, { capture: true });
 
             window.addEventListener('beforeunload', showOverlay);
+            
+            // Preview tooltip functionality
+            (function() {
+                // Skip on touch-only devices (mobile/tablet)
+                // Allow on hybrid devices (laptops with touchscreens) by checking if hover is supported
+                const isTouchOnly = ('ontouchstart' in window || navigator.maxTouchPoints > 0) && 
+                                   !window.matchMedia('(hover: hover) and (pointer: fine)').matches;
+                
+                if (isTouchOnly) {
+                    console.log('[Preview] Disabled: Touch-only device detected');
+                    return;
+                }
+                
+                console.log('[Preview] Initialized: Preview functionality enabled');
+                console.log('[Preview] Version: mouseenter/mouseleave (event bubbling fix)');
+                
+                let tooltip = null;
+                let currentPreview = null;
+                let showTimeout = null;
+                let hideTimeout = null;
+                
+                function createTooltip() {
+                    if (tooltip) return tooltip;
+                    tooltip = document.createElement('div');
+                    tooltip.className = 'preview-tooltip';
+                    tooltip.setAttribute('role', 'tooltip');
+                    tooltip.setAttribute('aria-live', 'polite');
+                    document.body.appendChild(tooltip);
+                    return tooltip;
+                }
+                
+                function positionTooltip(e) {
+                    if (!tooltip) return;
+                    
+                    const padding = 15;
+                    const tooltipRect = tooltip.getBoundingClientRect();
+                    let x = e.clientX + padding;
+                    let y = e.clientY + padding;
+                    
+                    // Adjust if tooltip goes off right edge
+                    if (x + tooltipRect.width > window.innerWidth) {
+                        x = e.clientX - tooltipRect.width - padding;
+                    }
+                    
+                    // Adjust if tooltip goes off bottom edge
+                    if (y + tooltipRect.height > window.innerHeight) {
+                        y = e.clientY - tooltipRect.height - padding;
+                    }
+                    
+                    // Ensure tooltip doesn't go off left or top edge
+                    x = Math.max(padding, x);
+                    y = Math.max(padding, y);
+                    
+                    tooltip.style.left = x + 'px';
+                    tooltip.style.top = y + 'px';
+                }
+                
+                function showPreview(link, e) {
+                    const previewType = link.dataset.preview;
+                    const filePath = link.dataset.filePath;
+                    
+                    console.log('[Preview] showPreview() called:', {
+                        previewType: previewType,
+                        filePath: filePath,
+                        hasDataset: !!link.dataset,
+                        linkElement: link.tagName
+                    });
+                    
+                    if (!previewType || !filePath) {
+                        console.warn('[Preview] Missing data attributes:', {
+                            previewType: previewType,
+                            filePath: filePath
+                        });
+                        return;
+                    }
+                    
+                    createTooltip();
+                    tooltip.innerHTML = '<div class="preview-loading">⏳ Loading preview...</div>';
+                    positionTooltip(e);
+                    
+                    // Show tooltip after a brief delay
+                    setTimeout(() => {
+                        tooltip.classList.add('visible');
+                        console.log('[Preview] Tooltip made visible');
+                    }, 50);
+                    
+                    const previewUrl = '?preview=' + encodeURIComponent(filePath);
+                    console.log('[Preview] Fetching from URL:', previewUrl);
+                    
+                    if (previewType === 'image') {
+                        console.log('[Preview] Creating image element for:', filePath);
+                        const img = new Image();
+                        const startTime = Date.now();
+                        
+                        img.onload = function() {
+                            const loadTime = Date.now() - startTime;
+                            console.log('[Preview] Image loaded successfully in ' + loadTime + 'ms:', {
+                                filePath: filePath,
+                                width: img.naturalWidth,
+                                height: img.naturalHeight,
+                                stillCurrent: currentPreview === link
+                            });
+                            
+                            if (currentPreview === link) {
+                                tooltip.innerHTML = '';
+                                tooltip.appendChild(img);
+                                positionTooltip(e);
+                            } else {
+                                console.log('[Preview] Image loaded but preview already moved to another file');
+                            }
+                        };
+                        
+                        img.onerror = function(error) {
+                            const loadTime = Date.now() - startTime;
+                            console.error('[Preview] Image failed to load after ' + loadTime + 'ms:', {
+                                filePath: filePath,
+                                previewUrl: previewUrl,
+                                error: error
+                            });
+                            
+                            if (currentPreview === link) {
+                                tooltip.innerHTML = '<div class="preview-error">❌ Unable to load preview</div>';
+                            }
+                        };
+                        
+                        img.src = previewUrl;
+                        img.alt = 'Preview';
+                    } else if (previewType === 'video') {
+                        const video = document.createElement('video');
+                        video.controls = false;
+                        video.muted = true;
+                        video.autoplay = false;
+                        video.preload = 'metadata';
+                        video.onloadedmetadata = function() {
+                            console.log('[Preview] Video metadata loaded:', filePath);
+                            if (currentPreview === link) {
+                                tooltip.innerHTML = '';
+                                tooltip.appendChild(video);
+                                positionTooltip(e);
+                            }
+                        };
+                        video.onerror = function() {
+                            console.error('[Preview] Video failed to load:', filePath);
+                            if (currentPreview === link) {
+                                tooltip.innerHTML = '<div class="preview-error">❌ Unable to load video preview</div>';
+                            }
+                        };
+                        video.src = previewUrl;
+                    } else if (previewType === 'audio') {
+                        console.log('[Preview] Creating audio element for:', filePath);
+                        const audio = document.createElement('audio');
+                        audio.controls = true;
+                        audio.preload = 'metadata';
+                        audio.onloadedmetadata = function() {
+                            console.log('[Preview] Audio metadata loaded:', filePath);
+                            if (currentPreview === link) {
+                                tooltip.innerHTML = '';
+                                tooltip.appendChild(audio);
+                                positionTooltip(e);
+                            }
+                        };
+                        audio.onerror = function() {
+                            console.error('[Preview] Audio failed to load:', filePath);
+                            if (currentPreview === link) {
+                                tooltip.innerHTML = '<div class="preview-error">❌ Unable to load audio preview</div>';
+                            }
+                        };
+                        audio.src = previewUrl;
+                    } else if (previewType === 'pdf') {
+                        console.log('[Preview] PDF preview requested (showing message):', filePath);
+                        // PDF inline preview in a small tooltip is impractical due to size/readability
+                        // Instead, show a helpful message prompting user to click to view full document
+                        tooltip.innerHTML = '<div class="preview-error">PDF preview not available<br>(Click to view)</div>';
+                    }
+                }
+                
+                function hidePreview() {
+                    console.log('[Preview] hidePreview() called');
+                    if (tooltip) {
+                        tooltip.classList.remove('visible');
+                        currentPreview = null;
+                    }
+                }
+                
+                // Use mouseenter/mouseleave to avoid child element interference
+                // We need to attach these after DOM is loaded since they're not delegated
+                function attachPreviewListeners() {
+                    const links = document.querySelectorAll('a[data-preview]');
+                    console.log('[Preview] Attaching listeners to ' + links.length + ' previewable links');
+                    
+                    links.forEach(link => {
+                        link.addEventListener('mouseenter', function(e) {
+                            console.log('[Preview] Mouseenter detected on link:', {
+                                fileName: link.querySelector('.file-name')?.textContent || 'unknown',
+                                previewType: link.dataset.preview,
+                                filePath: link.dataset.filePath,
+                                targetElement: e.target.tagName + (e.target.className ? '.' + e.target.className.split(' ').join('.') : ''),
+                                currentTargetElement: e.currentTarget.tagName
+                            });
+                            
+                            // Clear any pending hide
+                            clearTimeout(hideTimeout);
+                            
+                            // If already showing for this exact link, don't restart
+                            if (currentPreview === link) {
+                                console.log('[Preview] Already showing preview for this link');
+                                return;
+                            }
+                            
+                            // If showing preview for a different link, hide it immediately and show new one
+                            if (currentPreview && currentPreview !== link) {
+                                console.log('[Preview] Switching preview to different file');
+                                hidePreview();
+                            }
+                            
+                            currentPreview = link;
+                            
+                            // Reduced delay from 500ms to 200ms for faster response
+                            clearTimeout(showTimeout);
+                            console.log('[Preview] Starting 200ms delay timer before showing preview');
+                            showTimeout = setTimeout(() => {
+                                if (currentPreview === link) {
+                                    console.log('[Preview] 200ms delay complete, calling showPreview()');
+                                    showPreview(link, e);
+                                } else {
+                                    console.log('[Preview] 200ms delay complete but preview target changed');
+                                }
+                            }, 200);
+                        });
+                        
+                        link.addEventListener('mouseleave', function(e) {
+                            console.log('[Preview] Mouseleave detected on link:', {
+                                fileName: link.querySelector('.file-name')?.textContent || 'unknown',
+                                targetElement: e.target.tagName + (e.target.className ? '.' + e.target.className.split(' ').join('.') : ''),
+                                currentTargetElement: e.currentTarget.tagName
+                            });
+                            
+                            // Clear any pending show
+                            clearTimeout(showTimeout);
+                            
+                            // Increased delay from 100ms to 300ms to be more forgiving
+                            hideTimeout = setTimeout(() => {
+                                hidePreview();
+                            }, 300);
+                        });
+                    });
+                }
+                
+                // Attach listeners after DOM is ready
+                attachPreviewListeners();
+                
+                // Update tooltip position on mousemove
+                document.addEventListener('mousemove', function(e) {
+                    if (tooltip && tooltip.classList.contains('visible')) {
+                        positionTooltip(e);
+                    }
+                });
+            })();
         })();
     </script>
 </body>
