@@ -1,5 +1,10 @@
 <?php
 
+    // CONFIGURATION
+    // Set the number of files to show per page before pagination is enabled
+    // When the total number of files and folders exceeds this threshold, pagination controls will appear
+    $paginationThreshold = 25;
+
     $title = "Simple PHP File Lister";
     $subtitle = "The Easy Way To List Files In A Directory";
     $footer = "Made with ❤️ by Blind Trevor";
@@ -296,6 +301,9 @@
     $realBase = realpath($basePath);
     
     $isValidPath = $realBase !== false && strpos($realBase . DIRECTORY_SEPARATOR, $realRoot) === 0;
+
+    // Pagination: Get current page from query string, default to 1
+    $currentPage = isset($_GET['page']) ? max(1, (int)$_GET['page']) : 1;
 
     // Create breadcrumbs array
     $breadcrumbs = [];
@@ -1026,6 +1034,7 @@
             
             .download-all-btn,
             .loading-overlay,
+            .pagination,
             footer a img {
                 display: none;
             }
@@ -1033,6 +1042,138 @@
             .file-list a {
                 border: 1px solid #ddd;
                 page-break-inside: avoid;
+            }
+        }
+        
+        /* Pagination styles */
+        .pagination {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 12px;
+            margin: 24px 0;
+            padding: 20px;
+            background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+            border-radius: 10px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+            flex-wrap: wrap;
+        }
+        
+        .pagination-btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 10px 20px;
+            background: var(--accent);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: clamp(0.875rem, 2vw, 0.95rem);
+            font-weight: 600;
+            text-decoration: none;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            box-shadow: 0 2px 8px rgba(102, 126, 234, 0.2);
+            white-space: nowrap;
+        }
+        
+        .pagination-btn:hover:not(.pagination-disabled) {
+            background: var(--accent-hover);
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
+        }
+        
+        .pagination-btn:active:not(.pagination-disabled) {
+            transform: translateY(0);
+        }
+        
+        .pagination-btn.pagination-disabled {
+            background: var(--border);
+            color: var(--muted);
+            cursor: not-allowed;
+            box-shadow: none;
+        }
+        
+        .pagination-numbers {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            flex-wrap: wrap;
+            justify-content: center;
+        }
+        
+        .pagination-number {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            min-width: 40px;
+            height: 40px;
+            padding: 8px 12px;
+            background: white;
+            color: var(--text);
+            border: 2px solid var(--border);
+            border-radius: 8px;
+            font-size: clamp(0.875rem, 2vw, 0.95rem);
+            font-weight: 600;
+            text-decoration: none;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+        
+        .pagination-number:hover:not(.pagination-current) {
+            background: var(--hover);
+            border-color: var(--accent);
+            color: var(--accent);
+            transform: translateY(-1px);
+        }
+        
+        .pagination-number.pagination-current {
+            background: var(--accent);
+            color: white;
+            border-color: var(--accent);
+            cursor: default;
+            box-shadow: 0 2px 8px rgba(102, 126, 234, 0.3);
+        }
+        
+        .pagination-ellipsis {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            min-width: 32px;
+            color: var(--muted);
+            font-weight: 700;
+            font-size: 1.2rem;
+            user-select: none;
+        }
+        
+        /* Responsive pagination */
+        @media (max-width: 480px) {
+            .pagination {
+                padding: 16px 12px;
+                gap: 8px;
+            }
+            
+            .pagination-btn {
+                padding: 10px 16px;
+                font-size: 0.813rem;
+            }
+            
+            .pagination-number {
+                min-width: 36px;
+                height: 36px;
+                padding: 6px 10px;
+                font-size: 0.813rem;
+            }
+            
+            .pagination-ellipsis {
+                min-width: 24px;
+                font-size: 1rem;
+            }
+        }
+        
+        @media (min-width: 481px) and (max-width: 768px) {
+            .pagination {
+                padding: 18px 16px;
             }
         }
     </style>
@@ -1110,15 +1251,124 @@
                         return strnatcasecmp($a['name'], $b['name']);
                     });
 
-                    foreach ($dirs as $entry) {
-                        renderItem($entry, true, $currentPath);
+                    // Pagination logic: combine dirs and files for pagination
+                    $totalItems = count($dirs) + count($files);
+                    $totalPages = ($totalItems > $paginationThreshold) ? (int)ceil($totalItems / $paginationThreshold) : 1;
+                    
+                    // Ensure current page is within valid range
+                    $currentPage = max(1, min($currentPage, $totalPages));
+                    
+                    // Calculate pagination offsets
+                    $itemsPerPage = $paginationThreshold;
+                    $offset = ($currentPage - 1) * $itemsPerPage;
+                    
+                    // Merge dirs and files into a single array for pagination
+                    $allItems = [];
+                    foreach ($dirs as $dir) {
+                        $allItems[] = ['type' => 'dir', 'name' => $dir, 'size' => 0];
                     }
                     foreach ($files as $file) {
-                        renderItem($file['name'], false, $currentPath, $file['size']);
+                        $allItems[] = ['type' => 'file', 'name' => $file['name'], 'size' => $file['size']];
+                    }
+                    
+                    // Get items for current page
+                    $itemsToDisplay = array_slice($allItems, $offset, $itemsPerPage);
+
+                    foreach ($itemsToDisplay as $item) {
+                        if ($item['type'] === 'dir') {
+                            renderItem($item['name'], true, $currentPath);
+                        } else {
+                            renderItem($item['name'], false, $currentPath, $item['size']);
+                        }
                     }
                 }
                 ?>
             </ul>
+
+            <?php
+            // Display pagination controls if needed
+            if ($isValidPath && $totalPages > 1) {
+                // Build base URL for pagination links (preserve current path)
+                $baseUrl = '?';
+                if ($currentPath) {
+                    $baseUrl .= 'path=' . rawurlencode($currentPath) . '&';
+                }
+                
+                echo '<div class="pagination" role="navigation" aria-label="Pagination">';
+                
+                // Previous button
+                if ($currentPage > 1) {
+                    $prevUrl = $baseUrl . 'page=' . ($currentPage - 1);
+                    echo '<a href="' . htmlspecialchars($prevUrl, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8') . '" class="pagination-btn pagination-prev" aria-label="Previous page">';
+                    echo '<i class="fa-solid fa-chevron-left"></i> Previous';
+                    echo '</a>';
+                } else {
+                    echo '<span class="pagination-btn pagination-prev pagination-disabled" aria-disabled="true">';
+                    echo '<i class="fa-solid fa-chevron-left"></i> Previous';
+                    echo '</span>';
+                }
+                
+                // Page numbers
+                echo '<div class="pagination-numbers">';
+                
+                // Calculate range of pages to show
+                $maxPagesToShow = 7; // Show up to 7 page numbers
+                $halfRange = floor($maxPagesToShow / 2);
+                $startPage = max(1, $currentPage - $halfRange);
+                $endPage = min($totalPages, $currentPage + $halfRange);
+                
+                // Adjust if we're near the start or end
+                if ($currentPage <= $halfRange) {
+                    $endPage = min($totalPages, $maxPagesToShow);
+                } elseif ($currentPage >= $totalPages - $halfRange) {
+                    $startPage = max(1, $totalPages - $maxPagesToShow + 1);
+                }
+                
+                // Show first page if not in range
+                if ($startPage > 1) {
+                    $pageUrl = $baseUrl . 'page=1';
+                    echo '<a href="' . htmlspecialchars($pageUrl, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8') . '" class="pagination-number" aria-label="Go to page 1">1</a>';
+                    if ($startPage > 2) {
+                        echo '<span class="pagination-ellipsis" aria-hidden="true">...</span>';
+                    }
+                }
+                
+                // Show page numbers in range
+                for ($i = $startPage; $i <= $endPage; $i++) {
+                    if ($i === $currentPage) {
+                        echo '<span class="pagination-number pagination-current" aria-current="page" aria-label="Current page, page ' . $i . '">' . $i . '</span>';
+                    } else {
+                        $pageUrl = $baseUrl . 'page=' . $i;
+                        echo '<a href="' . htmlspecialchars($pageUrl, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8') . '" class="pagination-number" aria-label="Go to page ' . $i . '">' . $i . '</a>';
+                    }
+                }
+                
+                // Show last page if not in range
+                if ($endPage < $totalPages) {
+                    if ($endPage < $totalPages - 1) {
+                        echo '<span class="pagination-ellipsis" aria-hidden="true">...</span>';
+                    }
+                    $pageUrl = $baseUrl . 'page=' . $totalPages;
+                    echo '<a href="' . htmlspecialchars($pageUrl, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8') . '" class="pagination-number" aria-label="Go to page ' . $totalPages . '">' . $totalPages . '</a>';
+                }
+                
+                echo '</div>';
+                
+                // Next button
+                if ($currentPage < $totalPages) {
+                    $nextUrl = $baseUrl . 'page=' . ($currentPage + 1);
+                    echo '<a href="' . htmlspecialchars($nextUrl, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8') . '" class="pagination-btn pagination-next" aria-label="Next page">';
+                    echo 'Next <i class="fa-solid fa-chevron-right"></i>';
+                    echo '</a>';
+                } else {
+                    echo '<span class="pagination-btn pagination-next pagination-disabled" aria-disabled="true">';
+                    echo 'Next <i class="fa-solid fa-chevron-right"></i>';
+                    echo '</span>';
+                }
+                
+                echo '</div>'; // end pagination
+            }
+            ?>
 
             <?php
             // Unified stats container with folder/file count and download button
@@ -1193,8 +1443,11 @@
                 const isModified = e.metaKey || e.ctrlKey || e.shiftKey || e.button === 1;
                 if (isModified) return;
 
+                // Show loading overlay for directory navigation and pagination
                 const isDirLink = a.classList.contains('dir-link') && !a.hasAttribute('download');
-                if (isDirLink) showOverlay();
+                const isPaginationLink = a.classList.contains('pagination-btn') || a.classList.contains('pagination-number');
+                
+                if (isDirLink || isPaginationLink) showOverlay();
             }, { capture: true });
 
             window.addEventListener('beforeunload', showOverlay);

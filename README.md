@@ -14,6 +14,7 @@ Perfect for sharing downloads, documents, or quick internal file access.
 
 - ✅ **Zero configuration** — works immediately
 - 📁 **Automatically lists files and subdirectories** with breadcrumb navigation
+- 📄 **Pagination** — configurable threshold for large directories (default: 25 items per page)
 - 🔒 **Security-hardened** — protects against path traversal, code execution, and other vulnerabilities
 - 🚫 **Smart exclusions** — hides hidden files (starting with `.`), system files, and dangerous executables
 - 🎨 **Modern, responsive design** — works beautifully on desktop, tablet, and mobile
@@ -112,6 +113,12 @@ That’s it - the file list will render automatically.
 
 You can easily tailor the lister by editing the `index.php` file:
 
+- **Pagination threshold**  
+  Change the `$paginationThreshold` variable at the top of the file to control when pagination appears. Default is 25 items (files + folders combined). Set to a higher number to show more items per page, or lower to paginate sooner.
+  ```php
+  $paginationThreshold = 25; // Show 25 items per page
+  ```
+
 - **Title, subtitle & footer**  
   Change the `$title`, `$subtitle`, and `$footer` variables at the top of the file.
 
@@ -140,7 +147,8 @@ You can easily tailor the lister by editing the `index.php` file:
 ## Notes
 
 - Files and directories are sorted naturally (case-insensitive) for better organization
-- No pagination is included by default (by design, to keep it simple)
+- Pagination automatically appears when the number of items exceeds the configured threshold (default: 25)
+- Pagination preserves the current directory path when navigating between pages
 - No authentication is built-in — use web server authentication (`.htaccess`, HTTP Basic Auth) if needed
 - Hover previews only work on desktop devices with mouse support (disabled on touch-only devices)
 - ZIP download feature requires the ZipArchive PHP extension (enabled by default on most PHP installations)
