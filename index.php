@@ -297,10 +297,8 @@
                 }
                 
                 if (is_dir($fullPath)) {
-                    // Recurse into directory only if we haven't found content yet
-                    if (!$hasContent) {
-                        $checkContent($fullPath);
-                    }
+                    // Recurse into directory (early exit in loop handles found content)
+                    $checkContent($fullPath);
                 } else {
                     // Skip dangerous extensions
                     $ext = strtolower(pathinfo($entry, PATHINFO_EXTENSION));
