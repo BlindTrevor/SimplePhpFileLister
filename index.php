@@ -1,494 +1,531 @@
 <?php
+// ==============================================================================
+// SIMPLE PHP FILE LISTER
+// ==============================================================================
 
-    // CONFIGURATION
-    // Set the number of files to show per page before pagination is enabled
-    // When the total number of files and folders exceeds this threshold, pagination controls will appear
-    $paginationThreshold = 25;
+// ------------------------------------------------------------------------------
+// CONFIGURATION
+// ------------------------------------------------------------------------------
 
-    $title = "Simple PHP File Lister";
-    $subtitle = "The Easy Way To List Files In A Directory";
-    $footer = "Made with ❤️ by Blind Trevor";
+// Set the number of files to show per page before pagination is enabled
+// When the total number of files and folders exceeds this threshold, pagination controls will appear
+$paginationThreshold = 25;
+
+$title = "Simple PHP File Lister";
+$subtitle = "The Easy Way To List Files In A Directory";
+$footer = "Made with ❤️ by Blind Trevor";
+
+// ------------------------------------------------------------------------------
+// SECURITY SETUP
+// ------------------------------------------------------------------------------
 
 // Security: prevent directory traversal
-    $realRoot = rtrim(realpath('.'), DIRECTORY_SEPARATOR) . DIRECTORY_SEPARATOR;
-    
-    // FAST PATH: Secure preview handler (for inline display in browser)
-    // This is placed at the top for maximum performance - exits immediately without loading anything else
-    // NOTE: MIME types array is intentionally duplicated here (also in getPreviewMimeType()) 
-    //       to avoid loading any functions. This duplication is a performance optimization.
-    //       When updating supported file types, update BOTH locations.
-    if (isset($_GET['preview'])) {
-        $rel = (string)$_GET['preview'];
-        $full = realpath($realRoot . $rel);
-        
-        // Validate path is within root and file exists
-        if ($full === false || strpos($full . DIRECTORY_SEPARATOR, $realRoot) !== 0) {
-            http_response_code(404);
-            exit('Not found');
-        }
-        
-        // Ensure it's a file, not a directory
-        if (!is_file($full)) {
-            http_response_code(404);
-            exit('Not found');
-        }
-        
-        // Get file extension and determine MIME type (inlined for speed)
-        $ext = strtolower(pathinfo($full, PATHINFO_EXTENSION));
-        $mimeTypes = [
-            // Images
-            'jpg' => 'image/jpeg',
-            'jpeg' => 'image/jpeg',
-            'png' => 'image/png',
-            'gif' => 'image/gif',
-            'webp' => 'image/webp',
-            'svg' => 'image/svg+xml',
-            'bmp' => 'image/bmp',
-            'ico' => 'image/x-icon',
-            // Videos
-            'mp4' => 'video/mp4',
-            'webm' => 'video/webm',
-            'ogv' => 'video/ogg',
-            // Audio
-            'mp3' => 'audio/mpeg',
-            'wav' => 'audio/wav',
-            'oga' => 'audio/ogg',
-            'flac' => 'audio/flac',
-            'm4a' => 'audio/mp4',
-            // Documents
-            'pdf' => 'application/pdf',
-        ];
-        
-        // Only allow previewable file types
-        if (!isset($mimeTypes[$ext])) {
-            http_response_code(403);
-            exit('Preview not supported for this file type');
-        }
-        
-        $mimeType = $mimeTypes[$ext];
-        
-        // Open file for reading before sending headers
-        $fp = fopen($full, 'rb');
-        if ($fp === false) {
-            http_response_code(500);
-            exit('Failed to read file');
-        }
-        
-        // Set headers for inline display
-        header('Content-Type: ' . $mimeType);
-        header('Content-Disposition: inline');
-        header('X-Content-Type-Options: nosniff');
-        header('Content-Length: ' . filesize($full));
-        header('Cache-Control: public, max-age=3600');
-        
-        // Disable output buffering for efficient streaming
-        while (ob_get_level() > 0) {
-            ob_end_clean();
-        }
-        
-        // Stream file content
-        fpassthru($fp);
-        fclose($fp);
-        exit;
-    }
-        
-    // Blocked file extensions to prevent code execution
-    define('BLOCKED_EXTENSIONS', ['php', 'phtml', 'phar', 'cgi', 'pl', 'sh', 'bat', 'exe', 
-                                   'jsp', 'asp', 'aspx', 'py', 'rb', 'ps1', 'vbs', 'htaccess',
-                                   'scr', 'com', 'jar']);
-    
-    // Secure download all as zip handler
-    if (isset($_GET['download_all_zip'])) {
-        // Check if ZipArchive is available
-        if (!class_exists('ZipArchive')) {
-            http_response_code(500);
-            exit('ZIP support is not available');
-        }
-        
-        $currentPath = isset($_GET['path']) ? rtrim((string)$_GET['path'], '/') : '';
-        $basePath = $currentPath ? './' . str_replace('\\', '/', $currentPath) : '.';
-        $realBase = realpath($basePath);
-        
-        // Validate path is within root (use DIRECTORY_SEPARATOR suffix to prevent edge case bypasses)
-        if ($realBase === false || strpos($realBase . DIRECTORY_SEPARATOR, $realRoot) !== 0) {
-            http_response_code(404);
-            exit('Not found');
-        }
-        
-        // Create a temporary zip file with random name
-        $tempZip = tempnam(sys_get_temp_dir(), 'spfl_' . bin2hex(random_bytes(8)) . '_');
-        
-        // Ensure cleanup even if script terminates unexpectedly
-        register_shutdown_function(function() use ($tempZip) {
-            if (file_exists($tempZip)) {
-                @unlink($tempZip);
-            }
-        });
-        
-        $zip = new ZipArchive();
-        
-        if ($zip->open($tempZip, ZipArchive::CREATE | ZipArchive::OVERWRITE) !== true) {
-            @unlink($tempZip);
-            http_response_code(500);
-            exit('Failed to create ZIP file');
-        }
-        
-        // Recursive function to add directory contents to zip
-        $addToZip = function($dir, $zipPath, &$count) use (&$addToZip, $zip, $realRoot) {
-            $handle = opendir($dir);
-            if ($handle === false) {
-                return;
-            }
-            
-            while (($entry = readdir($handle)) !== false) {
-                if (in_array($entry, ['.', '..', 'index.php'], true) || $entry[0] === '.') {
-                    continue;
-                }
-                
-                $fullPath = $dir . '/' . $entry;
-                $realPath = realpath($fullPath);
-                
-                // Skip invalid paths, symlinks
-                if (is_link($fullPath) || $realPath === false || 
-                    strpos($realPath . DIRECTORY_SEPARATOR, $realRoot) !== 0) {
-                    continue;
-                }
-                
-                $zipEntryPath = $zipPath ? $zipPath . '/' . $entry : $entry;
-                
-                if (is_dir($fullPath)) {
-                    // Add directory to zip and recurse
-                    $zip->addEmptyDir($zipEntryPath);
-                    $addToZip($fullPath, $zipEntryPath, $count);
-                } else {
-                    // Block dangerous extensions
-                    $ext = strtolower(pathinfo($entry, PATHINFO_EXTENSION));
-                    if (in_array($ext, BLOCKED_EXTENSIONS, true)) {
-                        continue;
-                    }
-                    
-                    // Add file to zip
-                    if ($zip->addFile($fullPath, $zipEntryPath)) {
-                        $count++;
-                    }
-                }
-            }
-            closedir($handle);
-        };
-        
-        // Add files and directories to zip
-        $fileCount = 0;
-        $addToZip($basePath, '', $fileCount);
-        
-        $zip->close();
-        
-        // If no files were added, clean up and exit
-        if ($fileCount === 0) {
-            @unlink($tempZip);
-            http_response_code(404);
-            exit('No files available to download');
-        }
-        
-        // Generate safe filename for the zip
-        $zipFilename = 'files.zip';
-        if ($currentPath) {
-            $folderName = basename($currentPath);
-            $safeFolderName = preg_replace('/[^a-zA-Z0-9_-]/', '_', $folderName);
-            $zipFilename = $safeFolderName . '.zip';
-        }
-        
-        // Open file for reading before sending headers
-        $fp = fopen($tempZip, 'rb');
-        if ($fp === false) {
-            @unlink($tempZip);
-            http_response_code(500);
-            exit('Failed to read ZIP file');
-        }
-        
-        // Send the zip file
-        $safeFilename = preg_replace('/[\x00-\x1F\x7F"\\\\]|[\r\n]/', '', $zipFilename);
-        $encodedFilename = rawurlencode($zipFilename);
-        
-        header('Content-Type: application/zip');
-        header("Content-Disposition: attachment; filename=\"{$safeFilename}\"; filename*=UTF-8''{$encodedFilename}");
-        header('X-Content-Type-Options: nosniff');
-        header('Content-Length: ' . filesize($tempZip));
-        
-        // Disable output buffering for efficient streaming of large files
-        while (ob_get_level() > 0) {
-            ob_end_clean();
-        }
-        
-        // Stream file content and cleanup
-        fpassthru($fp);
-        fclose($fp);
-        @unlink($tempZip);
-        exit;
-    }
-    
-    // Secure download handler
-    if (isset($_GET['download'])) {
-        $rel = (string)$_GET['download'];
-        $full = realpath($realRoot . $rel);
-        
-        // Validate path is within root and file exists
-        // Use strpos with DIRECTORY_SEPARATOR suffix to handle edge cases
-        if ($full === false || strpos($full . DIRECTORY_SEPARATOR, $realRoot) !== 0) {
-            http_response_code(404);
-            exit('Not found');
-        }
-        
-        // Ensure it's a file, not a directory
-        if (!is_file($full)) {
-            http_response_code(404);
-            exit('Not found');
-        }
-        
-        // Block dangerous extensions to prevent code execution
-        $ext = strtolower(pathinfo($full, PATHINFO_EXTENSION));
-        if (in_array($ext, BLOCKED_EXTENSIONS, true)) {
-            http_response_code(403);
-            exit('Forbidden');
-        }
-        
-        // Open file for reading before sending headers
-        $fp = fopen($full, 'rb');
-        if ($fp === false) {
-            // No cleanup needed for regular files (unlike temp ZIP files)
-            http_response_code(500);
-            exit('Failed to read file');
-        }
-        
-        // Set secure download headers with properly escaped filename
-        $filename = basename($full);
-        // Remove control characters and dangerous chars for header injection prevention
-        $safeFilename = preg_replace('/[\x00-\x1F\x7F"\\\\]|[\r\n]/', '', $filename);
-        // Use RFC 2231 encoding for Unicode filename support
-        $encodedFilename = rawurlencode($filename);
-        
-        header('Content-Type: application/octet-stream');
-        header("Content-Disposition: attachment; filename=\"{$safeFilename}\"; filename*=UTF-8''{$encodedFilename}");
-        header('X-Content-Type-Options: nosniff');
-        header('Content-Length: ' . filesize($full));
-        
-        // Disable output buffering for efficient streaming of large files
-        while (ob_get_level() > 0) {
-            ob_end_clean();
-        }
-        
-        // Stream file content
-        fpassthru($fp);
-        fclose($fp);
-        exit;
-    }
-    
-    // Redirect if path=.
-    if (isset($_GET['path']) && $_GET['path'] === '.') {
-        header('Location: ' . strtok($_SERVER['REQUEST_URI'], '?'));
-        exit;
-    }
+$realRoot = rtrim(realpath('.'), DIRECTORY_SEPARATOR) . DIRECTORY_SEPARATOR;
 
-    // Generate a cryptographically secure nonce for CSP
-    $cspNonce = base64_encode(random_bytes(16));
+// Blocked file extensions to prevent code execution
+define('BLOCKED_EXTENSIONS', [
+    'php', 'phtml', 'phar', 'cgi', 'pl', 'sh', 'bat', 'exe',
+    'jsp', 'asp', 'aspx', 'py', 'rb', 'ps1', 'vbs', 'htaccess',
+    'scr', 'com', 'jar'
+]);
+
+// ------------------------------------------------------------------------------
+// FAST PATH: PREVIEW HANDLER
+// ------------------------------------------------------------------------------
+
+// This is placed at the top for maximum performance - exits immediately without loading anything else
+// NOTE: MIME types array is intentionally duplicated here (also in getPreviewMimeType())
+//       to avoid loading any functions. This duplication is a performance optimization.
+//       When updating supported file types, update BOTH locations.
+if (isset($_GET['preview'])) {
+    $rel = (string)$_GET['preview'];
+    $full = realpath($realRoot . $rel);
     
+    // Validate path is within root and file exists
+    if ($full === false || strpos($full . DIRECTORY_SEPARATOR, $realRoot) !== 0) {
+        http_response_code(404);
+        exit('Not found');
+    }
+    
+    // Ensure it's a file, not a directory
+    if (!is_file($full)) {
+        http_response_code(404);
+        exit('Not found');
+    }
+    
+    // Get file extension and determine MIME type (inlined for speed)
+    $ext = strtolower(pathinfo($full, PATHINFO_EXTENSION));
+    $mimeTypes = [
+        // Images
+        'jpg' => 'image/jpeg',
+        'jpeg' => 'image/jpeg',
+        'png' => 'image/png',
+        'gif' => 'image/gif',
+        'webp' => 'image/webp',
+        'svg' => 'image/svg+xml',
+        'bmp' => 'image/bmp',
+        'ico' => 'image/x-icon',
+        // Videos
+        'mp4' => 'video/mp4',
+        'webm' => 'video/webm',
+        'ogv' => 'video/ogg',
+        // Audio
+        'mp3' => 'audio/mpeg',
+        'wav' => 'audio/wav',
+        'oga' => 'audio/ogg',
+        'flac' => 'audio/flac',
+        'm4a' => 'audio/mp4',
+        // Documents
+        'pdf' => 'application/pdf',
+    ];
+    
+    // Only allow previewable file types
+    if (!isset($mimeTypes[$ext])) {
+        http_response_code(403);
+        exit('Preview not supported for this file type');
+    }
+    
+    $mimeType = $mimeTypes[$ext];
+    
+    // Open file for reading before sending headers
+    $fp = fopen($full, 'rb');
+    if ($fp === false) {
+        http_response_code(500);
+        exit('Failed to read file');
+    }
+    
+    // Set headers for inline display
+    header('Content-Type: ' . $mimeType);
+    header('Content-Disposition: inline');
     header('X-Content-Type-Options: nosniff');
-    header('X-Frame-Options: DENY');
-    header('Referrer-Policy: no-referrer');
-    header('Permissions-Policy: geolocation=(), camera=(), microphone=()');
-    header("Content-Security-Policy: default-src 'self'; style-src 'self' https://cdnjs.cloudflare.com 'nonce-{$cspNonce}'; script-src 'self' 'nonce-{$cspNonce}'; img-src 'self' https://img.shields.io data: blob:; font-src https://cdnjs.cloudflare.com; media-src 'self' blob:; object-src 'none'; base-uri 'self'; frame-ancestors 'none'");
+    header('Content-Length: ' . filesize($full));
+    header('Cache-Control: public, max-age=3600');
+    
+    // Disable output buffering for efficient streaming
+    while (ob_get_level() > 0) {
+        ob_end_clean();
+    }
+    
+    // Stream file content
+    fpassthru($fp);
+    fclose($fp);
+    exit;
+}
+
+// ------------------------------------------------------------------------------
+// DOWNLOAD ALL AS ZIP HANDLER
+// ------------------------------------------------------------------------------
+
+if (isset($_GET['download_all_zip'])) {
+    // Check if ZipArchive is available
+    if (!class_exists('ZipArchive')) {
+        http_response_code(500);
+        exit('ZIP support is not available');
+    }
+    
     $currentPath = isset($_GET['path']) ? rtrim((string)$_GET['path'], '/') : '';
     $basePath = $currentPath ? './' . str_replace('\\', '/', $currentPath) : '.';
     $realBase = realpath($basePath);
     
-    $isValidPath = $realBase !== false && strpos($realBase . DIRECTORY_SEPARATOR, $realRoot) === 0;
-
-    // Pagination: Get current page from query string, default to 1
-    $currentPage = isset($_GET['page']) ? max(1, (int)$_GET['page']) : 1;
-
-    // Create breadcrumbs array
-    $breadcrumbs = [];
-    if ($isValidPath) {
-        $pathParts = explode('/', $currentPath);
-        $accumulatedPath = '';
-        foreach ($pathParts as $part) {
-            if ($part !== '') {
-                $accumulatedPath .= ($accumulatedPath ? '/' : '') . $part;
-                $breadcrumbs[] = [
-                    'name' => htmlspecialchars($part, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8'),
-                    'path' => $accumulatedPath
-                ];
-            }
+    // Validate path is within root (use DIRECTORY_SEPARATOR suffix to prevent edge case bypasses)
+    if ($realBase === false || strpos($realBase . DIRECTORY_SEPARATOR, $realRoot) !== 0) {
+        http_response_code(404);
+        exit('Not found');
+    }
+    
+    // Create a temporary zip file with random name
+    $tempZip = tempnam(sys_get_temp_dir(), 'spfl_' . bin2hex(random_bytes(8)) . '_');
+    
+    // Ensure cleanup even if script terminates unexpectedly
+    register_shutdown_function(function() use ($tempZip) {
+        if (file_exists($tempZip)) {
+            @unlink($tempZip);
         }
+    });
+    
+    $zip = new ZipArchive();
+    
+    if ($zip->open($tempZip, ZipArchive::CREATE | ZipArchive::OVERWRITE) !== true) {
+        @unlink($tempZip);
+        http_response_code(500);
+        exit('Failed to create ZIP file');
     }
-
-    function getPreviewableFileTypes(): array {
-        return [
-            'image' => ['jpg', 'jpeg', 'png', 'gif', 'webp', 'svg', 'bmp', 'ico'],
-            'video' => ['mp4', 'webm', 'ogv'],
-            'audio' => ['mp3', 'wav', 'oga', 'flac', 'm4a'],
-            // PDF preview is limited in tooltips, shown as placeholder message
-            'pdf' => ['pdf'],
-        ];
-    }
-
-    function getPreviewMimeType(string $ext): ?string {
-        $mimeTypes = [
-            // Images
-            'jpg' => 'image/jpeg',
-            'jpeg' => 'image/jpeg',
-            'png' => 'image/png',
-            'gif' => 'image/gif',
-            'webp' => 'image/webp',
-            'svg' => 'image/svg+xml',
-            'bmp' => 'image/bmp',
-            'ico' => 'image/x-icon',
-            // Videos
-            'mp4' => 'video/mp4',
-            'webm' => 'video/webm',
-            'ogv' => 'video/ogg',
-            // Audio
-            'mp3' => 'audio/mpeg',
-            'wav' => 'audio/wav',
-            'oga' => 'audio/ogg',
-            'flac' => 'audio/flac',
-            'm4a' => 'audio/mp4',
-            // Documents
-            'pdf' => 'application/pdf',
-        ];
+    
+    // Recursive function to add directory contents to zip
+    $addToZip = function($dir, $zipPath, &$count) use (&$addToZip, $zip, $realRoot) {
+        $handle = opendir($dir);
+        if ($handle === false) {
+            return;
+        }
         
-        return $mimeTypes[$ext] ?? null;
-    }
-
-    function formatFileSize(int $bytes): string {
-        if ($bytes === 0) {
-            return '0 B';
-        }
-        $units = ['B', 'KB', 'MB', 'GB', 'TB'];
-        $i = floor(log($bytes, 1024));
-        $i = min($i, count($units) - 1);
-        $size = $bytes / pow(1024, $i);
-        
-        if ($i === 0) {
-            return sprintf('%d B', $size);
-        }
-        return sprintf('%.2f %s', $size, $units[$i]);
-    }
-
-    function getFileIcon(string $path): array {
-        $ext = strtolower(pathinfo($path, PATHINFO_EXTENSION));
-        $extMap = [
-            'pdf' => ['fa-regular fa-file-pdf', 'icon-pdf'],
-            'doc' => ['fa-regular fa-file-word', 'icon-word'],
-            'docx' => ['fa-regular fa-file-word', 'icon-word'],
-            'xlsx' => ['fa-regular fa-file-excel', 'icon-excel'],
-            'pptx' => ['fa-regular fa-file-powerpoint', 'icon-powerpoint'],
-            'zip' => ['fa-solid fa-file-zipper', 'icon-archive'],
-            'jpg' => ['fa-regular fa-file-image', 'icon-image'],
-            'png' => ['fa-regular fa-file-image', 'icon-image'],
-            'mp3' => ['fa-regular fa-file-audio', 'icon-audio'],
-            'mp4' => ['fa-regular fa-file-video', 'icon-video'],
-            'html' => ['fa-regular fa-file-code', 'icon-html'],
-            'css' => ['fa-regular fa-file-code', 'icon-css'],
-            'js' => ['fa-regular fa-file-code', 'icon-js'],
-            'php' => ['fa-regular fa-file-code', 'icon-php'],
-            'md' => ['fa-regular fa-file-lines', 'icon-markdown'],
-        ];
-
-        return $extMap[$ext] ?? ['fa-regular fa-file', 'icon-default'];
-    }
-
-    function renderItem(string $entry, bool $isDir, string $currentPath, int $fileSize = 0): void {
-        if ($isDir) {
-            $href = '?path=' . rawurlencode($currentPath ? $currentPath . '/' . $entry : $entry);
-            $iconClass = 'fa-solid fa-folder';
-            $colorClass = 'icon-folder';
-            $linkAttributes = 'class="dir-link"';
-            $sizeHtml = '';
-            $dataAttributes = '';
-        } else {
-            // Use secure download handler for files
-            $filePath = $currentPath ? $currentPath . '/' . $entry : $entry;
-            $href = '?download=' . rawurlencode($filePath);
-            [$iconClass, $colorClass] = getFileIcon($entry);
-            // Open downloads in new tab to prevent loading overlay on main page
-            $linkAttributes = 'target="_blank" rel="noopener noreferrer"';
-            $sizeHtml = '<span class="file-size">' . htmlspecialchars(formatFileSize($fileSize), ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8') . '</span>';
-            
-            // Add data attributes for preview functionality
-            $ext = strtolower(pathinfo($entry, PATHINFO_EXTENSION));
-            $previewTypes = getPreviewableFileTypes();
-            
-            $dataAttributes = '';
-            if (in_array($ext, $previewTypes['image'])) {
-                $dataAttributes = ' data-preview="image" data-file-path="' . htmlspecialchars($filePath, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8') . '"';
-            } elseif (in_array($ext, $previewTypes['video'])) {
-                $dataAttributes = ' data-preview="video" data-file-path="' . htmlspecialchars($filePath, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8') . '"';
-            } elseif (in_array($ext, $previewTypes['audio'])) {
-                $dataAttributes = ' data-preview="audio" data-file-path="' . htmlspecialchars($filePath, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8') . '"';
-            } elseif (in_array($ext, $previewTypes['pdf'])) {
-                $dataAttributes = ' data-preview="pdf" data-file-path="' . htmlspecialchars($filePath, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8') . '"';
-            }
-        }
-
-        $label = htmlspecialchars($entry, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
-
-        printf(
-            '<li><a href="%s" %s%s><span class="file-icon %s"><i class="%s"></i></span><span class="file-name">%s</span>%s</a></li>' . PHP_EOL,
-            htmlspecialchars($href, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8'),
-            $linkAttributes,
-            $dataAttributes,
-            htmlspecialchars($colorClass, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8'),
-            htmlspecialchars($iconClass, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8'),
-            $label,
-            $sizeHtml
-        );
-    }
-
-    function hasDownloadableContent(string $dir, string $realRoot): bool {
-        $hasContent = false;
-        
-        $checkContent = function($checkDir) use (&$checkContent, $realRoot, &$hasContent) {
-            $handle = opendir($checkDir);
-            if ($handle === false) {
-                return;
+        while (($entry = readdir($handle)) !== false) {
+            if (in_array($entry, ['.', '..', 'index.php'], true) || $entry[0] === '.') {
+                continue;
             }
             
-            while (($entry = readdir($handle)) !== false) {
-                if ($hasContent) break; // Early exit if we found content
-                
-                if (in_array($entry, ['.', '..', 'index.php'], true) || $entry[0] === '.') {
+            $fullPath = $dir . '/' . $entry;
+            $realPath = realpath($fullPath);
+            
+            // Skip invalid paths, symlinks
+            if (is_link($fullPath) || $realPath === false ||
+                strpos($realPath . DIRECTORY_SEPARATOR, $realRoot) !== 0) {
+                continue;
+            }
+            
+            $zipEntryPath = $zipPath ? $zipPath . '/' . $entry : $entry;
+            
+            if (is_dir($fullPath)) {
+                // Add directory to zip and recurse
+                $zip->addEmptyDir($zipEntryPath);
+                $addToZip($fullPath, $zipEntryPath, $count);
+            } else {
+                // Block dangerous extensions
+                $ext = strtolower(pathinfo($entry, PATHINFO_EXTENSION));
+                if (in_array($ext, BLOCKED_EXTENSIONS, true)) {
                     continue;
                 }
                 
-                $fullPath = $checkDir . '/' . $entry;
-                $realPath = realpath($fullPath);
-                
-                // Skip invalid paths, symlinks
-                if (is_link($fullPath) || $realPath === false || 
-                    strpos($realPath . DIRECTORY_SEPARATOR, $realRoot) !== 0) {
+                // Add file to zip
+                if ($zip->addFile($fullPath, $zipEntryPath)) {
+                    $count++;
+                }
+            }
+        }
+        closedir($handle);
+    };
+    
+    // Add files and directories to zip
+    $fileCount = 0;
+    $addToZip($basePath, '', $fileCount);
+    
+    $zip->close();
+    
+    // If no files were added, clean up and exit
+    if ($fileCount === 0) {
+        @unlink($tempZip);
+        http_response_code(404);
+        exit('No files available to download');
+    }
+    
+    // Generate safe filename for the zip
+    $zipFilename = 'files.zip';
+    if ($currentPath) {
+        $folderName = basename($currentPath);
+        $safeFolderName = preg_replace('/[^a-zA-Z0-9_-]/', '_', $folderName);
+        $zipFilename = $safeFolderName . '.zip';
+    }
+    
+    // Open file for reading before sending headers
+    $fp = fopen($tempZip, 'rb');
+    if ($fp === false) {
+        @unlink($tempZip);
+        http_response_code(500);
+        exit('Failed to read ZIP file');
+    }
+    
+    // Send the zip file
+    $safeFilename = preg_replace('/[\x00-\x1F\x7F"\\\\]|[\r\n]/', '', $zipFilename);
+    $encodedFilename = rawurlencode($zipFilename);
+    
+    header('Content-Type: application/zip');
+    header("Content-Disposition: attachment; filename=\"{$safeFilename}\"; filename*=UTF-8''{$encodedFilename}");
+    header('X-Content-Type-Options: nosniff');
+    header('Content-Length: ' . filesize($tempZip));
+    
+    // Disable output buffering for efficient streaming of large files
+    while (ob_get_level() > 0) {
+        ob_end_clean();
+    }
+    
+    // Stream file content and cleanup
+    fpassthru($fp);
+    fclose($fp);
+    @unlink($tempZip);
+    exit;
+}
+
+// ------------------------------------------------------------------------------
+// SINGLE FILE DOWNLOAD HANDLER
+// ------------------------------------------------------------------------------
+
+if (isset($_GET['download'])) {
+    $rel = (string)$_GET['download'];
+    $full = realpath($realRoot . $rel);
+    
+    // Validate path is within root and file exists
+    // Use strpos with DIRECTORY_SEPARATOR suffix to handle edge cases
+    if ($full === false || strpos($full . DIRECTORY_SEPARATOR, $realRoot) !== 0) {
+        http_response_code(404);
+        exit('Not found');
+    }
+    
+    // Ensure it's a file, not a directory
+    if (!is_file($full)) {
+        http_response_code(404);
+        exit('Not found');
+    }
+    
+    // Block dangerous extensions to prevent code execution
+    $ext = strtolower(pathinfo($full, PATHINFO_EXTENSION));
+    if (in_array($ext, BLOCKED_EXTENSIONS, true)) {
+        http_response_code(403);
+        exit('Forbidden');
+    }
+    
+    // Open file for reading before sending headers
+    $fp = fopen($full, 'rb');
+    if ($fp === false) {
+        // No cleanup needed for regular files (unlike temp ZIP files)
+        http_response_code(500);
+        exit('Failed to read file');
+    }
+    
+    // Set secure download headers with properly escaped filename
+    $filename = basename($full);
+    // Remove control characters and dangerous chars for header injection prevention
+    $safeFilename = preg_replace('/[\x00-\x1F\x7F"\\\\]|[\r\n]/', '', $filename);
+    // Use RFC 2231 encoding for Unicode filename support
+    $encodedFilename = rawurlencode($filename);
+    
+    header('Content-Type: application/octet-stream');
+    header("Content-Disposition: attachment; filename=\"{$safeFilename}\"; filename*=UTF-8''{$encodedFilename}");
+    header('X-Content-Type-Options: nosniff');
+    header('Content-Length: ' . filesize($full));
+    
+    // Disable output buffering for efficient streaming of large files
+    while (ob_get_level() > 0) {
+        ob_end_clean();
+    }
+    
+    // Stream file content
+    fpassthru($fp);
+    fclose($fp);
+    exit;
+}
+
+// ------------------------------------------------------------------------------
+// PATH HANDLING
+// ------------------------------------------------------------------------------
+
+// Redirect if path=.
+if (isset($_GET['path']) && $_GET['path'] === '.') {
+    header('Location: ' . strtok($_SERVER['REQUEST_URI'], '?'));
+    exit;
+}
+
+// Generate a cryptographically secure nonce for CSP
+$cspNonce = base64_encode(random_bytes(16));
+
+// Set security headers
+header('X-Content-Type-Options: nosniff');
+header('X-Frame-Options: DENY');
+header('Referrer-Policy: no-referrer');
+header('Permissions-Policy: geolocation=(), camera=(), microphone=()');
+header("Content-Security-Policy: default-src 'self'; style-src 'self' https://cdnjs.cloudflare.com 'nonce-{$cspNonce}'; script-src 'self' 'nonce-{$cspNonce}'; img-src 'self' https://img.shields.io data: blob:; font-src https://cdnjs.cloudflare.com; media-src 'self' blob:; object-src 'none'; base-uri 'self'; frame-ancestors 'none'");
+
+$currentPath = isset($_GET['path']) ? rtrim((string)$_GET['path'], '/') : '';
+$basePath = $currentPath ? './' . str_replace('\\', '/', $currentPath) : '.';
+$realBase = realpath($basePath);
+
+$isValidPath = $realBase !== false && strpos($realBase . DIRECTORY_SEPARATOR, $realRoot) === 0;
+
+// Pagination: Get current page from query string, default to 1
+$currentPage = isset($_GET['page']) ? max(1, (int)$_GET['page']) : 1;
+
+// Create breadcrumbs array
+$breadcrumbs = [];
+if ($isValidPath) {
+    $pathParts = explode('/', $currentPath);
+    $accumulatedPath = '';
+    foreach ($pathParts as $part) {
+        if ($part !== '') {
+            $accumulatedPath .= ($accumulatedPath ? '/' : '') . $part;
+            $breadcrumbs[] = [
+                'name' => htmlspecialchars($part, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8'),
+                'path' => $accumulatedPath
+            ];
+        }
+    }
+}
+
+// ------------------------------------------------------------------------------
+// HELPER FUNCTIONS
+// ------------------------------------------------------------------------------
+
+function getPreviewableFileTypes(): array
+{
+    return [
+        'image' => ['jpg', 'jpeg', 'png', 'gif', 'webp', 'svg', 'bmp', 'ico'],
+        'video' => ['mp4', 'webm', 'ogv'],
+        'audio' => ['mp3', 'wav', 'oga', 'flac', 'm4a'],
+        // PDF preview is limited in tooltips, shown as placeholder message
+        'pdf' => ['pdf'],
+    ];
+}
+
+function getPreviewMimeType(string $ext): ?string
+{
+    $mimeTypes = [
+        // Images
+        'jpg' => 'image/jpeg',
+        'jpeg' => 'image/jpeg',
+        'png' => 'image/png',
+        'gif' => 'image/gif',
+        'webp' => 'image/webp',
+        'svg' => 'image/svg+xml',
+        'bmp' => 'image/bmp',
+        'ico' => 'image/x-icon',
+        // Videos
+        'mp4' => 'video/mp4',
+        'webm' => 'video/webm',
+        'ogv' => 'video/ogg',
+        // Audio
+        'mp3' => 'audio/mpeg',
+        'wav' => 'audio/wav',
+        'oga' => 'audio/ogg',
+        'flac' => 'audio/flac',
+        'm4a' => 'audio/mp4',
+        // Documents
+        'pdf' => 'application/pdf',
+    ];
+    
+    return $mimeTypes[$ext] ?? null;
+}
+
+function formatFileSize(int $bytes): string
+{
+    if ($bytes === 0) {
+        return '0 B';
+    }
+    $units = ['B', 'KB', 'MB', 'GB', 'TB'];
+    $i = floor(log($bytes, 1024));
+    $i = min($i, count($units) - 1);
+    $size = $bytes / pow(1024, $i);
+    
+    if ($i === 0) {
+        return sprintf('%d B', $size);
+    }
+    return sprintf('%.2f %s', $size, $units[$i]);
+}
+
+function getFileIcon(string $path): array
+{
+    $ext = strtolower(pathinfo($path, PATHINFO_EXTENSION));
+    $extMap = [
+        'pdf' => ['fa-regular fa-file-pdf', 'icon-pdf'],
+        'doc' => ['fa-regular fa-file-word', 'icon-word'],
+        'docx' => ['fa-regular fa-file-word', 'icon-word'],
+        'xlsx' => ['fa-regular fa-file-excel', 'icon-excel'],
+        'pptx' => ['fa-regular fa-file-powerpoint', 'icon-powerpoint'],
+        'zip' => ['fa-solid fa-file-zipper', 'icon-archive'],
+        'jpg' => ['fa-regular fa-file-image', 'icon-image'],
+        'png' => ['fa-regular fa-file-image', 'icon-image'],
+        'mp3' => ['fa-regular fa-file-audio', 'icon-audio'],
+        'mp4' => ['fa-regular fa-file-video', 'icon-video'],
+        'html' => ['fa-regular fa-file-code', 'icon-html'],
+        'css' => ['fa-regular fa-file-code', 'icon-css'],
+        'js' => ['fa-regular fa-file-code', 'icon-js'],
+        'php' => ['fa-regular fa-file-code', 'icon-php'],
+        'md' => ['fa-regular fa-file-lines', 'icon-markdown'],
+    ];
+
+    return $extMap[$ext] ?? ['fa-regular fa-file', 'icon-default'];
+}
+
+function renderItem(string $entry, bool $isDir, string $currentPath, int $fileSize = 0): void
+{
+    if ($isDir) {
+        $href = '?path=' . rawurlencode($currentPath ? $currentPath . '/' . $entry : $entry);
+        $iconClass = 'fa-solid fa-folder';
+        $colorClass = 'icon-folder';
+        $linkAttributes = 'class="dir-link"';
+        $sizeHtml = '';
+        $dataAttributes = '';
+    } else {
+        // Use secure download handler for files
+        $filePath = $currentPath ? $currentPath . '/' . $entry : $entry;
+        $href = '?download=' . rawurlencode($filePath);
+        [$iconClass, $colorClass] = getFileIcon($entry);
+        // Open downloads in new tab to prevent loading overlay on main page
+        $linkAttributes = 'target="_blank" rel="noopener noreferrer"';
+        $sizeHtml = '<span class="file-size">' . htmlspecialchars(formatFileSize($fileSize), ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8') . '</span>';
+        
+        // Add data attributes for preview functionality
+        $ext = strtolower(pathinfo($entry, PATHINFO_EXTENSION));
+        $previewTypes = getPreviewableFileTypes();
+        
+        $dataAttributes = '';
+        if (in_array($ext, $previewTypes['image'])) {
+            $dataAttributes = ' data-preview="image" data-file-path="' . htmlspecialchars($filePath, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8') . '"';
+        } elseif (in_array($ext, $previewTypes['video'])) {
+            $dataAttributes = ' data-preview="video" data-file-path="' . htmlspecialchars($filePath, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8') . '"';
+        } elseif (in_array($ext, $previewTypes['audio'])) {
+            $dataAttributes = ' data-preview="audio" data-file-path="' . htmlspecialchars($filePath, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8') . '"';
+        } elseif (in_array($ext, $previewTypes['pdf'])) {
+            $dataAttributes = ' data-preview="pdf" data-file-path="' . htmlspecialchars($filePath, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8') . '"';
+        }
+    }
+
+    $label = htmlspecialchars($entry, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
+
+    printf(
+        '<li><a href="%s" %s%s><span class="file-icon %s"><i class="%s"></i></span><span class="file-name">%s</span>%s</a></li>' . PHP_EOL,
+        htmlspecialchars($href, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8'),
+        $linkAttributes,
+        $dataAttributes,
+        htmlspecialchars($colorClass, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8'),
+        htmlspecialchars($iconClass, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8'),
+        $label,
+        $sizeHtml
+    );
+}
+
+function hasDownloadableContent(string $dir, string $realRoot): bool
+{
+    $hasContent = false;
+    
+    $checkContent = function($checkDir) use (&$checkContent, $realRoot, &$hasContent) {
+        $handle = opendir($checkDir);
+        if ($handle === false) {
+            return;
+        }
+        
+        while (($entry = readdir($handle)) !== false) {
+            if ($hasContent) break; // Early exit if we found content
+            
+            if (in_array($entry, ['.', '..', 'index.php'], true) || $entry[0] === '.') {
+                continue;
+            }
+            
+            $fullPath = $checkDir . '/' . $entry;
+            $realPath = realpath($fullPath);
+            
+            // Skip invalid paths, symlinks
+            if (is_link($fullPath) || $realPath === false ||
+                strpos($realPath . DIRECTORY_SEPARATOR, $realRoot) !== 0) {
+                continue;
+            }
+            
+            if (is_dir($fullPath)) {
+                // Recurse into directory (early exit in loop handles found content)
+                $checkContent($fullPath);
+            } else {
+                // Skip dangerous extensions
+                $ext = strtolower(pathinfo($entry, PATHINFO_EXTENSION));
+                if (in_array($ext, BLOCKED_EXTENSIONS, true)) {
                     continue;
                 }
                 
-                if (is_dir($fullPath)) {
-                    // Recurse into directory (early exit in loop handles found content)
-                    $checkContent($fullPath);
-                } else {
-                    // Skip dangerous extensions
-                    $ext = strtolower(pathinfo($entry, PATHINFO_EXTENSION));
-                    if (in_array($ext, BLOCKED_EXTENSIONS, true)) {
-                        continue;
-                    }
-                    
-                    $hasContent = true;
-                    break;
-                }
+                $hasContent = true;
+                break;
             }
-            closedir($handle);
-        };
-        
-        $checkContent($dir);
-        return $hasContent;
-    }
+        }
+        closedir($handle);
+    };
+    
+    $checkContent($dir);
+    return $hasContent;
+}
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -498,117 +535,141 @@
     <title><?php echo htmlspecialchars($title); ?></title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" integrity="sha512-DTOQO9RWCH3ppGqcWaEA1BIZOC6xxalwEsw9c2QQeAIftl+Vegovlnee1c9QX4TctnWMn13TZye+giMm8e2LwA==" crossorigin="anonymous">
     <style nonce="<?php echo htmlspecialchars($cspNonce, ENT_QUOTES, 'UTF-8'); ?>">
-        :root { 
-            --bg: linear-gradient(135deg, #667eea 0%, #764ba2 100%); 
-            --card: #ffffff; 
-            --accent: #667eea; 
+        /* ========================================
+           CSS VARIABLES
+           ======================================== */
+        :root {
+            --bg: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            --card: #ffffff;
+            --accent: #667eea;
             --accent-hover: #5568d3;
-            --text: #1a202c; 
-            --muted: #718096; 
-            --hover: #f7fafc; 
-            --border: #e2e8f0; 
+            --text: #1a202c;
+            --muted: #718096;
+            --hover: #f7fafc;
+            --border: #e2e8f0;
             --shadow: 0 10px 40px rgba(0, 0, 0, 0.1);
             --shadow-hover: 0 15px 50px rgba(0, 0, 0, 0.15);
         }
         
-        * { 
-            box-sizing: border-box; 
+        /* ========================================
+           GLOBAL STYLES
+           ======================================== */
+        * {
+            box-sizing: border-box;
             margin: 0;
             padding: 0;
         }
         
-        body { 
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; 
-            background: var(--bg); 
-            color: var(--text); 
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            background: var(--bg);
+            color: var(--text);
             padding: 20px 16px;
             min-height: 100vh;
             line-height: 1.6;
         }
         
-        .container { 
-            max-width: 900px; 
-            margin: 0 auto; 
+        /* ========================================
+           LAYOUT
+           ======================================== */
+        .container {
+            max-width: 900px;
+            margin: 0 auto;
         }
         
-        .card { 
-            background: var(--card); 
-            border-radius: 16px; 
-            box-shadow: var(--shadow); 
+        .card {
+            background: var(--card);
+            border-radius: 16px;
+            box-shadow: var(--shadow);
             padding: 32px;
             margin-bottom: 24px;
             animation: fadeIn 0.5s ease-in;
         }
         
         @keyframes fadeIn {
-            from { opacity: 0; transform: translateY(20px); }
-            to { opacity: 1; transform: translateY(0); }
+            from {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
         }
         
-        h1 { 
-            margin: 0 0 8px 0; 
+        /* ========================================
+           TYPOGRAPHY
+           ======================================== */
+        h1 {
+            margin: 0 0 8px 0;
             font-size: clamp(1.5rem, 4vw, 2rem);
             font-weight: 700;
             color: var(--text);
             letter-spacing: -0.02em;
         }
         
-        .subtitle { 
-            margin-bottom: 28px; 
-            color: var(--muted); 
+        .subtitle {
+            margin-bottom: 28px;
+            color: var(--muted);
             font-size: clamp(0.875rem, 2vw, 1rem);
             font-weight: 400;
         }
         
-        .breadcrumbs { 
-            display: flex; 
-            align-items: center; 
-            gap: 8px; 
-            margin-bottom: 24px; 
-            padding: 14px 18px; 
+        /* ========================================
+           BREADCRUMBS
+           ======================================== */
+        .breadcrumbs {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-bottom: 24px;
+            padding: 14px 18px;
             background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
-            border-radius: 10px; 
-            border: 1px solid var(--border); 
+            border-radius: 10px;
+            border: 1px solid var(--border);
             font-size: clamp(0.813rem, 2vw, 0.9rem);
             flex-wrap: wrap;
             box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
         }
         
-        .breadcrumbs a { 
-            color: var(--accent); 
-            text-decoration: none; 
+        .breadcrumbs a {
+            color: var(--accent);
+            text-decoration: none;
             transition: all 0.2s ease;
             font-weight: 500;
         }
         
-        .breadcrumbs a:hover { 
-            color: var(--accent-hover); 
-            text-decoration: underline; 
+        .breadcrumbs a:hover {
+            color: var(--accent-hover);
+            text-decoration: underline;
         }
         
-        .breadcrumbs > a:first-child { 
-            font-weight: 600; 
+        .breadcrumbs > a:first-child {
+            font-weight: 600;
         }
         
-        .file-list { 
-            list-style: none; 
-            padding: 0; 
-            margin: 0; 
+        /* ========================================
+           FILE LIST
+           ======================================== */
+        .file-list {
+            list-style: none;
+            padding: 0;
+            margin: 0;
         }
         
-        .file-list li + li { 
-            margin-top: 12px; 
+        .file-list li + li {
+            margin-top: 12px;
         }
         
-        .file-list a { 
-            display: flex; 
-            align-items: center; 
-            gap: 14px; 
-            padding: 16px 18px; 
-            border: 2px solid var(--border); 
-            border-radius: 12px; 
-            text-decoration: none; 
-            color: var(--text); 
+        .file-list a {
+            display: flex;
+            align-items: center;
+            gap: 14px;
+            padding: 16px 18px;
+            border: 2px solid var(--border);
+            border-radius: 12px;
+            text-decoration: none;
+            color: var(--text);
             background: var(--card);
             transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
             position: relative;
@@ -629,8 +690,8 @@
         }
         
         .file-list a:hover {
-            background: var(--hover); 
-            border-color: var(--accent); 
+            background: var(--hover);
+            border-color: var(--accent);
             transform: translateX(8px);
             box-shadow: 0 4px 12px rgba(102, 126, 234, 0.15);
         }
@@ -643,31 +704,34 @@
             transform: translateX(4px) scale(0.98);
         }
         
-        .file-icon { 
+        .file-icon {
             font-size: clamp(1.25rem, 4vw, 1.5rem);
-            color: var(--accent); 
+            color: var(--accent);
             flex-shrink: 0;
             width: 32px;
             text-align: center;
         }
         
-        .file-name { 
-            font-weight: 500; 
-            word-break: break-word; 
+        .file-name {
+            font-weight: 500;
+            word-break: break-word;
             flex: 1;
             font-size: clamp(0.875rem, 2vw, 1rem);
             line-height: 1.5;
         }
         
-        .file-size { 
+        .file-size {
             font-size: clamp(0.75rem, 2vw, 0.875rem);
-            color: var(--muted); 
-            white-space: nowrap; 
-            margin-left: auto; 
+            color: var(--muted);
+            white-space: nowrap;
+            margin-left: auto;
             padding-left: 12px;
             font-weight: 500;
         }
         
+        /* ========================================
+           STATS CONTAINER
+           ======================================== */
         .stats-container {
             margin-top: 24px;
             padding: 16px 20px;
@@ -687,9 +751,47 @@
             flex: 1;
         }
         
-        footer { 
-            margin-top: 20px; 
-            text-align: center; 
+        /* ========================================
+           DOWNLOAD BUTTON
+           ======================================== */
+        .download-all-btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 10px;
+            padding: 14px 24px;
+            background: linear-gradient(135deg, var(--accent) 0%, var(--accent-hover) 100%);
+            color: white;
+            border: none;
+            border-radius: 10px;
+            font-size: clamp(0.875rem, 2vw, 1rem);
+            font-weight: 600;
+            text-decoration: none;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
+            white-space: nowrap;
+        }
+        
+        .download-all-btn:hover {
+            background: linear-gradient(135deg, var(--accent-hover) 0%, var(--accent) 100%);
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(102, 126, 234, 0.4);
+        }
+        
+        .download-all-btn:active {
+            transform: translateY(0);
+        }
+        
+        .download-all-btn i {
+            font-size: 1.1rem;
+        }
+        
+        /* ========================================
+           FOOTER
+           ======================================== */
+        footer {
+            margin-top: 20px;
+            text-align: center;
             font-size: clamp(0.75rem, 2vw, 0.875rem);
             color: rgba(255, 255, 255, 0.95);
             font-weight: 400;
@@ -705,49 +807,50 @@
             transform: scale(1.05);
         }
         
-        .loading-overlay { 
-            position: fixed; 
-            inset: 0; 
-            background: rgba(255, 255, 255, 0.95); 
-            backdrop-filter: blur(8px); 
-            display: none; 
-            align-items: center; 
-            justify-content: center; 
-            z-index: 9999; 
+        /* ========================================
+           LOADING OVERLAY
+           ======================================== */
+        .loading-overlay {
+            position: fixed;
+            inset: 0;
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(8px);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            z-index: 9999;
         }
         
-        .loading-spinner { 
-            width: 56px; 
-            height: 56px; 
-            border: 5px solid var(--border); 
-            border-top-color: var(--accent); 
-            border-radius: 50%; 
-            animation: spin 0.8s linear infinite; 
+        .loading-spinner {
+            width: 56px;
+            height: 56px;
+            border: 5px solid var(--border);
+            border-top-color: var(--accent);
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
         }
         
-        .loading-text { 
-            margin-top: 16px; 
-            color: var(--muted); 
+        .loading-text {
+            margin-top: 16px;
+            color: var(--muted);
             font-size: clamp(0.875rem, 2vw, 1rem);
             text-align: center;
             font-weight: 500;
         }
         
-        .loading-overlay.is-active { 
-            display: flex; 
+        .loading-overlay.is-active {
+            display: flex;
         }
         
-        @media (prefers-reduced-motion: reduce) { 
-            .loading-spinner { animation: none; border-top-color: var(--border); }
-            .file-list a { transition: none; }
-            .card { animation: none; }
+        @keyframes spin {
+            to {
+                transform: rotate(360deg);
+            }
         }
         
-        @keyframes spin { 
-            to { transform: rotate(360deg); } 
-        }
-        
-        /* File type icon colors */
+        /* ========================================
+           FILE TYPE ICON COLORS
+           ======================================== */
         .icon-pdf { color: #e74c3c; }
         .icon-word { color: #2980b9; }
         .icon-text { color: #7f8c8d; }
@@ -771,281 +874,9 @@
         .icon-default { color: #95a5a6; }
         .icon-folder { color: #f6a623; }
         
-        .download-all-btn { 
-            display: inline-flex; 
-            align-items: center; 
-            gap: 10px; 
-            padding: 14px 24px; 
-            background: linear-gradient(135deg, var(--accent) 0%, var(--accent-hover) 100%);
-            color: white; 
-            border: none; 
-            border-radius: 10px; 
-            font-size: clamp(0.875rem, 2vw, 1rem);
-            font-weight: 600; 
-            text-decoration: none; 
-            cursor: pointer; 
-            transition: all 0.3s ease; 
-            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
-            white-space: nowrap;
-        }
-        
-        .download-all-btn:hover { 
-            background: linear-gradient(135deg, var(--accent-hover) 0%, var(--accent) 100%);
-            transform: translateY(-2px);
-            box-shadow: 0 6px 20px rgba(102, 126, 234, 0.4);
-        }
-        
-        .download-all-btn:active {
-            transform: translateY(0);
-        }
-        
-        .download-all-btn i { 
-            font-size: 1.1rem; 
-        }
-        
-        /* Responsive breakpoints */
-        
-        /* Mobile phones (portrait) */
-        @media (max-width: 480px) {
-            body {
-                padding: 12px 12px;
-            }
-            
-            .card {
-                padding: 20px 16px;
-                border-radius: 12px;
-            }
-            
-            h1 {
-                font-size: 1.5rem;
-            }
-            
-            .subtitle {
-                font-size: 0.875rem;
-                margin-bottom: 20px;
-            }
-            
-            .breadcrumbs {
-                padding: 12px 14px;
-                gap: 6px;
-                font-size: 0.813rem;
-            }
-            
-            .file-list a {
-                padding: 14px 12px;
-                gap: 10px;
-                flex-wrap: wrap;
-            }
-            
-            .file-icon {
-                font-size: 1.25rem;
-                width: 28px;
-            }
-            
-            /* On mobile: icon and size on first row, name wraps below */
-            .file-name {
-                font-size: 0.875rem;
-                flex: 1 1 100%;
-                order: 2;
-            }
-            
-            .file-size {
-                font-size: 0.75rem;
-                padding-left: 0;
-                margin-left: 0;
-                flex: 1;
-                text-align: right;
-                order: 1;
-            }
-            
-            .file-list a:hover {
-                transform: translateX(4px);
-            }
-            
-            .download-all-btn {
-                width: 100%;
-                justify-content: center;
-                padding: 14px 20px;
-                font-size: 0.875rem;
-            }
-            
-            .stats-container {
-                flex-direction: column;
-                align-items: stretch;
-                gap: 12px;
-                padding: 14px 16px;
-            }
-            
-            .folder-file-count {
-                font-size: 0.813rem;
-                text-align: center;
-            }
-        }
-        
-        /* Mobile phones (landscape) and small tablets */
-        @media (min-width: 481px) and (max-width: 768px) {
-            body {
-                padding: 16px;
-            }
-            
-            .card {
-                padding: 24px 20px;
-            }
-            
-            .file-list a {
-                padding: 15px 16px;
-            }
-            
-            .download-all-btn {
-                width: 100%;
-                justify-content: center;
-            }
-        }
-        
-        /* Tablets (portrait) */
-        @media (min-width: 769px) and (max-width: 1024px) {
-            body {
-                padding: 24px 20px;
-            }
-            
-            .card {
-                padding: 28px 24px;
-            }
-            
-            /* Use 85% width for better readability on tablet screens */
-            .container {
-                max-width: 85%;
-            }
-        }
-        
-        /* Large screens */
-        @media (min-width: 1025px) {
-            body {
-                padding: 40px 24px;
-            }
-            
-            .card {
-                padding: 36px 40px;
-            }
-            
-            .file-list a:hover {
-                transform: translateX(12px);
-            }
-        }
-        
-        /* Touch device optimizations */
-        @media (hover: none) and (pointer: coarse) {
-            .file-list a {
-                min-height: 64px;
-                padding: 18px 16px;
-            }
-            
-            .download-all-btn {
-                min-height: 48px;
-                padding: 16px 24px;
-            }
-            
-            .breadcrumbs a {
-                padding: 4px 0;
-                min-height: 32px;
-                display: inline-flex;
-                align-items: center;
-            }
-        }
-        
-        /* Thumbnail preview tooltip */
-        .preview-tooltip {
-            position: fixed;
-            z-index: 10000;
-            pointer-events: none;
-            opacity: 0;
-            transition: opacity 0.2s ease-in-out;
-            background: white;
-            border: 2px solid var(--border);
-            border-radius: 8px;
-            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
-            padding: 8px;
-            max-width: 400px;
-            max-height: 400px;
-        }
-        
-        .preview-tooltip.visible {
-            opacity: 1;
-        }
-        
-        .preview-tooltip img,
-        .preview-tooltip video,
-        .preview-tooltip audio {
-            max-width: 100%;
-            max-height: 380px;
-            display: block;
-            border-radius: 4px;
-        }
-        
-        .preview-tooltip video {
-            background: #000;
-        }
-        
-        .preview-tooltip audio {
-            width: 100%;
-        }
-        
-        .preview-tooltip .preview-error {
-            padding: 20px;
-            color: var(--muted);
-            text-align: center;
-            font-size: 0.875rem;
-        }
-        
-        .preview-tooltip .preview-loading {
-            padding: 30px 40px;
-            color: var(--accent);
-            text-align: center;
-            font-size: 1rem;
-            font-weight: 600;
-            background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
-            border-radius: 4px;
-            animation: pulse 1.5s ease-in-out infinite;
-        }
-        
-        @keyframes pulse {
-            0%, 100% { opacity: 1; }
-            50% { opacity: 0.6; }
-        }
-        
-        /* Hide preview on mobile/touch devices to avoid conflicts */
-        @media (hover: none) and (pointer: coarse) {
-            .preview-tooltip {
-                display: none;
-            }
-        }
-        
-        /* Print styles */
-        @media print {
-            body {
-                background: white;
-                padding: 20px;
-            }
-            
-            .card {
-                box-shadow: none;
-                border: 1px solid #ddd;
-            }
-            
-            .download-all-btn,
-            .loading-overlay,
-            .pagination,
-            footer a img {
-                display: none;
-            }
-            
-            .file-list a {
-                border: 1px solid #ddd;
-                page-break-inside: avoid;
-            }
-        }
-        
-        /* Pagination styles */
+        /* ========================================
+           PAGINATION
+           ======================================== */
         .pagination {
             display: flex;
             align-items: center;
@@ -1146,8 +977,165 @@
             user-select: none;
         }
         
-        /* Responsive pagination */
+        /* ========================================
+           PREVIEW TOOLTIP
+           ======================================== */
+        .preview-tooltip {
+            position: fixed;
+            z-index: 10000;
+            pointer-events: none;
+            opacity: 0;
+            transition: opacity 0.2s ease-in-out;
+            background: white;
+            border: 2px solid var(--border);
+            border-radius: 8px;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
+            padding: 8px;
+            max-width: 400px;
+            max-height: 400px;
+        }
+        
+        .preview-tooltip.visible {
+            opacity: 1;
+        }
+        
+        .preview-tooltip img,
+        .preview-tooltip video,
+        .preview-tooltip audio {
+            max-width: 100%;
+            max-height: 380px;
+            display: block;
+            border-radius: 4px;
+        }
+        
+        .preview-tooltip video {
+            background: #000;
+        }
+        
+        .preview-tooltip audio {
+            width: 100%;
+        }
+        
+        .preview-tooltip .preview-error {
+            padding: 20px;
+            color: var(--muted);
+            text-align: center;
+            font-size: 0.875rem;
+        }
+        
+        .preview-tooltip .preview-loading {
+            padding: 30px 40px;
+            color: var(--accent);
+            text-align: center;
+            font-size: 1rem;
+            font-weight: 600;
+            background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+            border-radius: 4px;
+            animation: pulse 1.5s ease-in-out infinite;
+        }
+        
+        @keyframes pulse {
+            0%, 100% {
+                opacity: 1;
+            }
+            50% {
+                opacity: 0.6;
+            }
+        }
+        
+        /* ========================================
+           ACCESSIBILITY
+           ======================================== */
+        @media (prefers-reduced-motion: reduce) {
+            .loading-spinner {
+                animation: none;
+                border-top-color: var(--border);
+            }
+            .file-list a {
+                transition: none;
+            }
+            .card {
+                animation: none;
+            }
+        }
+        
+        /* ========================================
+           RESPONSIVE: MOBILE PHONES (PORTRAIT)
+           ======================================== */
         @media (max-width: 480px) {
+            body {
+                padding: 12px 12px;
+            }
+            
+            .card {
+                padding: 20px 16px;
+                border-radius: 12px;
+            }
+            
+            h1 {
+                font-size: 1.5rem;
+            }
+            
+            .subtitle {
+                font-size: 0.875rem;
+                margin-bottom: 20px;
+            }
+            
+            .breadcrumbs {
+                padding: 12px 14px;
+                gap: 6px;
+                font-size: 0.813rem;
+            }
+            
+            .file-list a {
+                padding: 14px 12px;
+                gap: 10px;
+                flex-wrap: wrap;
+            }
+            
+            .file-icon {
+                font-size: 1.25rem;
+                width: 28px;
+            }
+            
+            .file-name {
+                font-size: 0.875rem;
+                flex: 1 1 100%;
+                order: 2;
+            }
+            
+            .file-size {
+                font-size: 0.75rem;
+                padding-left: 0;
+                margin-left: 0;
+                flex: 1;
+                text-align: right;
+                order: 1;
+            }
+            
+            .file-list a:hover {
+                transform: translateX(4px);
+            }
+            
+            .download-all-btn {
+                width: 100%;
+                justify-content: center;
+                padding: 14px 20px;
+                font-size: 0.875rem;
+            }
+            
+            .stats-container {
+                flex-direction: column;
+                align-items: stretch;
+                gap: 12px;
+                padding: 14px 16px;
+            }
+            
+            .folder-file-count {
+                font-size: 0.813rem;
+                text-align: center;
+            }
+            
             .pagination {
                 padding: 16px 12px;
                 gap: 8px;
@@ -1171,9 +1159,116 @@
             }
         }
         
+        /* ========================================
+           RESPONSIVE: MOBILE LANDSCAPE & SMALL TABLETS
+           ======================================== */
         @media (min-width: 481px) and (max-width: 768px) {
+            body {
+                padding: 16px;
+            }
+            
+            .card {
+                padding: 24px 20px;
+            }
+            
+            .file-list a {
+                padding: 15px 16px;
+            }
+            
+            .download-all-btn {
+                width: 100%;
+                justify-content: center;
+            }
+            
             .pagination {
                 padding: 18px 16px;
+            }
+        }
+        
+        /* ========================================
+           RESPONSIVE: TABLETS (PORTRAIT)
+           ======================================== */
+        @media (min-width: 769px) and (max-width: 1024px) {
+            body {
+                padding: 24px 20px;
+            }
+            
+            .card {
+                padding: 28px 24px;
+            }
+            
+            .container {
+                max-width: 85%;
+            }
+        }
+        
+        /* ========================================
+           RESPONSIVE: LARGE SCREENS
+           ======================================== */
+        @media (min-width: 1025px) {
+            body {
+                padding: 40px 24px;
+            }
+            
+            .card {
+                padding: 36px 40px;
+            }
+            
+            .file-list a:hover {
+                transform: translateX(12px);
+            }
+        }
+        
+        /* ========================================
+           TOUCH DEVICE OPTIMIZATIONS
+           ======================================== */
+        @media (hover: none) and (pointer: coarse) {
+            .file-list a {
+                min-height: 64px;
+                padding: 18px 16px;
+            }
+            
+            .download-all-btn {
+                min-height: 48px;
+                padding: 16px 24px;
+            }
+            
+            .breadcrumbs a {
+                padding: 4px 0;
+                min-height: 32px;
+                display: inline-flex;
+                align-items: center;
+            }
+            
+            .preview-tooltip {
+                display: none;
+            }
+        }
+        
+        /* ========================================
+           PRINT STYLES
+           ======================================== */
+        @media print {
+            body {
+                background: white;
+                padding: 20px;
+            }
+            
+            .card {
+                box-shadow: none;
+                border: 1px solid #ddd;
+            }
+            
+            .download-all-btn,
+            .loading-overlay,
+            .pagination,
+            footer a img {
+                display: none;
+            }
+            
+            .file-list a {
+                border: 1px solid #ddd;
+                page-break-inside: avoid;
             }
         }
     </style>
@@ -1182,20 +1277,26 @@
 <body>
     <div class="container">
         <div class="card">
+            <!-- Header -->
             <h1><?php echo htmlspecialchars($title); ?></h1>
-            <?php if (!empty($subtitle)): ?><div class="subtitle"><?php echo htmlspecialchars($subtitle); ?></div><?php endif; ?>
-            <?php if (!empty($breadcrumbs)): ?>
-            <div class="breadcrumbs">
-                <a href="<?php echo strtok($_SERVER['REQUEST_URI'], '?'); ?>">Home</a>
-                <?php foreach ($breadcrumbs as $breadcrumb): ?>
-                    &gt;
-                    <a href="?path=<?php echo rawurlencode($breadcrumb['path']); ?>" class="dir-link">
-                        <?php echo $breadcrumb['name']; ?>
-                    </a>
-                <?php endforeach; ?>
-            </div>
+            <?php if (!empty($subtitle)): ?>
+                <div class="subtitle"><?php echo htmlspecialchars($subtitle); ?></div>
             <?php endif; ?>
 
+            <!-- Breadcrumbs -->
+            <?php if (!empty($breadcrumbs)): ?>
+                <div class="breadcrumbs">
+                    <a href="<?php echo strtok($_SERVER['REQUEST_URI'], '?'); ?>">Home</a>
+                    <?php foreach ($breadcrumbs as $breadcrumb): ?>
+                        &gt;
+                        <a href="?path=<?php echo rawurlencode($breadcrumb['path']); ?>" class="dir-link">
+                            <?php echo $breadcrumb['name']; ?>
+                        </a>
+                    <?php endforeach; ?>
+                </div>
+            <?php endif; ?>
+
+            <!-- File List -->
             <ul class="file-list">
                 <?php
                 if (!$isValidPath) {
@@ -1204,7 +1305,10 @@
                     // Show parent directory link if not at root
                     if ($currentPath) {
                         $parentPath = dirname($currentPath);
-                        printf('<li><a href="?path=%s" class="dir-link"><span class="file-icon icon-folder"><i class="fa-solid fa-arrow-up"></i></span><span class="file-name">..</span></a></li>' . PHP_EOL, $parentPath ? rawurlencode($parentPath) : '');
+                        printf(
+                            '<li><a href="?path=%s" class="dir-link"><span class="file-icon icon-folder"><i class="fa-solid fa-arrow-up"></i></span><span class="file-name">..</span></a></li>' . PHP_EOL,
+                            $parentPath ? rawurlencode($parentPath) : ''
+                        );
                     }
 
                     $dirs = [];
@@ -1251,22 +1355,14 @@
                         return strnatcasecmp($a['name'], $b['name']);
                     });
 
-                    // Pagination logic: combine dirs and files for pagination
-                    // Note: $dirs is an array of directory name strings
-                    // Note: $files is an array of ['name' => string, 'size' => int] arrays
+                    // Pagination logic
                     $totalItems = count($dirs) + count($files);
-                    // Only show pagination if items exceed the threshold (e.g., 26+ items when threshold is 25)
                     $totalPages = ($totalItems > $paginationThreshold) ? (int)ceil($totalItems / $paginationThreshold) : 1;
-                    
-                    // Ensure current page is within valid range
                     $currentPage = max(1, min($currentPage, $totalPages));
-                    
-                    // Calculate pagination offsets
                     $itemsPerPage = $paginationThreshold;
                     $offset = ($currentPage - 1) * $itemsPerPage;
                     
                     // Merge dirs and files into a single array for pagination
-                    // Convert dirs (strings) to standardized format: ['type' => 'dir', 'name' => string, 'size' => 0]
                     $allItems = [];
                     foreach ($dirs as $dir) {
                         $allItems[] = ['type' => 'dir', 'name' => $dir, 'size' => 0];
@@ -1289,123 +1385,122 @@
                 ?>
             </ul>
 
-            <?php
-            // Display pagination controls if needed
-            if ($isValidPath && $totalPages > 1) {
-                // Build base URL for pagination links (preserve current path)
+            <!-- Pagination -->
+            <?php if ($isValidPath && $totalPages > 1): ?>
+                <?php
                 $baseUrl = '?';
                 if ($currentPath) {
                     $baseUrl .= 'path=' . rawurlencode($currentPath) . '&';
                 }
-                
-                echo '<div class="pagination" role="navigation" aria-label="Pagination">';
-                
-                // Previous button
-                if ($currentPage > 1) {
-                    $prevUrl = $baseUrl . 'page=' . ($currentPage - 1);
-                    echo '<a href="' . htmlspecialchars($prevUrl, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8') . '" class="pagination-btn pagination-prev" aria-label="Previous page">';
-                    echo '<i class="fa-solid fa-chevron-left"></i> Previous';
-                    echo '</a>';
-                } else {
-                    echo '<span class="pagination-btn pagination-prev pagination-disabled" aria-disabled="true">';
-                    echo '<i class="fa-solid fa-chevron-left"></i> Previous';
-                    echo '</span>';
-                }
-                
-                // Page numbers
-                echo '<div class="pagination-numbers">';
-                
-                // Calculate range of pages to show
-                $maxPagesToShow = 7; // Show up to 7 page numbers
-                $halfRange = floor($maxPagesToShow / 2);
-                $startPage = max(1, $currentPage - $halfRange);
-                $endPage = min($totalPages, $currentPage + $halfRange);
-                
-                // Adjust if we're near the start or end
-                if ($currentPage <= $halfRange) {
-                    $endPage = min($totalPages, $maxPagesToShow);
-                } elseif ($currentPage >= $totalPages - $halfRange) {
-                    $startPage = max(1, $totalPages - $maxPagesToShow + 1);
-                }
-                
-                // Show first page if not in range
-                if ($startPage > 1) {
-                    $pageUrl = $baseUrl . 'page=1';
-                    echo '<a href="' . htmlspecialchars($pageUrl, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8') . '" class="pagination-number" aria-label="Go to page 1">1</a>';
-                    if ($startPage > 2) {
-                        echo '<span class="pagination-ellipsis" aria-hidden="true">...</span>';
-                    }
-                }
-                
-                // Show page numbers in range
-                for ($i = $startPage; $i <= $endPage; $i++) {
-                    if ($i === $currentPage) {
-                        echo '<span class="pagination-number pagination-current" aria-current="page" aria-label="Current page, page ' . $i . '">' . $i . '</span>';
-                    } else {
-                        $pageUrl = $baseUrl . 'page=' . $i;
-                        echo '<a href="' . htmlspecialchars($pageUrl, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8') . '" class="pagination-number" aria-label="Go to page ' . $i . '">' . $i . '</a>';
-                    }
-                }
-                
-                // Show last page if not in range
-                if ($endPage < $totalPages) {
-                    if ($endPage < $totalPages - 1) {
-                        echo '<span class="pagination-ellipsis" aria-hidden="true">...</span>';
-                    }
-                    $pageUrl = $baseUrl . 'page=' . $totalPages;
-                    echo '<a href="' . htmlspecialchars($pageUrl, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8') . '" class="pagination-number" aria-label="Go to page ' . $totalPages . '">' . $totalPages . '</a>';
-                }
-                
-                echo '</div>';
-                
-                // Next button
-                if ($currentPage < $totalPages) {
-                    $nextUrl = $baseUrl . 'page=' . ($currentPage + 1);
-                    echo '<a href="' . htmlspecialchars($nextUrl, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8') . '" class="pagination-btn pagination-next" aria-label="Next page">';
-                    echo 'Next <i class="fa-solid fa-chevron-right"></i>';
-                    echo '</a>';
-                } else {
-                    echo '<span class="pagination-btn pagination-next pagination-disabled" aria-disabled="true">';
-                    echo 'Next <i class="fa-solid fa-chevron-right"></i>';
-                    echo '</span>';
-                }
-                
-                echo '</div>'; // end pagination
-            }
-            ?>
+                ?>
+                <div class="pagination" role="navigation" aria-label="Pagination">
+                    <!-- Previous Button -->
+                    <?php if ($currentPage > 1): ?>
+                        <a href="<?php echo htmlspecialchars($baseUrl . 'page=' . ($currentPage - 1), ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8'); ?>" 
+                           class="pagination-btn pagination-prev" 
+                           aria-label="Previous page">
+                            <i class="fa-solid fa-chevron-left"></i> Previous
+                        </a>
+                    <?php else: ?>
+                        <span class="pagination-btn pagination-prev pagination-disabled" aria-disabled="true">
+                            <i class="fa-solid fa-chevron-left"></i> Previous
+                        </span>
+                    <?php endif; ?>
+                    
+                    <!-- Page Numbers -->
+                    <div class="pagination-numbers">
+                        <?php
+                        $maxPagesToShow = 7;
+                        $halfRange = floor($maxPagesToShow / 2);
+                        $startPage = max(1, $currentPage - $halfRange);
+                        $endPage = min($totalPages, $currentPage + $halfRange);
+                        
+                        if ($currentPage <= $halfRange) {
+                            $endPage = min($totalPages, $maxPagesToShow);
+                        } elseif ($currentPage >= $totalPages - $halfRange) {
+                            $startPage = max(1, $totalPages - $maxPagesToShow + 1);
+                        }
+                        
+                        // First page
+                        if ($startPage > 1) {
+                            $pageUrl = $baseUrl . 'page=1';
+                            echo '<a href="' . htmlspecialchars($pageUrl, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8') . '" class="pagination-number" aria-label="Go to page 1">1</a>';
+                            if ($startPage > 2) {
+                                echo '<span class="pagination-ellipsis" aria-hidden="true">...</span>';
+                            }
+                        }
+                        
+                        // Page range
+                        for ($i = $startPage; $i <= $endPage; $i++) {
+                            if ($i === $currentPage) {
+                                echo '<span class="pagination-number pagination-current" aria-current="page" aria-label="Current page, page ' . $i . '">' . $i . '</span>';
+                            } else {
+                                $pageUrl = $baseUrl . 'page=' . $i;
+                                echo '<a href="' . htmlspecialchars($pageUrl, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8') . '" class="pagination-number" aria-label="Go to page ' . $i . '">' . $i . '</a>';
+                            }
+                        }
+                        
+                        // Last page
+                        if ($endPage < $totalPages) {
+                            if ($endPage < $totalPages - 1) {
+                                echo '<span class="pagination-ellipsis" aria-hidden="true">...</span>';
+                            }
+                            $pageUrl = $baseUrl . 'page=' . $totalPages;
+                            echo '<a href="' . htmlspecialchars($pageUrl, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8') . '" class="pagination-number" aria-label="Go to page ' . $totalPages . '">' . $totalPages . '</a>';
+                        }
+                        ?>
+                    </div>
+                    
+                    <!-- Next Button -->
+                    <?php if ($currentPage < $totalPages): ?>
+                        <a href="<?php echo htmlspecialchars($baseUrl . 'page=' . ($currentPage + 1), ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8'); ?>" 
+                           class="pagination-btn pagination-next" 
+                           aria-label="Next page">
+                            Next <i class="fa-solid fa-chevron-right"></i>
+                        </a>
+                    <?php else: ?>
+                        <span class="pagination-btn pagination-next pagination-disabled" aria-disabled="true">
+                            Next <i class="fa-solid fa-chevron-right"></i>
+                        </span>
+                    <?php endif; ?>
+                </div>
+            <?php endif; ?>
 
-            <?php
-            // Unified stats container with folder/file count and download button
-            if ($isValidPath) {
+            <!-- Stats and Download Button -->
+            <?php if ($isValidPath): ?>
+                <?php
                 $statsHtml = '';
                 $statsHtml .= count($dirs) . ' folder' . (count($dirs) !== 1 ? 's' : '') . ', ';
                 $statsHtml .= count($files) . ' file' . (count($files) !== 1 ? 's' : '');
                 if ($totalSize > 0) {
                     $statsHtml .= ' (' . htmlspecialchars(formatFileSize($totalSize), ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8') . ' total)';
                 }
-                
-                echo '<div class="stats-container">';
-                echo '<div class="folder-file-count">' . $statsHtml . '</div>';
-                
-                // Show download button if there's any downloadable content
-                if (hasDownloadableContent($basePath, $realRoot)) {
-                    $downloadAllUrl = '?download_all_zip=1';
-                    if ($currentPath) {
-                        $downloadAllUrl .= '&path=' . rawurlencode($currentPath);
-                    }
-                    echo '<a href="' . htmlspecialchars($downloadAllUrl, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8') . '" class="download-all-btn" target="_blank" rel="noopener noreferrer">';
-                    echo '<i class="fa-solid fa-download"></i>';
-                    echo 'Download All as ZIP';
-                    echo '</a>';
-                }
-                
-                echo '</div>';
-            }
-            ?>
+                ?>
+                <div class="stats-container">
+                    <div class="folder-file-count"><?php echo $statsHtml; ?></div>
+                    
+                    <?php if (hasDownloadableContent($basePath, $realRoot)): ?>
+                        <?php
+                        $downloadAllUrl = '?download_all_zip=1';
+                        if ($currentPath) {
+                            $downloadAllUrl .= '&path=' . rawurlencode($currentPath);
+                        }
+                        ?>
+                        <a href="<?php echo htmlspecialchars($downloadAllUrl, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8'); ?>" 
+                           class="download-all-btn" 
+                           target="_blank" 
+                           rel="noopener noreferrer">
+                            <i class="fa-solid fa-download"></i>
+                            Download All as ZIP
+                        </a>
+                    <?php endif; ?>
+                </div>
+            <?php endif; ?>
         </div>
 
+        <!-- Footer -->
         <?php if (!empty($footer)): ?>
-        <footer><?php echo htmlspecialchars($footer, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8'); ?></footer>
+            <footer><?php echo htmlspecialchars($footer, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8'); ?></footer>
         <?php endif; ?>
 
         <footer>
@@ -1415,6 +1510,7 @@
         </footer>
     </div>
 
+    <!-- Loading Overlay -->
     <div class="loading-overlay" aria-hidden="true">
         <div role="status" aria-live="polite" aria-label="Loading">
             <div class="loading-spinner" aria-hidden="true"></div>
@@ -1422,10 +1518,14 @@
         </div>
     </div>
 
+    <!-- JavaScript -->
     <script nonce="<?php echo htmlspecialchars($cspNonce, ENT_QUOTES, 'UTF-8'); ?>">
         (function() {
+            'use strict';
+            
             const overlay = document.querySelector('.loading-overlay');
 
+            // Loading overlay functions
             function showOverlay() {
                 if (!overlay) return;
                 overlay.classList.add('is-active');
@@ -1447,7 +1547,6 @@
                 const isModified = e.metaKey || e.ctrlKey || e.shiftKey || e.button === 1;
                 if (isModified) return;
 
-                // Show loading overlay for directory navigation and pagination
                 const isDirLink = a.classList.contains('dir-link') && !a.hasAttribute('download');
                 const isPaginationLink = a.classList.contains('pagination-btn') || a.classList.contains('pagination-number');
                 
@@ -1456,10 +1555,11 @@
 
             window.addEventListener('beforeunload', showOverlay);
             
-            // Preview tooltip functionality
+            // ========================================
+            // PREVIEW TOOLTIP FUNCTIONALITY
+            // ========================================
             (function() {
-                // Skip on touch-only devices (mobile/tablet)
-                // Allow on hybrid devices (laptops with touchscreens) by checking if hover is supported
+                // Skip on touch-only devices
                 const isTouchOnly = ('ontouchstart' in window || navigator.maxTouchPoints > 0) && 
                                    !window.matchMedia('(hover: hover) and (pointer: fine)').matches;
                 
@@ -1469,7 +1569,6 @@
                 }
                 
                 console.log('[Preview] Initialized: Preview functionality enabled');
-                console.log('[Preview] Version: mouseenter/mouseleave (event bubbling fix)');
                 
                 let tooltip = null;
                 let currentPreview = null;
@@ -1503,217 +1602,3 @@
                     if (y + tooltipRect.height > window.innerHeight) {
                         y = e.clientY - tooltipRect.height - padding;
                     }
-                    
-                    // Ensure tooltip doesn't go off left or top edge
-                    x = Math.max(padding, x);
-                    y = Math.max(padding, y);
-                    
-                    tooltip.style.left = x + 'px';
-                    tooltip.style.top = y + 'px';
-                }
-                
-                function showPreview(link, e) {
-                    const previewType = link.dataset.preview;
-                    const filePath = link.dataset.filePath;
-                    
-                    console.log('[Preview] showPreview() called:', {
-                        previewType: previewType,
-                        filePath: filePath,
-                        hasDataset: !!link.dataset,
-                        linkElement: link.tagName
-                    });
-                    
-                    if (!previewType || !filePath) {
-                        console.warn('[Preview] Missing data attributes:', {
-                            previewType: previewType,
-                            filePath: filePath
-                        });
-                        return;
-                    }
-                    
-                    createTooltip();
-                    tooltip.innerHTML = '<div class="preview-loading">⏳ Loading preview...</div>';
-                    positionTooltip(e);
-                    
-                    // Show tooltip after a brief delay
-                    setTimeout(() => {
-                        tooltip.classList.add('visible');
-                        console.log('[Preview] Tooltip made visible');
-                    }, 50);
-                    
-                    const previewUrl = '?preview=' + encodeURIComponent(filePath);
-                    console.log('[Preview] Fetching from URL:', previewUrl);
-                    
-                    if (previewType === 'image') {
-                        console.log('[Preview] Creating image element for:', filePath);
-                        const img = new Image();
-                        const startTime = Date.now();
-                        
-                        img.onload = function() {
-                            const loadTime = Date.now() - startTime;
-                            console.log('[Preview] Image loaded successfully in ' + loadTime + 'ms:', {
-                                filePath: filePath,
-                                width: img.naturalWidth,
-                                height: img.naturalHeight,
-                                stillCurrent: currentPreview === link
-                            });
-                            
-                            if (currentPreview === link) {
-                                tooltip.innerHTML = '';
-                                tooltip.appendChild(img);
-                                positionTooltip(e);
-                            } else {
-                                console.log('[Preview] Image loaded but preview already moved to another file');
-                            }
-                        };
-                        
-                        img.onerror = function(error) {
-                            const loadTime = Date.now() - startTime;
-                            console.error('[Preview] Image failed to load after ' + loadTime + 'ms:', {
-                                filePath: filePath,
-                                previewUrl: previewUrl,
-                                error: error
-                            });
-                            
-                            if (currentPreview === link) {
-                                tooltip.innerHTML = '<div class="preview-error">❌ Unable to load preview</div>';
-                            }
-                        };
-                        
-                        img.src = previewUrl;
-                        img.alt = 'Preview';
-                    } else if (previewType === 'video') {
-                        const video = document.createElement('video');
-                        video.controls = false;
-                        video.muted = true;
-                        video.autoplay = false;
-                        video.preload = 'metadata';
-                        video.onloadedmetadata = function() {
-                            console.log('[Preview] Video metadata loaded:', filePath);
-                            if (currentPreview === link) {
-                                tooltip.innerHTML = '';
-                                tooltip.appendChild(video);
-                                positionTooltip(e);
-                            }
-                        };
-                        video.onerror = function() {
-                            console.error('[Preview] Video failed to load:', filePath);
-                            if (currentPreview === link) {
-                                tooltip.innerHTML = '<div class="preview-error">❌ Unable to load video preview</div>';
-                            }
-                        };
-                        video.src = previewUrl;
-                    } else if (previewType === 'audio') {
-                        console.log('[Preview] Creating audio element for:', filePath);
-                        const audio = document.createElement('audio');
-                        audio.controls = true;
-                        audio.preload = 'metadata';
-                        audio.onloadedmetadata = function() {
-                            console.log('[Preview] Audio metadata loaded:', filePath);
-                            if (currentPreview === link) {
-                                tooltip.innerHTML = '';
-                                tooltip.appendChild(audio);
-                                positionTooltip(e);
-                            }
-                        };
-                        audio.onerror = function() {
-                            console.error('[Preview] Audio failed to load:', filePath);
-                            if (currentPreview === link) {
-                                tooltip.innerHTML = '<div class="preview-error">❌ Unable to load audio preview</div>';
-                            }
-                        };
-                        audio.src = previewUrl;
-                    } else if (previewType === 'pdf') {
-                        console.log('[Preview] PDF preview requested (showing message):', filePath);
-                        // PDF inline preview in a small tooltip is impractical due to size/readability
-                        // Instead, show a helpful message prompting user to click to view full document
-                        tooltip.innerHTML = '<div class="preview-error">PDF preview not available<br>(Click to view)</div>';
-                    }
-                }
-                
-                function hidePreview() {
-                    console.log('[Preview] hidePreview() called');
-                    if (tooltip) {
-                        tooltip.classList.remove('visible');
-                        currentPreview = null;
-                    }
-                }
-                
-                // Use mouseenter/mouseleave to avoid child element interference
-                // We need to attach these after DOM is loaded since they're not delegated
-                function attachPreviewListeners() {
-                    const links = document.querySelectorAll('a[data-preview]');
-                    console.log('[Preview] Attaching listeners to ' + links.length + ' previewable links');
-                    
-                    links.forEach(link => {
-                        link.addEventListener('mouseenter', function(e) {
-                            console.log('[Preview] Mouseenter detected on link:', {
-                                fileName: link.querySelector('.file-name')?.textContent || 'unknown',
-                                previewType: link.dataset.preview,
-                                filePath: link.dataset.filePath,
-                                targetElement: e.target.tagName + (e.target.className ? '.' + e.target.className.split(' ').join('.') : ''),
-                                currentTargetElement: e.currentTarget.tagName
-                            });
-                            
-                            // Clear any pending hide
-                            clearTimeout(hideTimeout);
-                            
-                            // If already showing for this exact link, don't restart
-                            if (currentPreview === link) {
-                                console.log('[Preview] Already showing preview for this link');
-                                return;
-                            }
-                            
-                            // If showing preview for a different link, hide it immediately and show new one
-                            if (currentPreview && currentPreview !== link) {
-                                console.log('[Preview] Switching preview to different file');
-                                hidePreview();
-                            }
-                            
-                            currentPreview = link;
-                            
-                            // Reduced delay from 500ms to 200ms for faster response
-                            clearTimeout(showTimeout);
-                            console.log('[Preview] Starting 200ms delay timer before showing preview');
-                            showTimeout = setTimeout(() => {
-                                if (currentPreview === link) {
-                                    console.log('[Preview] 200ms delay complete, calling showPreview()');
-                                    showPreview(link, e);
-                                } else {
-                                    console.log('[Preview] 200ms delay complete but preview target changed');
-                                }
-                            }, 200);
-                        });
-                        
-                        link.addEventListener('mouseleave', function(e) {
-                            console.log('[Preview] Mouseleave detected on link:', {
-                                fileName: link.querySelector('.file-name')?.textContent || 'unknown',
-                                targetElement: e.target.tagName + (e.target.className ? '.' + e.target.className.split(' ').join('.') : ''),
-                                currentTargetElement: e.currentTarget.tagName
-                            });
-                            
-                            // Clear any pending show
-                            clearTimeout(showTimeout);
-                            
-                            // Increased delay from 100ms to 300ms to be more forgiving
-                            hideTimeout = setTimeout(() => {
-                                hidePreview();
-                            }, 300);
-                        });
-                    });
-                }
-                
-                // Attach listeners after DOM is ready
-                attachPreviewListeners();
-                
-                // Update tooltip position on mousemove
-                document.addEventListener('mousemove', function(e) {
-                    if (tooltip && tooltip.classList.contains('visible')) {
-                        positionTooltip(e);
-                    }
-                });
-            })();
-        })();
-    </script>
-</body>
-</html>
