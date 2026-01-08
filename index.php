@@ -19,6 +19,9 @@ $title = "Simple PHP File Lister";
 $subtitle = "The Easy Way To List Files In A Directory";
 $footer = "Made with ❤️ by Blind Trevor";
 
+// Feature Configuration
+$enableRename = true; // Set to false to disable rename functionality
+
 // Security Configuration
 $realRoot = rtrim(realpath('.'), DIRECTORY_SEPARATOR) . DIRECTORY_SEPARATOR;
 
@@ -134,8 +137,9 @@ function getFileIcon(string $path): array {
  * @param bool $isDir Whether this is a directory
  * @param string $currentPath Current path context
  * @param int $fileSize File size in bytes (for files only)
+ * @param bool $enableRename Whether rename functionality is enabled
  */
-function renderItem(string $entry, bool $isDir, string $currentPath, int $fileSize = 0): void {
+function renderItem(string $entry, bool $isDir, string $currentPath, int $fileSize = 0, bool $enableRename = false): void {
     if ($isDir) {
         $href = '?path=' . rawurlencode($currentPath ? $currentPath . '/' . $entry : $entry);
         $iconClass = 'fa-solid fa-folder';
@@ -169,16 +173,30 @@ function renderItem(string $entry, bool $isDir, string $currentPath, int $fileSi
     }
 
     $label = htmlspecialchars($entry, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
+    
+    // Add rename button if enabled
+    $renameButton = '';
+    if ($enableRename) {
+        $filePath = $currentPath ? $currentPath . '/' . $entry : $entry;
+        $renameButton = sprintf(
+            '<button class="rename-btn" data-file-path="%s" data-file-name="%s" data-is-dir="%s" title="Rename" aria-label="Rename %s"><i class="fa-solid fa-pen"></i></button>',
+            htmlspecialchars($filePath, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8'),
+            $label,
+            $isDir ? 'true' : 'false',
+            $label
+        );
+    }
 
     printf(
-        '<li><a href="%s" %s%s><span class="file-icon %s"><i class="%s"></i></span><span class="file-name">%s</span>%s</a></li>' . PHP_EOL,
+        '<li><a href="%s" %s%s><span class="file-icon %s"><i class="%s"></i></span><span class="file-name">%s</span>%s</a>%s</li>' . PHP_EOL,
         htmlspecialchars($href, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8'),
         $linkAttributes,
         $dataAttributes,
         htmlspecialchars($colorClass, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8'),
         htmlspecialchars($iconClass, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8'),
         $label,
-        $sizeHtml
+        $sizeHtml,
+        $renameButton
     );
 }
 
@@ -321,6 +339,104 @@ if (isset($_GET['preview'])) {
     // Stream file content
     fpassthru($fp);
     fclose($fp);
+    exit;
+}
+
+/**
+ * Secure rename handler
+ */
+if (isset($_POST['rename'])) {
+    header('Content-Type: application/json');
+    
+    // Check if rename is enabled
+    if (!$enableRename) {
+        http_response_code(403);
+        echo json_encode(['success' => false, 'error' => 'Rename functionality is disabled']);
+        exit;
+    }
+    
+    $oldPath = isset($_POST['old_path']) ? (string)$_POST['old_path'] : '';
+    $newName = isset($_POST['new_name']) ? (string)$_POST['new_name'] : '';
+    
+    // Validate inputs
+    if (empty($oldPath) || empty($newName)) {
+        http_response_code(400);
+        echo json_encode(['success' => false, 'error' => 'Invalid parameters']);
+        exit;
+    }
+    
+    // Sanitize new name - prevent path traversal
+    $newName = str_replace(['/', '\\', "\0"], '', $newName);
+    $newName = trim($newName);
+    
+    // Validate new name is not empty after sanitization
+    if (empty($newName) || $newName === '.' || $newName === '..') {
+        http_response_code(400);
+        echo json_encode(['success' => false, 'error' => 'Invalid file name']);
+        exit;
+    }
+    
+    // Check for dangerous extensions in new name
+    $ext = strtolower(pathinfo($newName, PATHINFO_EXTENSION));
+    $oldExt = strtolower(pathinfo($oldPath, PATHINFO_EXTENSION));
+    
+    // Prevent changing extension to a dangerous one
+    if (in_array($ext, BLOCKED_EXTENSIONS, true)) {
+        http_response_code(400);
+        echo json_encode(['success' => false, 'error' => 'Cannot rename to this file type']);
+        exit;
+    }
+    
+    // Resolve old path
+    $fullOldPath = realpath($realRoot . $oldPath);
+    
+    // Validate old path exists and is within root
+    if ($fullOldPath === false || strpos($fullOldPath . DIRECTORY_SEPARATOR, $realRoot) !== 0) {
+        http_response_code(404);
+        echo json_encode(['success' => false, 'error' => 'File or folder not found']);
+        exit;
+    }
+    
+    // Ensure it's not the index.php file or a hidden file
+    $oldBaseName = basename($fullOldPath);
+    if ($oldBaseName === 'index.php' || $oldBaseName[0] === '.') {
+        http_response_code(403);
+        echo json_encode(['success' => false, 'error' => 'Cannot rename this item']);
+        exit;
+    }
+    
+    // Prevent renaming to hidden file
+    if ($newName[0] === '.') {
+        http_response_code(400);
+        echo json_encode(['success' => false, 'error' => 'Cannot rename to hidden file']);
+        exit;
+    }
+    
+    // Build new path (same directory, new name)
+    $parentDir = dirname($fullOldPath);
+    $fullNewPath = $parentDir . DIRECTORY_SEPARATOR . $newName;
+    
+    // Validate new path is within root
+    if (strpos($fullNewPath . DIRECTORY_SEPARATOR, $realRoot) !== 0) {
+        http_response_code(403);
+        echo json_encode(['success' => false, 'error' => 'Invalid operation']);
+        exit;
+    }
+    
+    // Check if target already exists
+    if (file_exists($fullNewPath)) {
+        http_response_code(409);
+        echo json_encode(['success' => false, 'error' => 'A file or folder with this name already exists']);
+        exit;
+    }
+    
+    // Perform the rename
+    if (@rename($fullOldPath, $fullNewPath)) {
+        echo json_encode(['success' => true]);
+    } else {
+        http_response_code(500);
+        echo json_encode(['success' => false, 'error' => 'Failed to rename item']);
+    }
     exit;
 }
 
@@ -759,6 +875,44 @@ if ($isValidPath) {
             font-weight: 500;
         }
         
+        .rename-btn {
+            position: absolute;
+            right: 12px;
+            top: 50%;
+            transform: translateY(-50%);
+            background: var(--accent);
+            color: white;
+            border: none;
+            border-radius: 6px;
+            width: 36px;
+            height: 36px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            opacity: 0;
+            transition: all 0.3s ease;
+            font-size: 0.9rem;
+            z-index: 10;
+        }
+        
+        .file-list li:hover .rename-btn {
+            opacity: 1;
+        }
+        
+        .rename-btn:hover {
+            background: var(--accent-hover);
+            transform: translateY(-50%) scale(1.1);
+        }
+        
+        .rename-btn:active {
+            transform: translateY(-50%) scale(0.95);
+        }
+        
+        .file-list li {
+            position: relative;
+        }
+        
         /* ================================================================
            STATISTICS & INFO DISPLAY
            ================================================================ */
@@ -987,6 +1141,18 @@ if ($isValidPath) {
                 font-size: 0.813rem;
                 text-align: center;
             }
+            
+            .rename-btn {
+                opacity: 1;
+                right: 8px;
+                width: 32px;
+                height: 32px;
+                font-size: 0.85rem;
+            }
+            
+            .rename-modal-content {
+                padding: 24px 20px;
+            }
         }
         
         /* Mobile phones (landscape) and small tablets */
@@ -1127,6 +1293,129 @@ if ($isValidPath) {
             .preview-tooltip {
                 display: none;
             }
+        }
+        
+        /* ================================================================
+           RENAME MODAL
+           ================================================================ */
+        .rename-modal {
+            position: fixed;
+            inset: 0;
+            background: rgba(0, 0, 0, 0.5);
+            backdrop-filter: blur(4px);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            z-index: 10001;
+            padding: 20px;
+        }
+        
+        .rename-modal.active {
+            display: flex;
+        }
+        
+        .rename-modal-content {
+            background: white;
+            border-radius: 12px;
+            padding: 28px;
+            max-width: 500px;
+            width: 100%;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            animation: modalSlideIn 0.3s ease;
+        }
+        
+        @keyframes modalSlideIn {
+            from {
+                opacity: 0;
+                transform: translateY(-30px) scale(0.95);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0) scale(1);
+            }
+        }
+        
+        .rename-modal-title {
+            font-size: 1.5rem;
+            font-weight: 700;
+            margin-bottom: 8px;
+            color: var(--text);
+        }
+        
+        .rename-modal-subtitle {
+            font-size: 0.9rem;
+            color: var(--muted);
+            margin-bottom: 20px;
+            word-break: break-word;
+        }
+        
+        .rename-modal-input {
+            width: 100%;
+            padding: 12px 16px;
+            border: 2px solid var(--border);
+            border-radius: 8px;
+            font-size: 1rem;
+            font-family: inherit;
+            margin-bottom: 20px;
+            transition: border-color 0.2s ease;
+        }
+        
+        .rename-modal-input:focus {
+            outline: none;
+            border-color: var(--accent);
+        }
+        
+        .rename-modal-error {
+            background: #fee;
+            color: #c00;
+            padding: 12px 16px;
+            border-radius: 8px;
+            margin-bottom: 16px;
+            font-size: 0.9rem;
+            display: none;
+        }
+        
+        .rename-modal-error.active {
+            display: block;
+        }
+        
+        .rename-modal-buttons {
+            display: flex;
+            gap: 12px;
+            justify-content: flex-end;
+        }
+        
+        .rename-modal-btn {
+            padding: 12px 24px;
+            border: none;
+            border-radius: 8px;
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+        
+        .rename-modal-btn-cancel {
+            background: var(--border);
+            color: var(--text);
+        }
+        
+        .rename-modal-btn-cancel:hover {
+            background: #cbd5e0;
+        }
+        
+        .rename-modal-btn-confirm {
+            background: var(--accent);
+            color: white;
+        }
+        
+        .rename-modal-btn-confirm:hover {
+            background: var(--accent-hover);
+        }
+        
+        .rename-modal-btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
         }
         
         /* ================================================================
@@ -1393,9 +1682,9 @@ if ($isValidPath) {
 
                     foreach ($itemsToDisplay as $item) {
                         if ($item['type'] === 'dir') {
-                            renderItem($item['name'], true, $currentPath);
+                            renderItem($item['name'], true, $currentPath, 0, $enableRename);
                         } else {
-                            renderItem($item['name'], false, $currentPath, $item['size']);
+                            renderItem($item['name'], false, $currentPath, $item['size'], $enableRename);
                         }
                     }
                 }
@@ -1526,6 +1815,20 @@ if ($isValidPath) {
                 <img src="https://img.shields.io/badge/Created_by_Blind_Trevor-Simple_PHP_File_Lister-magenta" alt="GitHub"/>
             </a>
         </footer>
+    </div>
+
+    <!-- Rename Modal -->
+    <div class="rename-modal" id="renameModal" role="dialog" aria-labelledby="renameModalTitle" aria-modal="true">
+        <div class="rename-modal-content">
+            <h2 class="rename-modal-title" id="renameModalTitle">Rename</h2>
+            <p class="rename-modal-subtitle" id="renameModalSubtitle"></p>
+            <div class="rename-modal-error" id="renameModalError"></div>
+            <input type="text" class="rename-modal-input" id="renameModalInput" placeholder="Enter new name" aria-label="New name">
+            <div class="rename-modal-buttons">
+                <button class="rename-modal-btn rename-modal-btn-cancel" id="renameModalCancel">Cancel</button>
+                <button class="rename-modal-btn rename-modal-btn-confirm" id="renameModalConfirm">Rename</button>
+            </div>
+        </div>
     </div>
 
     <div class="loading-overlay" aria-hidden="true">
@@ -1823,6 +2126,149 @@ if ($isValidPath) {
                 document.addEventListener('mousemove', function(e) {
                     if (tooltip && tooltip.classList.contains('visible')) {
                         positionTooltip(e);
+                    }
+                });
+            })();
+            
+            // Rename functionality
+            (function() {
+                const modal = document.getElementById('renameModal');
+                const input = document.getElementById('renameModalInput');
+                const subtitle = document.getElementById('renameModalSubtitle');
+                const error = document.getElementById('renameModalError');
+                const cancelBtn = document.getElementById('renameModalCancel');
+                const confirmBtn = document.getElementById('renameModalConfirm');
+                
+                if (!modal) return;
+                
+                let currentFilePath = '';
+                let currentFileName = '';
+                let isDirectory = false;
+                
+                function showError(message) {
+                    error.textContent = message;
+                    error.classList.add('active');
+                }
+                
+                function hideError() {
+                    error.classList.remove('active');
+                }
+                
+                function openModal(filePath, fileName, isDir) {
+                    currentFilePath = filePath;
+                    currentFileName = fileName;
+                    isDirectory = isDir;
+                    
+                    const itemType = isDir ? 'folder' : 'file';
+                    subtitle.textContent = 'Renaming ' + itemType + ': ' + fileName;
+                    input.value = fileName;
+                    hideError();
+                    
+                    modal.classList.add('active');
+                    modal.setAttribute('aria-hidden', 'false');
+                    
+                    // Focus input and select filename without extension for files
+                    setTimeout(() => {
+                        input.focus();
+                        if (!isDir) {
+                            const lastDot = fileName.lastIndexOf('.');
+                            if (lastDot > 0) {
+                                input.setSelectionRange(0, lastDot);
+                            } else {
+                                input.select();
+                            }
+                        } else {
+                            input.select();
+                        }
+                    }, 50);
+                }
+                
+                function closeModal() {
+                    modal.classList.remove('active');
+                    modal.setAttribute('aria-hidden', 'true');
+                    currentFilePath = '';
+                    currentFileName = '';
+                    isDirectory = false;
+                }
+                
+                function performRename() {
+                    const newName = input.value.trim();
+                    
+                    if (!newName) {
+                        showError('Please enter a name');
+                        return;
+                    }
+                    
+                    if (newName === currentFileName) {
+                        closeModal();
+                        return;
+                    }
+                    
+                    // Disable buttons during operation
+                    confirmBtn.disabled = true;
+                    cancelBtn.disabled = true;
+                    hideError();
+                    
+                    // Send rename request
+                    fetch('', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/x-www-form-urlencoded',
+                        },
+                        body: 'rename=1&old_path=' + encodeURIComponent(currentFilePath) + '&new_name=' + encodeURIComponent(newName)
+                    })
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.success) {
+                            // Reload page to show renamed item
+                            window.location.reload();
+                        } else {
+                            showError(data.error || 'Failed to rename');
+                            confirmBtn.disabled = false;
+                            cancelBtn.disabled = false;
+                        }
+                    })
+                    .catch(err => {
+                        showError('An error occurred. Please try again.');
+                        confirmBtn.disabled = false;
+                        cancelBtn.disabled = false;
+                        console.error('Rename error:', err);
+                    });
+                }
+                
+                // Event listeners
+                document.addEventListener('click', function(e) {
+                    const renameBtn = e.target.closest('.rename-btn');
+                    if (renameBtn) {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        
+                        const filePath = renameBtn.dataset.filePath;
+                        const fileName = renameBtn.dataset.fileName;
+                        const isDir = renameBtn.dataset.isDir === 'true';
+                        
+                        openModal(filePath, fileName, isDir);
+                    }
+                });
+                
+                cancelBtn.addEventListener('click', closeModal);
+                
+                confirmBtn.addEventListener('click', performRename);
+                
+                input.addEventListener('keydown', function(e) {
+                    if (e.key === 'Enter') {
+                        e.preventDefault();
+                        performRename();
+                    } else if (e.key === 'Escape') {
+                        e.preventDefault();
+                        closeModal();
+                    }
+                });
+                
+                // Close modal when clicking outside
+                modal.addEventListener('click', function(e) {
+                    if (e.target === modal) {
+                        closeModal();
                     }
                 });
             })();
