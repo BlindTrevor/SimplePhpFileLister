@@ -196,6 +196,81 @@
         exit;
     }
     
+    // Secure preview handler (for inline display in browser)
+    if (isset($_GET['preview'])) {
+        $rel = (string)$_GET['preview'];
+        $full = realpath($realRoot . $rel);
+        
+        // Validate path is within root and file exists
+        if ($full === false || strpos($full . DIRECTORY_SEPARATOR, $realRoot) !== 0) {
+            http_response_code(404);
+            exit('Not found');
+        }
+        
+        // Ensure it's a file, not a directory
+        if (!is_file($full)) {
+            http_response_code(404);
+            exit('Not found');
+        }
+        
+        // Get file extension and determine MIME type
+        $ext = strtolower(pathinfo($full, PATHINFO_EXTENSION));
+        $mimeTypes = [
+            // Images
+            'jpg' => 'image/jpeg',
+            'jpeg' => 'image/jpeg',
+            'png' => 'image/png',
+            'gif' => 'image/gif',
+            'webp' => 'image/webp',
+            'svg' => 'image/svg+xml',
+            'bmp' => 'image/bmp',
+            'ico' => 'image/x-icon',
+            // Videos
+            'mp4' => 'video/mp4',
+            'webm' => 'video/webm',
+            'ogg' => 'video/ogg',
+            // Audio
+            'mp3' => 'audio/mpeg',
+            'wav' => 'audio/wav',
+            'flac' => 'audio/flac',
+            'm4a' => 'audio/mp4',
+            // Documents
+            'pdf' => 'application/pdf',
+        ];
+        
+        // Only allow previewable file types
+        if (!isset($mimeTypes[$ext])) {
+            http_response_code(403);
+            exit('Preview not supported for this file type');
+        }
+        
+        $mimeType = $mimeTypes[$ext];
+        
+        // Open file for reading before sending headers
+        $fp = fopen($full, 'rb');
+        if ($fp === false) {
+            http_response_code(500);
+            exit('Failed to read file');
+        }
+        
+        // Set headers for inline display
+        header('Content-Type: ' . $mimeType);
+        header('Content-Disposition: inline');
+        header('X-Content-Type-Options: nosniff');
+        header('Content-Length: ' . filesize($full));
+        header('Cache-Control: public, max-age=3600');
+        
+        // Disable output buffering for efficient streaming
+        while (ob_get_level() > 0) {
+            ob_end_clean();
+        }
+        
+        // Stream file content
+        fpassthru($fp);
+        fclose($fp);
+        exit;
+    }
+    
     // Redirect if path=.
     if (isset($_GET['path']) && $_GET['path'] === '.') {
         header('Location: ' . strtok($_SERVER['REQUEST_URI'], '?'));
@@ -209,7 +284,7 @@
     header('X-Frame-Options: DENY');
     header('Referrer-Policy: no-referrer');
     header('Permissions-Policy: geolocation=(), camera=(), microphone=()');
-    header("Content-Security-Policy: default-src 'self'; style-src 'self' https://cdnjs.cloudflare.com 'nonce-{$cspNonce}'; script-src 'self' 'nonce-{$cspNonce}'; img-src 'self' https://img.shields.io; font-src https://cdnjs.cloudflare.com; object-src 'none'; base-uri 'self'; frame-ancestors 'none'");
+    header("Content-Security-Policy: default-src 'self'; style-src 'self' https://cdnjs.cloudflare.com 'nonce-{$cspNonce}'; script-src 'self' 'nonce-{$cspNonce}'; img-src 'self' https://img.shields.io data: blob:; font-src https://cdnjs.cloudflare.com; media-src 'self' blob:; object-src 'none'; base-uri 'self'; frame-ancestors 'none'");
     $currentPath = isset($_GET['path']) ? rtrim((string)$_GET['path'], '/') : '';
     $basePath = $currentPath ? './' . str_replace('\\', '/', $currentPath) : '.';
     $realBase = realpath($basePath);
@@ -277,6 +352,7 @@
             $colorClass = 'icon-folder';
             $linkAttributes = 'class="dir-link"';
             $sizeHtml = '';
+            $dataAttributes = '';
         } else {
             // Use secure download handler for files
             $filePath = $currentPath ? $currentPath . '/' . $entry : $entry;
@@ -285,14 +361,33 @@
             // Open downloads in new tab to prevent loading overlay on main page
             $linkAttributes = 'target="_blank" rel="noopener noreferrer"';
             $sizeHtml = '<span class="file-size">' . htmlspecialchars(formatFileSize($fileSize), ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8') . '</span>';
+            
+            // Add data attributes for preview functionality
+            $ext = strtolower(pathinfo($entry, PATHINFO_EXTENSION));
+            $previewableImages = ['jpg', 'jpeg', 'png', 'gif', 'webp', 'svg', 'bmp', 'ico'];
+            $previewableVideos = ['mp4', 'webm', 'ogg'];
+            $previewableAudio = ['mp3', 'wav', 'ogg', 'flac', 'm4a'];
+            $previewableDocs = ['pdf'];
+            
+            $dataAttributes = '';
+            if (in_array($ext, $previewableImages)) {
+                $dataAttributes = ' data-preview="image" data-file-path="' . htmlspecialchars($filePath, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8') . '"';
+            } elseif (in_array($ext, $previewableVideos)) {
+                $dataAttributes = ' data-preview="video" data-file-path="' . htmlspecialchars($filePath, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8') . '"';
+            } elseif (in_array($ext, $previewableAudio)) {
+                $dataAttributes = ' data-preview="audio" data-file-path="' . htmlspecialchars($filePath, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8') . '"';
+            } elseif (in_array($ext, $previewableDocs)) {
+                $dataAttributes = ' data-preview="pdf" data-file-path="' . htmlspecialchars($filePath, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8') . '"';
+            }
         }
 
         $label = htmlspecialchars($entry, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
 
         printf(
-            '<li><a href="%s" %s><span class="file-icon %s"><i class="%s"></i></span><span class="file-name">%s</span>%s</a></li>' . PHP_EOL,
+            '<li><a href="%s" %s%s><span class="file-icon %s"><i class="%s"></i></span><span class="file-name">%s</span>%s</a></li>' . PHP_EOL,
             htmlspecialchars($href, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8'),
             $linkAttributes,
+            $dataAttributes,
             htmlspecialchars($colorClass, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8'),
             htmlspecialchars($iconClass, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8'),
             $label,
@@ -809,6 +904,64 @@
             }
         }
         
+        /* Thumbnail preview tooltip */
+        .preview-tooltip {
+            position: fixed;
+            z-index: 10000;
+            pointer-events: none;
+            opacity: 0;
+            transition: opacity 0.2s ease-in-out;
+            background: white;
+            border: 2px solid var(--border);
+            border-radius: 8px;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
+            padding: 8px;
+            max-width: 400px;
+            max-height: 400px;
+        }
+        
+        .preview-tooltip.visible {
+            opacity: 1;
+        }
+        
+        .preview-tooltip img,
+        .preview-tooltip video,
+        .preview-tooltip audio {
+            max-width: 100%;
+            max-height: 380px;
+            display: block;
+            border-radius: 4px;
+        }
+        
+        .preview-tooltip video {
+            background: #000;
+        }
+        
+        .preview-tooltip audio {
+            width: 100%;
+        }
+        
+        .preview-tooltip .preview-error {
+            padding: 20px;
+            color: var(--muted);
+            text-align: center;
+            font-size: 0.875rem;
+        }
+        
+        .preview-tooltip .preview-loading {
+            padding: 20px;
+            color: var(--muted);
+            text-align: center;
+            font-size: 0.875rem;
+        }
+        
+        /* Hide preview on mobile/touch devices to avoid conflicts */
+        @media (hover: none) and (pointer: coarse) {
+            .preview-tooltip {
+                display: none;
+            }
+        }
+        
         /* Print styles */
         @media print {
             body {
@@ -995,6 +1148,179 @@
             }, { capture: true });
 
             window.addEventListener('beforeunload', showOverlay);
+            
+            // Preview tooltip functionality
+            (function() {
+                // Skip on touch devices
+                if ('ontouchstart' in window || navigator.maxTouchPoints > 0) {
+                    return;
+                }
+                
+                let tooltip = null;
+                let currentPreview = null;
+                let showTimeout = null;
+                let hideTimeout = null;
+                
+                function createTooltip() {
+                    if (tooltip) return tooltip;
+                    tooltip = document.createElement('div');
+                    tooltip.className = 'preview-tooltip';
+                    tooltip.setAttribute('role', 'tooltip');
+                    tooltip.setAttribute('aria-live', 'polite');
+                    document.body.appendChild(tooltip);
+                    return tooltip;
+                }
+                
+                function positionTooltip(e) {
+                    if (!tooltip) return;
+                    
+                    const padding = 15;
+                    const tooltipRect = tooltip.getBoundingClientRect();
+                    let x = e.clientX + padding;
+                    let y = e.clientY + padding;
+                    
+                    // Adjust if tooltip goes off right edge
+                    if (x + tooltipRect.width > window.innerWidth) {
+                        x = e.clientX - tooltipRect.width - padding;
+                    }
+                    
+                    // Adjust if tooltip goes off bottom edge
+                    if (y + tooltipRect.height > window.innerHeight) {
+                        y = e.clientY - tooltipRect.height - padding;
+                    }
+                    
+                    // Ensure tooltip doesn't go off left or top edge
+                    x = Math.max(padding, x);
+                    y = Math.max(padding, y);
+                    
+                    tooltip.style.left = x + 'px';
+                    tooltip.style.top = y + 'px';
+                }
+                
+                function showPreview(link, e) {
+                    const previewType = link.dataset.preview;
+                    const filePath = link.dataset.filePath;
+                    
+                    if (!previewType || !filePath) return;
+                    
+                    createTooltip();
+                    tooltip.innerHTML = '<div class="preview-loading">Loading preview...</div>';
+                    positionTooltip(e);
+                    
+                    // Show tooltip after a brief delay
+                    setTimeout(() => {
+                        tooltip.classList.add('visible');
+                    }, 50);
+                    
+                    const previewUrl = '?preview=' + encodeURIComponent(filePath);
+                    
+                    if (previewType === 'image') {
+                        const img = new Image();
+                        img.onload = function() {
+                            if (currentPreview === link) {
+                                tooltip.innerHTML = '';
+                                tooltip.appendChild(img);
+                                positionTooltip(e);
+                            }
+                        };
+                        img.onerror = function() {
+                            if (currentPreview === link) {
+                                tooltip.innerHTML = '<div class="preview-error">Unable to load preview</div>';
+                            }
+                        };
+                        img.src = previewUrl;
+                        img.alt = 'Preview';
+                    } else if (previewType === 'video') {
+                        const video = document.createElement('video');
+                        video.controls = false;
+                        video.muted = true;
+                        video.autoplay = false;
+                        video.preload = 'metadata';
+                        video.onloadedmetadata = function() {
+                            if (currentPreview === link) {
+                                tooltip.innerHTML = '';
+                                tooltip.appendChild(video);
+                                positionTooltip(e);
+                            }
+                        };
+                        video.onerror = function() {
+                            if (currentPreview === link) {
+                                tooltip.innerHTML = '<div class="preview-error">Unable to load video preview</div>';
+                            }
+                        };
+                        video.src = previewUrl;
+                    } else if (previewType === 'audio') {
+                        const audio = document.createElement('audio');
+                        audio.controls = true;
+                        audio.preload = 'metadata';
+                        audio.onloadedmetadata = function() {
+                            if (currentPreview === link) {
+                                tooltip.innerHTML = '';
+                                tooltip.appendChild(audio);
+                                positionTooltip(e);
+                            }
+                        };
+                        audio.onerror = function() {
+                            if (currentPreview === link) {
+                                tooltip.innerHTML = '<div class="preview-error">Unable to load audio preview</div>';
+                            }
+                        };
+                        audio.src = previewUrl;
+                    } else if (previewType === 'pdf') {
+                        // PDF preview is complex and may not work well in a tooltip
+                        // Show a message instead
+                        tooltip.innerHTML = '<div class="preview-error">PDF preview not available<br>(Click to view)</div>';
+                    }
+                }
+                
+                function hidePreview() {
+                    if (tooltip) {
+                        tooltip.classList.remove('visible');
+                        currentPreview = null;
+                    }
+                }
+                
+                // Event delegation for better performance
+                document.addEventListener('mouseover', function(e) {
+                    const link = e.target.closest('a[data-preview]');
+                    if (!link) return;
+                    
+                    // Clear any pending hide
+                    clearTimeout(hideTimeout);
+                    
+                    // Don't show if already showing for this link
+                    if (currentPreview === link) return;
+                    
+                    currentPreview = link;
+                    
+                    // Delay showing preview to avoid flickering on quick mouseovers
+                    clearTimeout(showTimeout);
+                    showTimeout = setTimeout(() => {
+                        if (currentPreview === link) {
+                            showPreview(link, e);
+                        }
+                    }, 500);
+                });
+                
+                document.addEventListener('mousemove', function(e) {
+                    if (tooltip && tooltip.classList.contains('visible')) {
+                        positionTooltip(e);
+                    }
+                });
+                
+                document.addEventListener('mouseout', function(e) {
+                    const link = e.target.closest('a[data-preview]');
+                    if (!link) return;
+                    
+                    // Clear any pending show
+                    clearTimeout(showTimeout);
+                    
+                    // Hide after a small delay to allow moving to tooltip
+                    hideTimeout = setTimeout(() => {
+                        hidePreview();
+                    }, 100);
+                });
+            })();
         })();
     </script>
 </body>
