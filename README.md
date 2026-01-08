@@ -6,6 +6,8 @@ Just drop the `index.php` file into any directory on a PHP-enabled server and it
 
 Perfect for sharing downloads, documents, or quick internal file access.
 
+![Screen Shot](screenshot.png)
+
 ---
 
 ## Features
