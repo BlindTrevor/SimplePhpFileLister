@@ -35,6 +35,7 @@ define('BLOCKED_EXTENSIONS', [
 
 /**
  * Get list of previewable file types grouped by category
+ * Note: PDF preview is limited in tooltips and shows a placeholder message
  * @return array Array of file types by category
  */
 function getPreviewableFileTypes(): array {
@@ -260,7 +261,11 @@ if (isset($_GET['preview'])) {
         exit('Not found');
     }
     
-    // Get file extension and determine MIME type (inlined for speed)
+    // Get file extension and determine MIME type
+    // PERFORMANCE NOTE: MIME types array is intentionally duplicated here (also in getPreviewMimeType())
+    // This duplication is a deliberate performance optimization to avoid function calls in the fast path.
+    // The preview handler is placed at the very top of the file and exits immediately to minimize overhead.
+    // IMPORTANT: When updating supported file types, update BOTH this array AND getPreviewMimeType()
     $ext = strtolower(pathinfo($full, PATHINFO_EXTENSION));
     $mimeTypes = [
         // Images
