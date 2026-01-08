@@ -129,7 +129,7 @@
         header('Content-Length: ' . filesize($tempZip));
         
         // Disable output buffering for efficient streaming of large files
-        if (ob_get_level() > 0) {
+        while (ob_get_level() > 0) {
             ob_end_clean();
         }
         
@@ -185,7 +185,7 @@
         header('Content-Length: ' . filesize($full));
         
         // Disable output buffering for efficient streaming of large files
-        if (ob_get_level() > 0) {
+        while (ob_get_level() > 0) {
             ob_end_clean();
         }
         
