@@ -1211,6 +1211,7 @@
                 }
                 
                 console.log('[Preview] Initialized: Preview functionality enabled');
+                console.log('[Preview] Version: mouseenter/mouseleave (event bubbling fix)');
                 
                 let tooltip = null;
                 let currentPreview = null;
@@ -1391,7 +1392,9 @@
                             console.log('[Preview] Mouseenter detected on link:', {
                                 fileName: link.querySelector('.file-name')?.textContent || 'unknown',
                                 previewType: link.dataset.preview,
-                                filePath: link.dataset.filePath
+                                filePath: link.dataset.filePath,
+                                targetElement: e.target.tagName + (e.target.className ? '.' + e.target.className.split(' ').join('.') : ''),
+                                currentTargetElement: e.currentTarget.tagName
                             });
                             
                             // Clear any pending hide
@@ -1420,7 +1423,9 @@
                         
                         link.addEventListener('mouseleave', function(e) {
                             console.log('[Preview] Mouseleave detected on link:', {
-                                fileName: link.querySelector('.file-name')?.textContent || 'unknown'
+                                fileName: link.querySelector('.file-name')?.textContent || 'unknown',
+                                targetElement: e.target.tagName + (e.target.className ? '.' + e.target.className.split(' ').join('.') : ''),
+                                currentTargetElement: e.currentTarget.tagName
                             });
                             
                             // Clear any pending show
