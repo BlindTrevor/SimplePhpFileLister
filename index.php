@@ -1,5 +1,10 @@
 <?php
-    // Security: prevent directory traversal
+
+    $title = "Simple PHP File Lister";
+    $subtitle = "The Easy Way To List Files In A Directory";
+    $footer = "Made with ❤️ by Blind Trevor";
+
+// Security: prevent directory traversal
     $realRoot = rtrim(realpath('.'), DIRECTORY_SEPARATOR) . DIRECTORY_SEPARATOR;
     
     // FAST PATH: Secure preview handler (for inline display in browser)
@@ -81,11 +86,7 @@
         fclose($fp);
         exit;
     }
-    
-    $title = "Simple PHP File Lister";
-    $subtitle = "The Easy Way To List Files In A Directory";
-    $footer = "Made with ❤️ by Blind Trevor";
-    
+        
     // Blocked file extensions to prevent code execution
     define('BLOCKED_EXTENSIONS', ['php', 'phtml', 'phar', 'cgi', 'pl', 'sh', 'bat', 'exe', 
                                    'jsp', 'asp', 'aspx', 'py', 'rb', 'ps1', 'vbs', 'htaccess',
