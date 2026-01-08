@@ -263,9 +263,14 @@
                             if (is_dir($fullPath)) {
                                 $dirs[] = $entry;
                             } else {
-                                $fileSize = filesize($fullPath);
-                                $files[] = ['name' => $entry, 'size' => $fileSize ?: 0];
-                                $totalSize += $fileSize ?: 0;
+                                $fileSize = @filesize($fullPath);
+                                if ($fileSize !== false) {
+                                    $files[] = ['name' => $entry, 'size' => $fileSize];
+                                    $totalSize += $fileSize;
+                                } else {
+                                    // If filesize fails, still list the file but with size 0
+                                    $files[] = ['name' => $entry, 'size' => 0];
+                                }
                             }
                         }
                         closedir($handle);
