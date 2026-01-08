@@ -1,494 +1,567 @@
 <?php
+/**
+ * Simple PHP File Lister
+ * A lightweight, secure directory listing application
+ * 
+ * @author Blind Trevor
+ * @link https://github.com/BlindTrevor/SimplePhpFileLister
+ */
 
-    // CONFIGURATION
-    // Set the number of files to show per page before pagination is enabled
-    // When the total number of files and folders exceeds this threshold, pagination controls will appear
-    $paginationThreshold = 25;
+// ============================================================================
+// CONFIGURATION
+// ============================================================================
 
-    $title = "Simple PHP File Lister";
-    $subtitle = "The Easy Way To List Files In A Directory";
-    $footer = "Made with ❤️ by Blind Trevor";
+// Pagination Settings
+$paginationThreshold = 25; // Number of items per page before pagination appears
 
-// Security: prevent directory traversal
-    $realRoot = rtrim(realpath('.'), DIRECTORY_SEPARATOR) . DIRECTORY_SEPARATOR;
+// Display Customization
+$title = "Simple PHP File Lister";
+$subtitle = "The Easy Way To List Files In A Directory";
+$footer = "Made with ❤️ by Blind Trevor";
+
+// Security Configuration
+$realRoot = rtrim(realpath('.'), DIRECTORY_SEPARATOR) . DIRECTORY_SEPARATOR;
+
+// Blocked file extensions to prevent code execution
+define('BLOCKED_EXTENSIONS', [
+    'php', 'phtml', 'phar', 'cgi', 'pl', 'sh', 'bat', 'exe',
+    'jsp', 'asp', 'aspx', 'py', 'rb', 'ps1', 'vbs', 'htaccess',
+    'scr', 'com', 'jar'
+]);
+
+// ============================================================================
+// HELPER FUNCTIONS
+// ============================================================================
+
+/**
+ * Get list of previewable file types grouped by category
+ * Note: PDF preview is limited in tooltips and shows a placeholder message
+ * @return array Array of file types by category
+ */
+function getPreviewableFileTypes(): array {
+    return [
+        'image' => ['jpg', 'jpeg', 'png', 'gif', 'webp', 'svg', 'bmp', 'ico'],
+        'video' => ['mp4', 'webm', 'ogv'],
+        'audio' => ['mp3', 'wav', 'oga', 'flac', 'm4a'],
+        'pdf' => ['pdf'],
+    ];
+}
+
+/**
+ * Get MIME type for preview-supported file extensions
+ * @param string $ext File extension
+ * @return string|null MIME type or null if not supported
+ */
+function getPreviewMimeType(string $ext): ?string {
+    $mimeTypes = [
+        // Images
+        'jpg' => 'image/jpeg',
+        'jpeg' => 'image/jpeg',
+        'png' => 'image/png',
+        'gif' => 'image/gif',
+        'webp' => 'image/webp',
+        'svg' => 'image/svg+xml',
+        'bmp' => 'image/bmp',
+        'ico' => 'image/x-icon',
+        // Videos
+        'mp4' => 'video/mp4',
+        'webm' => 'video/webm',
+        'ogv' => 'video/ogg',
+        // Audio
+        'mp3' => 'audio/mpeg',
+        'wav' => 'audio/wav',
+        'oga' => 'audio/ogg',
+        'flac' => 'audio/flac',
+        'm4a' => 'audio/mp4',
+        // Documents
+        'pdf' => 'application/pdf',
+    ];
     
-    // FAST PATH: Secure preview handler (for inline display in browser)
-    // This is placed at the top for maximum performance - exits immediately without loading anything else
-    // NOTE: MIME types array is intentionally duplicated here (also in getPreviewMimeType()) 
-    //       to avoid loading any functions. This duplication is a performance optimization.
-    //       When updating supported file types, update BOTH locations.
-    if (isset($_GET['preview'])) {
-        $rel = (string)$_GET['preview'];
-        $full = realpath($realRoot . $rel);
-        
-        // Validate path is within root and file exists
-        if ($full === false || strpos($full . DIRECTORY_SEPARATOR, $realRoot) !== 0) {
-            http_response_code(404);
-            exit('Not found');
-        }
-        
-        // Ensure it's a file, not a directory
-        if (!is_file($full)) {
-            http_response_code(404);
-            exit('Not found');
-        }
-        
-        // Get file extension and determine MIME type (inlined for speed)
-        $ext = strtolower(pathinfo($full, PATHINFO_EXTENSION));
-        $mimeTypes = [
-            // Images
-            'jpg' => 'image/jpeg',
-            'jpeg' => 'image/jpeg',
-            'png' => 'image/png',
-            'gif' => 'image/gif',
-            'webp' => 'image/webp',
-            'svg' => 'image/svg+xml',
-            'bmp' => 'image/bmp',
-            'ico' => 'image/x-icon',
-            // Videos
-            'mp4' => 'video/mp4',
-            'webm' => 'video/webm',
-            'ogv' => 'video/ogg',
-            // Audio
-            'mp3' => 'audio/mpeg',
-            'wav' => 'audio/wav',
-            'oga' => 'audio/ogg',
-            'flac' => 'audio/flac',
-            'm4a' => 'audio/mp4',
-            // Documents
-            'pdf' => 'application/pdf',
-        ];
-        
-        // Only allow previewable file types
-        if (!isset($mimeTypes[$ext])) {
-            http_response_code(403);
-            exit('Preview not supported for this file type');
-        }
-        
-        $mimeType = $mimeTypes[$ext];
-        
-        // Open file for reading before sending headers
-        $fp = fopen($full, 'rb');
-        if ($fp === false) {
-            http_response_code(500);
-            exit('Failed to read file');
-        }
-        
-        // Set headers for inline display
-        header('Content-Type: ' . $mimeType);
-        header('Content-Disposition: inline');
-        header('X-Content-Type-Options: nosniff');
-        header('Content-Length: ' . filesize($full));
-        header('Cache-Control: public, max-age=3600');
-        
-        // Disable output buffering for efficient streaming
-        while (ob_get_level() > 0) {
-            ob_end_clean();
-        }
-        
-        // Stream file content
-        fpassthru($fp);
-        fclose($fp);
-        exit;
+    return $mimeTypes[$ext] ?? null;
+}
+
+/**
+ * Format file size in human-readable format
+ * @param int $bytes File size in bytes
+ * @return string Formatted file size
+ */
+function formatFileSize(int $bytes): string {
+    if ($bytes === 0) {
+        return '0 B';
     }
-        
-    // Blocked file extensions to prevent code execution
-    define('BLOCKED_EXTENSIONS', ['php', 'phtml', 'phar', 'cgi', 'pl', 'sh', 'bat', 'exe', 
-                                   'jsp', 'asp', 'aspx', 'py', 'rb', 'ps1', 'vbs', 'htaccess',
-                                   'scr', 'com', 'jar']);
+    $units = ['B', 'KB', 'MB', 'GB', 'TB'];
+    $i = floor(log($bytes, 1024));
+    $i = min($i, count($units) - 1);
+    $size = $bytes / pow(1024, $i);
     
-    // Secure download all as zip handler
-    if (isset($_GET['download_all_zip'])) {
-        // Check if ZipArchive is available
-        if (!class_exists('ZipArchive')) {
-            http_response_code(500);
-            exit('ZIP support is not available');
+    if ($i === 0) {
+        return sprintf('%d B', $size);
+    }
+    return sprintf('%.2f %s', $size, $units[$i]);
+}
+
+/**
+ * Get appropriate icon class for file based on extension
+ * @param string $path File path
+ * @return array Array containing icon class and color class
+ */
+function getFileIcon(string $path): array {
+    $ext = strtolower(pathinfo($path, PATHINFO_EXTENSION));
+    $extMap = [
+        'pdf' => ['fa-regular fa-file-pdf', 'icon-pdf'],
+        'doc' => ['fa-regular fa-file-word', 'icon-word'],
+        'docx' => ['fa-regular fa-file-word', 'icon-word'],
+        'xlsx' => ['fa-regular fa-file-excel', 'icon-excel'],
+        'pptx' => ['fa-regular fa-file-powerpoint', 'icon-powerpoint'],
+        'zip' => ['fa-solid fa-file-zipper', 'icon-archive'],
+        'jpg' => ['fa-regular fa-file-image', 'icon-image'],
+        'png' => ['fa-regular fa-file-image', 'icon-image'],
+        'mp3' => ['fa-regular fa-file-audio', 'icon-audio'],
+        'mp4' => ['fa-regular fa-file-video', 'icon-video'],
+        'html' => ['fa-regular fa-file-code', 'icon-html'],
+        'css' => ['fa-regular fa-file-code', 'icon-css'],
+        'js' => ['fa-regular fa-file-code', 'icon-js'],
+        'php' => ['fa-regular fa-file-code', 'icon-php'],
+        'md' => ['fa-regular fa-file-lines', 'icon-markdown'],
+    ];
+
+    return $extMap[$ext] ?? ['fa-regular fa-file', 'icon-default'];
+}
+
+/**
+ * Render a single file or directory item in the list
+ * @param string $entry File or directory name
+ * @param bool $isDir Whether this is a directory
+ * @param string $currentPath Current path context
+ * @param int $fileSize File size in bytes (for files only)
+ */
+function renderItem(string $entry, bool $isDir, string $currentPath, int $fileSize = 0): void {
+    if ($isDir) {
+        $href = '?path=' . rawurlencode($currentPath ? $currentPath . '/' . $entry : $entry);
+        $iconClass = 'fa-solid fa-folder';
+        $colorClass = 'icon-folder';
+        $linkAttributes = 'class="dir-link"';
+        $sizeHtml = '';
+        $dataAttributes = '';
+    } else {
+        // Use secure download handler for files
+        $filePath = $currentPath ? $currentPath . '/' . $entry : $entry;
+        $href = '?download=' . rawurlencode($filePath);
+        [$iconClass, $colorClass] = getFileIcon($entry);
+        // Open downloads in new tab to prevent loading overlay on main page
+        $linkAttributes = 'target="_blank" rel="noopener noreferrer"';
+        $sizeHtml = '<span class="file-size">' . htmlspecialchars(formatFileSize($fileSize), ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8') . '</span>';
+        
+        // Add data attributes for preview functionality
+        $ext = strtolower(pathinfo($entry, PATHINFO_EXTENSION));
+        $previewTypes = getPreviewableFileTypes();
+        
+        $dataAttributes = '';
+        if (in_array($ext, $previewTypes['image'])) {
+            $dataAttributes = ' data-preview="image" data-file-path="' . htmlspecialchars($filePath, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8') . '"';
+        } elseif (in_array($ext, $previewTypes['video'])) {
+            $dataAttributes = ' data-preview="video" data-file-path="' . htmlspecialchars($filePath, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8') . '"';
+        } elseif (in_array($ext, $previewTypes['audio'])) {
+            $dataAttributes = ' data-preview="audio" data-file-path="' . htmlspecialchars($filePath, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8') . '"';
+        } elseif (in_array($ext, $previewTypes['pdf'])) {
+            $dataAttributes = ' data-preview="pdf" data-file-path="' . htmlspecialchars($filePath, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8') . '"';
+        }
+    }
+
+    $label = htmlspecialchars($entry, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
+
+    printf(
+        '<li><a href="%s" %s%s><span class="file-icon %s"><i class="%s"></i></span><span class="file-name">%s</span>%s</a></li>' . PHP_EOL,
+        htmlspecialchars($href, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8'),
+        $linkAttributes,
+        $dataAttributes,
+        htmlspecialchars($colorClass, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8'),
+        htmlspecialchars($iconClass, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8'),
+        $label,
+        $sizeHtml
+    );
+}
+
+/**
+ * Check if directory has downloadable content (recursively)
+ * @param string $dir Directory path
+ * @param string $realRoot Real root path for security validation
+ * @return bool True if directory contains downloadable files
+ */
+function hasDownloadableContent(string $dir, string $realRoot): bool {
+    $hasContent = false;
+    
+    $checkContent = function($checkDir) use (&$checkContent, $realRoot, &$hasContent) {
+        $handle = opendir($checkDir);
+        if ($handle === false) {
+            return;
         }
         
-        $currentPath = isset($_GET['path']) ? rtrim((string)$_GET['path'], '/') : '';
-        $basePath = $currentPath ? './' . str_replace('\\', '/', $currentPath) : '.';
-        $realBase = realpath($basePath);
-        
-        // Validate path is within root (use DIRECTORY_SEPARATOR suffix to prevent edge case bypasses)
-        if ($realBase === false || strpos($realBase . DIRECTORY_SEPARATOR, $realRoot) !== 0) {
-            http_response_code(404);
-            exit('Not found');
-        }
-        
-        // Create a temporary zip file with random name
-        $tempZip = tempnam(sys_get_temp_dir(), 'spfl_' . bin2hex(random_bytes(8)) . '_');
-        
-        // Ensure cleanup even if script terminates unexpectedly
-        register_shutdown_function(function() use ($tempZip) {
-            if (file_exists($tempZip)) {
-                @unlink($tempZip);
-            }
-        });
-        
-        $zip = new ZipArchive();
-        
-        if ($zip->open($tempZip, ZipArchive::CREATE | ZipArchive::OVERWRITE) !== true) {
-            @unlink($tempZip);
-            http_response_code(500);
-            exit('Failed to create ZIP file');
-        }
-        
-        // Recursive function to add directory contents to zip
-        $addToZip = function($dir, $zipPath, &$count) use (&$addToZip, $zip, $realRoot) {
-            $handle = opendir($dir);
-            if ($handle === false) {
-                return;
+        while (($entry = readdir($handle)) !== false) {
+            if ($hasContent) break; // Early exit if we found content
+            
+            if (in_array($entry, ['.', '..', 'index.php'], true) || $entry[0] === '.') {
+                continue;
             }
             
-            while (($entry = readdir($handle)) !== false) {
-                if (in_array($entry, ['.', '..', 'index.php'], true) || $entry[0] === '.') {
-                    continue;
-                }
-                
-                $fullPath = $dir . '/' . $entry;
-                $realPath = realpath($fullPath);
-                
-                // Skip invalid paths, symlinks
-                if (is_link($fullPath) || $realPath === false || 
-                    strpos($realPath . DIRECTORY_SEPARATOR, $realRoot) !== 0) {
-                    continue;
-                }
-                
-                $zipEntryPath = $zipPath ? $zipPath . '/' . $entry : $entry;
-                
-                if (is_dir($fullPath)) {
-                    // Add directory to zip and recurse
-                    $zip->addEmptyDir($zipEntryPath);
-                    $addToZip($fullPath, $zipEntryPath, $count);
-                } else {
-                    // Block dangerous extensions
-                    $ext = strtolower(pathinfo($entry, PATHINFO_EXTENSION));
-                    if (in_array($ext, BLOCKED_EXTENSIONS, true)) {
-                        continue;
-                    }
-                    
-                    // Add file to zip
-                    if ($zip->addFile($fullPath, $zipEntryPath)) {
-                        $count++;
-                    }
-                }
+            $fullPath = $checkDir . '/' . $entry;
+            $realPath = realpath($fullPath);
+            
+            // Skip invalid paths, symlinks
+            if (is_link($fullPath) || $realPath === false || 
+                strpos($realPath . DIRECTORY_SEPARATOR, $realRoot) !== 0) {
+                continue;
             }
-            closedir($handle);
-        };
-        
-        // Add files and directories to zip
-        $fileCount = 0;
-        $addToZip($basePath, '', $fileCount);
-        
-        $zip->close();
-        
-        // If no files were added, clean up and exit
-        if ($fileCount === 0) {
-            @unlink($tempZip);
-            http_response_code(404);
-            exit('No files available to download');
+            
+            if (is_dir($fullPath)) {
+                // Recurse into directory (early exit in loop handles found content)
+                $checkContent($fullPath);
+            } else {
+                // Skip dangerous extensions
+                $ext = strtolower(pathinfo($entry, PATHINFO_EXTENSION));
+                if (in_array($ext, BLOCKED_EXTENSIONS, true)) {
+                    continue;
+                }
+                
+                $hasContent = true;
+                break;
+            }
         }
-        
-        // Generate safe filename for the zip
-        $zipFilename = 'files.zip';
-        if ($currentPath) {
-            $folderName = basename($currentPath);
-            $safeFolderName = preg_replace('/[^a-zA-Z0-9_-]/', '_', $folderName);
-            $zipFilename = $safeFolderName . '.zip';
-        }
-        
-        // Open file for reading before sending headers
-        $fp = fopen($tempZip, 'rb');
-        if ($fp === false) {
-            @unlink($tempZip);
-            http_response_code(500);
-            exit('Failed to read ZIP file');
-        }
-        
-        // Send the zip file
-        $safeFilename = preg_replace('/[\x00-\x1F\x7F"\\\\]|[\r\n]/', '', $zipFilename);
-        $encodedFilename = rawurlencode($zipFilename);
-        
-        header('Content-Type: application/zip');
-        header("Content-Disposition: attachment; filename=\"{$safeFilename}\"; filename*=UTF-8''{$encodedFilename}");
-        header('X-Content-Type-Options: nosniff');
-        header('Content-Length: ' . filesize($tempZip));
-        
-        // Disable output buffering for efficient streaming of large files
-        while (ob_get_level() > 0) {
-            ob_end_clean();
-        }
-        
-        // Stream file content and cleanup
-        fpassthru($fp);
-        fclose($fp);
-        @unlink($tempZip);
-        exit;
-    }
+        closedir($handle);
+    };
     
-    // Secure download handler
-    if (isset($_GET['download'])) {
-        $rel = (string)$_GET['download'];
-        $full = realpath($realRoot . $rel);
-        
-        // Validate path is within root and file exists
-        // Use strpos with DIRECTORY_SEPARATOR suffix to handle edge cases
-        if ($full === false || strpos($full . DIRECTORY_SEPARATOR, $realRoot) !== 0) {
-            http_response_code(404);
-            exit('Not found');
-        }
-        
-        // Ensure it's a file, not a directory
-        if (!is_file($full)) {
-            http_response_code(404);
-            exit('Not found');
-        }
-        
-        // Block dangerous extensions to prevent code execution
-        $ext = strtolower(pathinfo($full, PATHINFO_EXTENSION));
-        if (in_array($ext, BLOCKED_EXTENSIONS, true)) {
-            http_response_code(403);
-            exit('Forbidden');
-        }
-        
-        // Open file for reading before sending headers
-        $fp = fopen($full, 'rb');
-        if ($fp === false) {
-            // No cleanup needed for regular files (unlike temp ZIP files)
-            http_response_code(500);
-            exit('Failed to read file');
-        }
-        
-        // Set secure download headers with properly escaped filename
-        $filename = basename($full);
-        // Remove control characters and dangerous chars for header injection prevention
-        $safeFilename = preg_replace('/[\x00-\x1F\x7F"\\\\]|[\r\n]/', '', $filename);
-        // Use RFC 2231 encoding for Unicode filename support
-        $encodedFilename = rawurlencode($filename);
-        
-        header('Content-Type: application/octet-stream');
-        header("Content-Disposition: attachment; filename=\"{$safeFilename}\"; filename*=UTF-8''{$encodedFilename}");
-        header('X-Content-Type-Options: nosniff');
-        header('Content-Length: ' . filesize($full));
-        
-        // Disable output buffering for efficient streaming of large files
-        while (ob_get_level() > 0) {
-            ob_end_clean();
-        }
-        
-        // Stream file content
-        fpassthru($fp);
-        fclose($fp);
-        exit;
-    }
-    
-    // Redirect if path=.
-    if (isset($_GET['path']) && $_GET['path'] === '.') {
-        header('Location: ' . strtok($_SERVER['REQUEST_URI'], '?'));
-        exit;
-    }
+    $checkContent($dir);
+    return $hasContent;
+}
 
-    // Generate a cryptographically secure nonce for CSP
-    $cspNonce = base64_encode(random_bytes(16));
+// ============================================================================
+// REQUEST HANDLERS
+// ============================================================================
+
+/**
+ * FAST PATH: Secure preview handler (for inline display in browser)
+ * This is placed at the top for maximum performance - exits immediately without loading anything else
+ * NOTE: MIME types array is intentionally duplicated here (also in getPreviewMimeType()) 
+ *       to avoid loading any functions. This duplication is a performance optimization.
+ *       When updating supported file types, update BOTH locations.
+ */
+if (isset($_GET['preview'])) {
+    $rel = (string)$_GET['preview'];
+    $full = realpath($realRoot . $rel);
     
+    // Validate path is within root and file exists
+    if ($full === false || strpos($full . DIRECTORY_SEPARATOR, $realRoot) !== 0) {
+        http_response_code(404);
+        exit('Not found');
+    }
+    
+    // Ensure it's a file, not a directory
+    if (!is_file($full)) {
+        http_response_code(404);
+        exit('Not found');
+    }
+    
+    // Get file extension and determine MIME type
+    // PERFORMANCE NOTE: MIME types array is intentionally duplicated here (also in getPreviewMimeType())
+    // This duplication is a deliberate performance optimization to avoid function calls in the fast path.
+    // The preview handler is placed at the very top of the file and exits immediately to minimize overhead.
+    // IMPORTANT: When updating supported file types, update BOTH this array AND getPreviewMimeType()
+    $ext = strtolower(pathinfo($full, PATHINFO_EXTENSION));
+    $mimeTypes = [
+        // Images
+        'jpg' => 'image/jpeg',
+        'jpeg' => 'image/jpeg',
+        'png' => 'image/png',
+        'gif' => 'image/gif',
+        'webp' => 'image/webp',
+        'svg' => 'image/svg+xml',
+        'bmp' => 'image/bmp',
+        'ico' => 'image/x-icon',
+        // Videos
+        'mp4' => 'video/mp4',
+        'webm' => 'video/webm',
+        'ogv' => 'video/ogg',
+        // Audio
+        'mp3' => 'audio/mpeg',
+        'wav' => 'audio/wav',
+        'oga' => 'audio/ogg',
+        'flac' => 'audio/flac',
+        'm4a' => 'audio/mp4',
+        // Documents
+        'pdf' => 'application/pdf',
+    ];
+    
+    // Only allow previewable file types
+    if (!isset($mimeTypes[$ext])) {
+        http_response_code(403);
+        exit('Preview not supported for this file type');
+    }
+    
+    $mimeType = $mimeTypes[$ext];
+    
+    // Open file for reading before sending headers
+    $fp = fopen($full, 'rb');
+    if ($fp === false) {
+        http_response_code(500);
+        exit('Failed to read file');
+    }
+    
+    // Set headers for inline display
+    header('Content-Type: ' . $mimeType);
+    header('Content-Disposition: inline');
     header('X-Content-Type-Options: nosniff');
-    header('X-Frame-Options: DENY');
-    header('Referrer-Policy: no-referrer');
-    header('Permissions-Policy: geolocation=(), camera=(), microphone=()');
-    header("Content-Security-Policy: default-src 'self'; style-src 'self' https://cdnjs.cloudflare.com 'nonce-{$cspNonce}'; script-src 'self' 'nonce-{$cspNonce}'; img-src 'self' https://img.shields.io data: blob:; font-src https://cdnjs.cloudflare.com; media-src 'self' blob:; object-src 'none'; base-uri 'self'; frame-ancestors 'none'");
+    header('Content-Length: ' . filesize($full));
+    header('Cache-Control: public, max-age=3600');
+    
+    // Disable output buffering for efficient streaming
+    while (ob_get_level() > 0) {
+        ob_end_clean();
+    }
+    
+    // Stream file content
+    fpassthru($fp);
+    fclose($fp);
+    exit;
+}
+
+/**
+ * Secure download all as zip handler
+ */
+if (isset($_GET['download_all_zip'])) {
+    // Check if ZipArchive is available
+    if (!class_exists('ZipArchive')) {
+        http_response_code(500);
+        exit('ZIP support is not available');
+    }
+    
     $currentPath = isset($_GET['path']) ? rtrim((string)$_GET['path'], '/') : '';
     $basePath = $currentPath ? './' . str_replace('\\', '/', $currentPath) : '.';
     $realBase = realpath($basePath);
     
-    $isValidPath = $realBase !== false && strpos($realBase . DIRECTORY_SEPARATOR, $realRoot) === 0;
-
-    // Pagination: Get current page from query string, default to 1
-    $currentPage = isset($_GET['page']) ? max(1, (int)$_GET['page']) : 1;
-
-    // Create breadcrumbs array
-    $breadcrumbs = [];
-    if ($isValidPath) {
-        $pathParts = explode('/', $currentPath);
-        $accumulatedPath = '';
-        foreach ($pathParts as $part) {
-            if ($part !== '') {
-                $accumulatedPath .= ($accumulatedPath ? '/' : '') . $part;
-                $breadcrumbs[] = [
-                    'name' => htmlspecialchars($part, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8'),
-                    'path' => $accumulatedPath
-                ];
-            }
+    // Validate path is within root (use DIRECTORY_SEPARATOR suffix to prevent edge case bypasses)
+    if ($realBase === false || strpos($realBase . DIRECTORY_SEPARATOR, $realRoot) !== 0) {
+        http_response_code(404);
+        exit('Not found');
+    }
+    
+    // Create a temporary zip file with random name
+    $tempZip = tempnam(sys_get_temp_dir(), 'spfl_' . bin2hex(random_bytes(8)) . '_');
+    
+    // Ensure cleanup even if script terminates unexpectedly
+    register_shutdown_function(function() use ($tempZip) {
+        if (file_exists($tempZip)) {
+            @unlink($tempZip);
         }
+    });
+    
+    $zip = new ZipArchive();
+    
+    if ($zip->open($tempZip, ZipArchive::CREATE | ZipArchive::OVERWRITE) !== true) {
+        @unlink($tempZip);
+        http_response_code(500);
+        exit('Failed to create ZIP file');
     }
-
-    function getPreviewableFileTypes(): array {
-        return [
-            'image' => ['jpg', 'jpeg', 'png', 'gif', 'webp', 'svg', 'bmp', 'ico'],
-            'video' => ['mp4', 'webm', 'ogv'],
-            'audio' => ['mp3', 'wav', 'oga', 'flac', 'm4a'],
-            // PDF preview is limited in tooltips, shown as placeholder message
-            'pdf' => ['pdf'],
-        ];
-    }
-
-    function getPreviewMimeType(string $ext): ?string {
-        $mimeTypes = [
-            // Images
-            'jpg' => 'image/jpeg',
-            'jpeg' => 'image/jpeg',
-            'png' => 'image/png',
-            'gif' => 'image/gif',
-            'webp' => 'image/webp',
-            'svg' => 'image/svg+xml',
-            'bmp' => 'image/bmp',
-            'ico' => 'image/x-icon',
-            // Videos
-            'mp4' => 'video/mp4',
-            'webm' => 'video/webm',
-            'ogv' => 'video/ogg',
-            // Audio
-            'mp3' => 'audio/mpeg',
-            'wav' => 'audio/wav',
-            'oga' => 'audio/ogg',
-            'flac' => 'audio/flac',
-            'm4a' => 'audio/mp4',
-            // Documents
-            'pdf' => 'application/pdf',
-        ];
+    
+    // Recursive function to add directory contents to zip
+    $addToZip = function($dir, $zipPath, &$count) use (&$addToZip, $zip, $realRoot) {
+        $handle = opendir($dir);
+        if ($handle === false) {
+            return;
+        }
         
-        return $mimeTypes[$ext] ?? null;
-    }
-
-    function formatFileSize(int $bytes): string {
-        if ($bytes === 0) {
-            return '0 B';
-        }
-        $units = ['B', 'KB', 'MB', 'GB', 'TB'];
-        $i = floor(log($bytes, 1024));
-        $i = min($i, count($units) - 1);
-        $size = $bytes / pow(1024, $i);
-        
-        if ($i === 0) {
-            return sprintf('%d B', $size);
-        }
-        return sprintf('%.2f %s', $size, $units[$i]);
-    }
-
-    function getFileIcon(string $path): array {
-        $ext = strtolower(pathinfo($path, PATHINFO_EXTENSION));
-        $extMap = [
-            'pdf' => ['fa-regular fa-file-pdf', 'icon-pdf'],
-            'doc' => ['fa-regular fa-file-word', 'icon-word'],
-            'docx' => ['fa-regular fa-file-word', 'icon-word'],
-            'xlsx' => ['fa-regular fa-file-excel', 'icon-excel'],
-            'pptx' => ['fa-regular fa-file-powerpoint', 'icon-powerpoint'],
-            'zip' => ['fa-solid fa-file-zipper', 'icon-archive'],
-            'jpg' => ['fa-regular fa-file-image', 'icon-image'],
-            'png' => ['fa-regular fa-file-image', 'icon-image'],
-            'mp3' => ['fa-regular fa-file-audio', 'icon-audio'],
-            'mp4' => ['fa-regular fa-file-video', 'icon-video'],
-            'html' => ['fa-regular fa-file-code', 'icon-html'],
-            'css' => ['fa-regular fa-file-code', 'icon-css'],
-            'js' => ['fa-regular fa-file-code', 'icon-js'],
-            'php' => ['fa-regular fa-file-code', 'icon-php'],
-            'md' => ['fa-regular fa-file-lines', 'icon-markdown'],
-        ];
-
-        return $extMap[$ext] ?? ['fa-regular fa-file', 'icon-default'];
-    }
-
-    function renderItem(string $entry, bool $isDir, string $currentPath, int $fileSize = 0): void {
-        if ($isDir) {
-            $href = '?path=' . rawurlencode($currentPath ? $currentPath . '/' . $entry : $entry);
-            $iconClass = 'fa-solid fa-folder';
-            $colorClass = 'icon-folder';
-            $linkAttributes = 'class="dir-link"';
-            $sizeHtml = '';
-            $dataAttributes = '';
-        } else {
-            // Use secure download handler for files
-            $filePath = $currentPath ? $currentPath . '/' . $entry : $entry;
-            $href = '?download=' . rawurlencode($filePath);
-            [$iconClass, $colorClass] = getFileIcon($entry);
-            // Open downloads in new tab to prevent loading overlay on main page
-            $linkAttributes = 'target="_blank" rel="noopener noreferrer"';
-            $sizeHtml = '<span class="file-size">' . htmlspecialchars(formatFileSize($fileSize), ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8') . '</span>';
-            
-            // Add data attributes for preview functionality
-            $ext = strtolower(pathinfo($entry, PATHINFO_EXTENSION));
-            $previewTypes = getPreviewableFileTypes();
-            
-            $dataAttributes = '';
-            if (in_array($ext, $previewTypes['image'])) {
-                $dataAttributes = ' data-preview="image" data-file-path="' . htmlspecialchars($filePath, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8') . '"';
-            } elseif (in_array($ext, $previewTypes['video'])) {
-                $dataAttributes = ' data-preview="video" data-file-path="' . htmlspecialchars($filePath, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8') . '"';
-            } elseif (in_array($ext, $previewTypes['audio'])) {
-                $dataAttributes = ' data-preview="audio" data-file-path="' . htmlspecialchars($filePath, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8') . '"';
-            } elseif (in_array($ext, $previewTypes['pdf'])) {
-                $dataAttributes = ' data-preview="pdf" data-file-path="' . htmlspecialchars($filePath, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8') . '"';
-            }
-        }
-
-        $label = htmlspecialchars($entry, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
-
-        printf(
-            '<li><a href="%s" %s%s><span class="file-icon %s"><i class="%s"></i></span><span class="file-name">%s</span>%s</a></li>' . PHP_EOL,
-            htmlspecialchars($href, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8'),
-            $linkAttributes,
-            $dataAttributes,
-            htmlspecialchars($colorClass, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8'),
-            htmlspecialchars($iconClass, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8'),
-            $label,
-            $sizeHtml
-        );
-    }
-
-    function hasDownloadableContent(string $dir, string $realRoot): bool {
-        $hasContent = false;
-        
-        $checkContent = function($checkDir) use (&$checkContent, $realRoot, &$hasContent) {
-            $handle = opendir($checkDir);
-            if ($handle === false) {
-                return;
+        while (($entry = readdir($handle)) !== false) {
+            if (in_array($entry, ['.', '..', 'index.php'], true) || $entry[0] === '.') {
+                continue;
             }
             
-            while (($entry = readdir($handle)) !== false) {
-                if ($hasContent) break; // Early exit if we found content
-                
-                if (in_array($entry, ['.', '..', 'index.php'], true) || $entry[0] === '.') {
+            $fullPath = $dir . '/' . $entry;
+            $realPath = realpath($fullPath);
+            
+            // Skip invalid paths, symlinks
+            if (is_link($fullPath) || $realPath === false || 
+                strpos($realPath . DIRECTORY_SEPARATOR, $realRoot) !== 0) {
+                continue;
+            }
+            
+            $zipEntryPath = $zipPath ? $zipPath . '/' . $entry : $entry;
+            
+            if (is_dir($fullPath)) {
+                // Add directory to zip and recurse
+                $zip->addEmptyDir($zipEntryPath);
+                $addToZip($fullPath, $zipEntryPath, $count);
+            } else {
+                // Block dangerous extensions
+                $ext = strtolower(pathinfo($entry, PATHINFO_EXTENSION));
+                if (in_array($ext, BLOCKED_EXTENSIONS, true)) {
                     continue;
                 }
                 
-                $fullPath = $checkDir . '/' . $entry;
-                $realPath = realpath($fullPath);
-                
-                // Skip invalid paths, symlinks
-                if (is_link($fullPath) || $realPath === false || 
-                    strpos($realPath . DIRECTORY_SEPARATOR, $realRoot) !== 0) {
-                    continue;
-                }
-                
-                if (is_dir($fullPath)) {
-                    // Recurse into directory (early exit in loop handles found content)
-                    $checkContent($fullPath);
-                } else {
-                    // Skip dangerous extensions
-                    $ext = strtolower(pathinfo($entry, PATHINFO_EXTENSION));
-                    if (in_array($ext, BLOCKED_EXTENSIONS, true)) {
-                        continue;
-                    }
-                    
-                    $hasContent = true;
-                    break;
+                // Add file to zip
+                if ($zip->addFile($fullPath, $zipEntryPath)) {
+                    $count++;
                 }
             }
-            closedir($handle);
-        };
-        
-        $checkContent($dir);
-        return $hasContent;
+        }
+        closedir($handle);
+    };
+    
+    // Add files and directories to zip
+    $fileCount = 0;
+    $addToZip($basePath, '', $fileCount);
+    
+    $zip->close();
+    
+    // If no files were added, clean up and exit
+    if ($fileCount === 0) {
+        @unlink($tempZip);
+        http_response_code(404);
+        exit('No files available to download');
     }
+    
+    // Generate safe filename for the zip
+    $zipFilename = 'files.zip';
+    if ($currentPath) {
+        $folderName = basename($currentPath);
+        $safeFolderName = preg_replace('/[^a-zA-Z0-9_-]/', '_', $folderName);
+        $zipFilename = $safeFolderName . '.zip';
+    }
+    
+    // Open file for reading before sending headers
+    $fp = fopen($tempZip, 'rb');
+    if ($fp === false) {
+        @unlink($tempZip);
+        http_response_code(500);
+        exit('Failed to read ZIP file');
+    }
+    
+    // Send the zip file
+    $safeFilename = preg_replace('/[\x00-\x1F\x7F"\\\\]|[\r\n]/', '', $zipFilename);
+    $encodedFilename = rawurlencode($zipFilename);
+    
+    header('Content-Type: application/zip');
+    header("Content-Disposition: attachment; filename=\"{$safeFilename}\"; filename*=UTF-8''{$encodedFilename}");
+    header('X-Content-Type-Options: nosniff');
+    header('Content-Length: ' . filesize($tempZip));
+    
+    // Disable output buffering for efficient streaming of large files
+    while (ob_get_level() > 0) {
+        ob_end_clean();
+    }
+    
+    // Stream file content and cleanup
+    fpassthru($fp);
+    fclose($fp);
+    @unlink($tempZip);
+    exit;
+}
+
+/**
+ * Secure download handler for individual files
+ */
+if (isset($_GET['download'])) {
+    $rel = (string)$_GET['download'];
+    $full = realpath($realRoot . $rel);
+    
+    // Validate path is within root and file exists
+    // Use strpos with DIRECTORY_SEPARATOR suffix to handle edge cases
+    if ($full === false || strpos($full . DIRECTORY_SEPARATOR, $realRoot) !== 0) {
+        http_response_code(404);
+        exit('Not found');
+    }
+    
+    // Ensure it's a file, not a directory
+    if (!is_file($full)) {
+        http_response_code(404);
+        exit('Not found');
+    }
+    
+    // Block dangerous extensions to prevent code execution
+    $ext = strtolower(pathinfo($full, PATHINFO_EXTENSION));
+    if (in_array($ext, BLOCKED_EXTENSIONS, true)) {
+        http_response_code(403);
+        exit('Forbidden');
+    }
+    
+    // Open file for reading before sending headers
+    $fp = fopen($full, 'rb');
+    if ($fp === false) {
+        // No cleanup needed for regular files (unlike temp ZIP files)
+        http_response_code(500);
+        exit('Failed to read file');
+    }
+    
+    // Set secure download headers with properly escaped filename
+    $filename = basename($full);
+    // Remove control characters and dangerous chars for header injection prevention
+    $safeFilename = preg_replace('/[\x00-\x1F\x7F"\\\\]|[\r\n]/', '', $filename);
+    // Use RFC 2231 encoding for Unicode filename support
+    $encodedFilename = rawurlencode($filename);
+    
+    header('Content-Type: application/octet-stream');
+    header("Content-Disposition: attachment; filename=\"{$safeFilename}\"; filename*=UTF-8''{$encodedFilename}");
+    header('X-Content-Type-Options: nosniff');
+    header('Content-Length: ' . filesize($full));
+    
+    // Disable output buffering for efficient streaming of large files
+    while (ob_get_level() > 0) {
+        ob_end_clean();
+    }
+    
+    // Stream file content
+    fpassthru($fp);
+    fclose($fp);
+    exit;
+}
+
+// ============================================================================
+// MAIN PAGE SETUP & PROCESSING
+// ============================================================================
+
+// Redirect if path=.
+if (isset($_GET['path']) && $_GET['path'] === '.') {
+    header('Location: ' . strtok($_SERVER['REQUEST_URI'], '?'));
+    exit;
+}
+
+// Generate a cryptographically secure nonce for CSP
+$cspNonce = base64_encode(random_bytes(16));
+
+// Set security headers
+header('X-Content-Type-Options: nosniff');
+header('X-Frame-Options: DENY');
+header('Referrer-Policy: no-referrer');
+header('Permissions-Policy: geolocation=(), camera=(), microphone=()');
+header("Content-Security-Policy: default-src 'self'; style-src 'self' https://cdnjs.cloudflare.com 'nonce-{$cspNonce}'; script-src 'self' 'nonce-{$cspNonce}'; img-src 'self' https://img.shields.io data: blob:; font-src https://cdnjs.cloudflare.com; media-src 'self' blob:; object-src 'none'; base-uri 'self'; frame-ancestors 'none'");
+
+// Process current path
+$currentPath = isset($_GET['path']) ? rtrim((string)$_GET['path'], '/') : '';
+$basePath = $currentPath ? './' . str_replace('\\', '/', $currentPath) : '.';
+$realBase = realpath($basePath);
+
+$isValidPath = $realBase !== false && strpos($realBase . DIRECTORY_SEPARATOR, $realRoot) === 0;
+
+// Pagination: Get current page from query string, default to 1
+$currentPage = isset($_GET['page']) ? max(1, (int)$_GET['page']) : 1;
+
+// Create breadcrumbs array
+$breadcrumbs = [];
+if ($isValidPath) {
+    $pathParts = explode('/', $currentPath);
+    $accumulatedPath = '';
+    foreach ($pathParts as $part) {
+        if ($part !== '') {
+            $accumulatedPath .= ($accumulatedPath ? '/' : '') . $part;
+            $breadcrumbs[] = [
+                'name' => htmlspecialchars($part, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8'),
+                'path' => $accumulatedPath
+            ];
+        }
+    }
+}
+
+// ============================================================================
+// HTML OUTPUT
+// ============================================================================
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -498,6 +571,9 @@
     <title><?php echo htmlspecialchars($title); ?></title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" integrity="sha512-DTOQO9RWCH3ppGqcWaEA1BIZOC6xxalwEsw9c2QQeAIftl+Vegovlnee1c9QX4TctnWMn13TZye+giMm8e2LwA==" crossorigin="anonymous">
     <style nonce="<?php echo htmlspecialchars($cspNonce, ENT_QUOTES, 'UTF-8'); ?>">
+        /* ================================================================
+           CSS VARIABLES & THEME
+           ================================================================ */
         :root { 
             --bg: linear-gradient(135deg, #667eea 0%, #764ba2 100%); 
             --card: #ffffff; 
@@ -511,6 +587,9 @@
             --shadow-hover: 0 15px 50px rgba(0, 0, 0, 0.15);
         }
         
+        /* ================================================================
+           BASE STYLES
+           ================================================================ */
         * { 
             box-sizing: border-box; 
             margin: 0;
@@ -526,6 +605,9 @@
             line-height: 1.6;
         }
         
+        /* ================================================================
+           LAYOUT COMPONENTS
+           ================================================================ */
         .container { 
             max-width: 900px; 
             margin: 0 auto; 
@@ -545,6 +627,9 @@
             to { opacity: 1; transform: translateY(0); }
         }
         
+        /* ================================================================
+           TYPOGRAPHY
+           ================================================================ */
         h1 { 
             margin: 0 0 8px 0; 
             font-size: clamp(1.5rem, 4vw, 2rem);
@@ -560,6 +645,9 @@
             font-weight: 400;
         }
         
+        /* ================================================================
+           NAVIGATION & BREADCRUMBS
+           ================================================================ */
         .breadcrumbs { 
             display: flex; 
             align-items: center; 
@@ -590,6 +678,9 @@
             font-weight: 600; 
         }
         
+        /* ================================================================
+           FILE LIST STYLES
+           ================================================================ */
         .file-list { 
             list-style: none; 
             padding: 0; 
@@ -668,6 +759,9 @@
             font-weight: 500;
         }
         
+        /* ================================================================
+           STATISTICS & INFO DISPLAY
+           ================================================================ */
         .stats-container {
             margin-top: 24px;
             padding: 16px 20px;
@@ -687,6 +781,9 @@
             flex: 1;
         }
         
+        /* ================================================================
+           FOOTER & BRANDING
+           ================================================================ */
         footer { 
             margin-top: 20px; 
             text-align: center; 
@@ -705,6 +802,9 @@
             transform: scale(1.05);
         }
         
+        /* ================================================================
+           LOADING OVERLAY & ANIMATIONS
+           ================================================================ */
         .loading-overlay { 
             position: fixed; 
             inset: 0; 
@@ -747,7 +847,9 @@
             to { transform: rotate(360deg); } 
         }
         
-        /* File type icon colors */
+        /* ================================================================
+           FILE TYPE ICON COLORS
+           ================================================================ */
         .icon-pdf { color: #e74c3c; }
         .icon-word { color: #2980b9; }
         .icon-text { color: #7f8c8d; }
@@ -771,6 +873,9 @@
         .icon-default { color: #95a5a6; }
         .icon-folder { color: #f6a623; }
         
+        /* ================================================================
+           BUTTONS & INTERACTIVE ELEMENTS
+           ================================================================ */
         .download-all-btn { 
             display: inline-flex; 
             align-items: center; 
@@ -803,7 +908,9 @@
             font-size: 1.1rem; 
         }
         
-        /* Responsive breakpoints */
+        /* ================================================================
+           RESPONSIVE DESIGN - MEDIA QUERIES
+           ================================================================ */
         
         /* Mobile phones (portrait) */
         @media (max-width: 480px) {
@@ -953,7 +1060,9 @@
             }
         }
         
-        /* Thumbnail preview tooltip */
+        /* ================================================================
+           PREVIEW TOOLTIPS
+           ================================================================ */
         .preview-tooltip {
             position: fixed;
             z-index: 10000;
@@ -1020,7 +1129,9 @@
             }
         }
         
-        /* Print styles */
+        /* ================================================================
+           PRINT STYLES
+           ================================================================ */
         @media print {
             body {
                 background: white;
@@ -1045,7 +1156,9 @@
             }
         }
         
-        /* Pagination styles */
+        /* ================================================================
+           PAGINATION CONTROLS
+           ================================================================ */
         .pagination {
             display: flex;
             align-items: center;
