@@ -8,6 +8,8 @@ Perfect for sharing downloads, documents, or quick internal file access.
 
 ![Screen Shot](screenshot.png)
 
+![alt text](image.png)
+
 ---
 
 ## Features
