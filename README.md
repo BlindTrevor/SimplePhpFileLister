@@ -116,7 +116,7 @@ You can easily tailor the lister by editing the `index.php` file:
   Change the `$title`, `$subtitle`, and `$footer` variables at the top of the file.
 
 - **Styling**  
-  Modify the CSS variables in the `<style>` block (lines 493-504) to adjust colors, spacing, or fonts:
+  Modify the CSS variables in the `<style>` block (in the `:root` selector) to adjust colors, spacing, or fonts:
   - `--bg` — Background gradient
   - `--card` — Card background color
   - `--accent` — Primary accent color
@@ -124,13 +124,13 @@ You can easily tailor the lister by editing the `index.php` file:
   - `--muted` — Secondary text color
 
 - **Blocked file extensions**  
-  Edit the `BLOCKED_EXTENSIONS` constant (line 91) to add or remove file types that should be hidden and blocked from download.
+  Edit the `BLOCKED_EXTENSIONS` constant (near the top of the file, after the preview handler) to add or remove file types that should be hidden and blocked from download.
 
 - **Preview file types**  
-  Modify the `getPreviewableFileTypes()` function (line 316) and MIME type arrays (lines 33-55 and 327-351) to support additional preview formats.
+  Modify the `getPreviewableFileTypes()` function and the MIME type arrays in both the fast-path preview handler and the `getPreviewMimeType()` function to support additional preview formats.
 
 - **Root directory**  
-  By default, files are listed from the directory where `index.php` resides. To change this, modify line 8:
+  By default, files are listed from the directory where `index.php` resides. To change this, modify the `$realRoot` variable near the top of the file:
   ```php
   $realRoot = rtrim(realpath('.'), DIRECTORY_SEPARATOR) . DIRECTORY_SEPARATOR;
   ```
