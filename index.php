@@ -131,13 +131,14 @@
             $href = '?path=' . rawurlencode($currentPath ? $currentPath . '/' . $entry : $entry);
             $iconClass = 'fa-solid fa-folder';
             $iconColor = '#f6a623';
-            $linkClass = 'class="dir-link"';
+            $linkAttributes = 'class="dir-link"';
         } else {
             // Use secure download handler for files
             $filePath = $currentPath ? $currentPath . '/' . $entry : $entry;
             $href = '?download=' . rawurlencode($filePath);
             [$iconClass, $iconColor] = getFileIcon($entry);
-            $linkClass = '';
+            // Open downloads in new tab to prevent loading overlay on main page
+            $linkAttributes = 'target="_blank" rel="noopener noreferrer"';
         }
 
         $label = htmlspecialchars($entry, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
@@ -145,7 +146,7 @@
         printf(
             '<li><a href="%s" %s><span class="file-icon" style="color:%s;"><i class="%s"></i></span><span class="file-name">%s</span></a></li>' . PHP_EOL,
             htmlspecialchars($href, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8'),
-            $linkClass,
+            $linkAttributes,
             htmlspecialchars($iconColor, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8'),
             htmlspecialchars($iconClass, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8'),
             $label
