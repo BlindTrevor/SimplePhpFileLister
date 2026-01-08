@@ -49,34 +49,40 @@
         
         // Add files to zip
         $fileCount = 0;
-        if ($handle = opendir($basePath)) {
-            while (($entry = readdir($handle)) !== false) {
-                if (in_array($entry, ['.', '..', 'index.php'], true) || $entry[0] === '.') {
-                    continue;
-                }
-                
-                $fullPath = $basePath . '/' . $entry;
-                $realPath = realpath($fullPath);
-                
-                // Skip invalid paths, symlinks, directories
-                if (is_link($fullPath) || $realPath === false || 
-                    strpos($realPath . DIRECTORY_SEPARATOR, $realRoot) !== 0 || is_dir($fullPath)) {
-                    continue;
-                }
-                
-                // Block dangerous extensions
-                $ext = strtolower(pathinfo($entry, PATHINFO_EXTENSION));
-                if (in_array($ext, BLOCKED_EXTENSIONS, true)) {
-                    continue;
-                }
-                
-                // Add file to zip
-                if ($zip->addFile($fullPath, $entry)) {
-                    $fileCount++;
-                }
-            }
-            closedir($handle);
+        $handle = opendir($basePath);
+        if ($handle === false) {
+            $zip->close();
+            @unlink($tempZip);
+            http_response_code(500);
+            exit('Unable to read directory');
         }
+        
+        while (($entry = readdir($handle)) !== false) {
+            if (in_array($entry, ['.', '..', 'index.php'], true) || $entry[0] === '.') {
+                continue;
+            }
+            
+            $fullPath = $basePath . '/' . $entry;
+            $realPath = realpath($fullPath);
+            
+            // Skip invalid paths, symlinks, directories
+            if (is_link($fullPath) || $realPath === false || 
+                strpos($realPath . DIRECTORY_SEPARATOR, $realRoot) !== 0 || is_dir($fullPath)) {
+                continue;
+            }
+            
+            // Block dangerous extensions
+            $ext = strtolower(pathinfo($entry, PATHINFO_EXTENSION));
+            if (in_array($ext, BLOCKED_EXTENSIONS, true)) {
+                continue;
+            }
+            
+            // Add file to zip
+            if ($zip->addFile($fullPath, $entry)) {
+                $fileCount++;
+            }
+        }
+        closedir($handle);
         
         $zip->close();
         
@@ -337,7 +343,8 @@
                 // Show download all button if there are downloadable files in current directory
                 if ($isValidPath) {
                     $hasFiles = false;
-                    if ($handle = opendir($basePath)) {
+                    $handle = opendir($basePath);
+                    if ($handle !== false) {
                         while (($entry = readdir($handle)) !== false) {
                             if (in_array($entry, ['.', '..', 'index.php'], true) || $entry[0] === '.') {
                                 continue;
