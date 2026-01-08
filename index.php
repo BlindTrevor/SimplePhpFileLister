@@ -1,10 +1,87 @@
 <?php
+    // Security: prevent directory traversal
+    $realRoot = rtrim(realpath('.'), DIRECTORY_SEPARATOR) . DIRECTORY_SEPARATOR;
+    
+    // FAST PATH: Secure preview handler (for inline display in browser)
+    // This is placed at the top for maximum performance - exits immediately without loading anything else
+    if (isset($_GET['preview'])) {
+        $rel = (string)$_GET['preview'];
+        $full = realpath($realRoot . $rel);
+        
+        // Validate path is within root and file exists
+        if ($full === false || strpos($full . DIRECTORY_SEPARATOR, $realRoot) !== 0) {
+            http_response_code(404);
+            exit('Not found');
+        }
+        
+        // Ensure it's a file, not a directory
+        if (!is_file($full)) {
+            http_response_code(404);
+            exit('Not found');
+        }
+        
+        // Get file extension and determine MIME type (inlined for speed)
+        $ext = strtolower(pathinfo($full, PATHINFO_EXTENSION));
+        $mimeTypes = [
+            // Images
+            'jpg' => 'image/jpeg',
+            'jpeg' => 'image/jpeg',
+            'png' => 'image/png',
+            'gif' => 'image/gif',
+            'webp' => 'image/webp',
+            'svg' => 'image/svg+xml',
+            'bmp' => 'image/bmp',
+            'ico' => 'image/x-icon',
+            // Videos
+            'mp4' => 'video/mp4',
+            'webm' => 'video/webm',
+            'ogv' => 'video/ogg',
+            // Audio
+            'mp3' => 'audio/mpeg',
+            'wav' => 'audio/wav',
+            'oga' => 'audio/ogg',
+            'flac' => 'audio/flac',
+            'm4a' => 'audio/mp4',
+            // Documents
+            'pdf' => 'application/pdf',
+        ];
+        
+        // Only allow previewable file types
+        if (!isset($mimeTypes[$ext])) {
+            http_response_code(403);
+            exit('Preview not supported for this file type');
+        }
+        
+        $mimeType = $mimeTypes[$ext];
+        
+        // Open file for reading before sending headers
+        $fp = fopen($full, 'rb');
+        if ($fp === false) {
+            http_response_code(500);
+            exit('Failed to read file');
+        }
+        
+        // Set headers for inline display
+        header('Content-Type: ' . $mimeType);
+        header('Content-Disposition: inline');
+        header('X-Content-Type-Options: nosniff');
+        header('Content-Length: ' . filesize($full));
+        header('Cache-Control: public, max-age=3600');
+        
+        // Disable output buffering for efficient streaming
+        while (ob_get_level() > 0) {
+            ob_end_clean();
+        }
+        
+        // Stream file content
+        fpassthru($fp);
+        fclose($fp);
+        exit;
+    }
+    
     $title = "Simple PHP File Lister";
     $subtitle = "The Easy Way To List Files In A Directory";
     $footer = "Made with ❤️ by Blind Trevor";
-    
-    // Security: prevent directory traversal
-    $realRoot = rtrim(realpath('.'), DIRECTORY_SEPARATOR) . DIRECTORY_SEPARATOR;
     
     // Blocked file extensions to prevent code execution
     define('BLOCKED_EXTENSIONS', ['php', 'phtml', 'phar', 'cgi', 'pl', 'sh', 'bat', 'exe', 
@@ -186,58 +263,6 @@
         header('Content-Length: ' . filesize($full));
         
         // Disable output buffering for efficient streaming of large files
-        while (ob_get_level() > 0) {
-            ob_end_clean();
-        }
-        
-        // Stream file content
-        fpassthru($fp);
-        fclose($fp);
-        exit;
-    }
-    
-    // Secure preview handler (for inline display in browser)
-    if (isset($_GET['preview'])) {
-        $rel = (string)$_GET['preview'];
-        $full = realpath($realRoot . $rel);
-        
-        // Validate path is within root and file exists
-        if ($full === false || strpos($full . DIRECTORY_SEPARATOR, $realRoot) !== 0) {
-            http_response_code(404);
-            exit('Not found');
-        }
-        
-        // Ensure it's a file, not a directory
-        if (!is_file($full)) {
-            http_response_code(404);
-            exit('Not found');
-        }
-        
-        // Get file extension and check if it's previewable
-        $ext = strtolower(pathinfo($full, PATHINFO_EXTENSION));
-        $mimeType = getPreviewMimeType($ext);
-        
-        // Only allow previewable file types
-        if ($mimeType === null) {
-            http_response_code(403);
-            exit('Preview not supported for this file type');
-        }
-        
-        // Open file for reading before sending headers
-        $fp = fopen($full, 'rb');
-        if ($fp === false) {
-            http_response_code(500);
-            exit('Failed to read file');
-        }
-        
-        // Set headers for inline display
-        header('Content-Type: ' . $mimeType);
-        header('Content-Disposition: inline');
-        header('X-Content-Type-Options: nosniff');
-        header('Content-Length: ' . filesize($full));
-        header('Cache-Control: public, max-age=3600');
-        
-        // Disable output buffering for efficient streaming
         while (ob_get_level() > 0) {
             ob_end_clean();
         }
