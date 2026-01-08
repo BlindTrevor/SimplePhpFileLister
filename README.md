@@ -20,6 +20,7 @@ Perfect for sharing downloads, documents, or quick internal file access.
 - 🎨 **Modern, responsive design** — works beautifully on desktop, tablet, and mobile
 - 🖼 **File-type icons & color coding** powered by Font Awesome
 - 👁️ **Hover previews** — see thumbnails of images, videos, audio, and PDFs before downloading
+- ✏️ **Rename files and folders** — easily rename items directly from the web interface (optional, configurable)
 - 📥 **Secure downloads** — individual file downloads with proper content-type headers
 - 📦 **Download All as ZIP** — bundle entire directories into a single ZIP file
 - 📊 **File statistics** — displays folder/file counts and total size
@@ -119,6 +120,13 @@ You can easily tailor the lister by editing the `index.php` file:
   $paginationThreshold = 25; // Show 25 items per page
   ```
 
+- **Rename functionality**  
+  Enable or disable the rename feature by changing the `$enableRename` variable at the top of the file:
+  ```php
+  $enableRename = true;  // Set to false to disable rename functionality
+  ```
+  When enabled, a rename button (pencil icon) appears when hovering over files and folders, allowing you to rename them directly from the interface.
+
 - **Title, subtitle & footer**  
   Change the `$title`, `$subtitle`, and `$footer` variables at the top of the file.
 
@@ -144,6 +152,50 @@ You can easily tailor the lister by editing the `index.php` file:
 
 ---
 
+## Rename Feature
+
+The rename feature allows you to rename files and folders directly from the web interface.
+
+### How to Use
+
+1. Hover over any file or folder in the list to reveal the rename button (pencil icon)
+2. Click the rename button to open the rename dialog
+3. Enter the new name for the file or folder
+4. Click "Rename" to confirm, or "Cancel" to abort
+
+### Security & Validation
+
+The rename feature includes robust security measures:
+
+- **Path traversal prevention** — Cannot use `/`, `\`, or null bytes in names
+- **Extension protection** — Prevents renaming files to dangerous extensions (`.php`, `.exe`, etc.)
+- **Hidden file protection** — Cannot rename to hidden files (starting with `.`)
+- **System file protection** — Cannot rename `index.php` or hidden files
+- **Duplicate detection** — Prevents overwriting existing files or folders
+- **Input sanitization** — All inputs are validated and sanitized
+
+### Configuration
+
+The rename feature can be enabled or disabled via the `$enableRename` configuration variable:
+
+```php
+$enableRename = true;  // Set to false to disable rename functionality
+```
+
+When disabled:
+- Rename buttons are hidden from the UI
+- Backend rename endpoint returns 403 Forbidden if accessed
+
+### Error Handling
+
+The rename dialog displays helpful error messages for common issues:
+- "A file or folder with this name already exists" — when the target name conflicts
+- "Invalid file name" — when the name contains invalid characters
+- "Cannot rename to this file type" — when trying to rename to a blocked extension
+- "Failed to rename item" — when the filesystem operation fails
+
+---
+
 ## Notes
 
 - Files and directories are sorted naturally (case-insensitive) for better organization
@@ -151,6 +203,7 @@ You can easily tailor the lister by editing the `index.php` file:
 - Pagination preserves the current directory path when navigating between pages
 - No authentication is built-in — use web server authentication (`.htaccess`, HTTP Basic Auth) if needed
 - Hover previews only work on desktop devices with mouse support (disabled on touch-only devices)
+- Rename buttons appear on hover on desktop; always visible on mobile/touch devices
 - ZIP download feature requires the ZipArchive PHP extension (enabled by default on most PHP installations)
 - Preview handler is optimized for performance — it's placed at the top of the script and exits immediately
 - Hidden files (starting with `.`) and dangerous executables are automatically excluded from listings
