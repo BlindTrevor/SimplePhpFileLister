@@ -29,11 +29,20 @@
             exit('Not found');
         }
         
-        // Create a temporary zip file
-        $tempZip = tempnam(sys_get_temp_dir(), 'spfl_');
+        // Create a temporary zip file with random name
+        $tempZip = tempnam(sys_get_temp_dir(), 'spfl_' . bin2hex(random_bytes(8)) . '_');
+        
+        // Ensure cleanup even if script terminates unexpectedly
+        register_shutdown_function(function() use ($tempZip) {
+            if (file_exists($tempZip)) {
+                @unlink($tempZip);
+            }
+        });
+        
         $zip = new ZipArchive();
         
         if ($zip->open($tempZip, ZipArchive::CREATE | ZipArchive::OVERWRITE) !== true) {
+            @unlink($tempZip);
             http_response_code(500);
             exit('Failed to create ZIP file');
         }
@@ -51,7 +60,7 @@
                 
                 // Skip invalid paths, symlinks, directories
                 if (is_link($fullPath) || $realPath === false || 
-                    strpos($realPath, $realRoot) !== 0 || is_dir($fullPath)) {
+                    strpos($realPath . DIRECTORY_SEPARATOR, $realRoot) !== 0 || is_dir($fullPath)) {
                     continue;
                 }
                 
@@ -338,7 +347,7 @@
                             
                             // Skip invalid paths, symlinks, directories
                             if (is_link($fullPath) || $realPath === false || 
-                                strpos($realPath, $realRoot) !== 0 || is_dir($fullPath)) {
+                                strpos($realPath . DIRECTORY_SEPARATOR, $realRoot) !== 0 || is_dir($fullPath)) {
                                 continue;
                             }
                             
