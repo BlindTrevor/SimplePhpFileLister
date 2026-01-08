@@ -213,38 +213,15 @@
             exit('Not found');
         }
         
-        // Get file extension and determine MIME type
+        // Get file extension and check if it's previewable
         $ext = strtolower(pathinfo($full, PATHINFO_EXTENSION));
-        $mimeTypes = [
-            // Images
-            'jpg' => 'image/jpeg',
-            'jpeg' => 'image/jpeg',
-            'png' => 'image/png',
-            'gif' => 'image/gif',
-            'webp' => 'image/webp',
-            'svg' => 'image/svg+xml',
-            'bmp' => 'image/bmp',
-            'ico' => 'image/x-icon',
-            // Videos
-            'mp4' => 'video/mp4',
-            'webm' => 'video/webm',
-            'ogg' => 'video/ogg',
-            // Audio
-            'mp3' => 'audio/mpeg',
-            'wav' => 'audio/wav',
-            'flac' => 'audio/flac',
-            'm4a' => 'audio/mp4',
-            // Documents
-            'pdf' => 'application/pdf',
-        ];
+        $mimeType = getPreviewMimeType($ext);
         
         // Only allow previewable file types
-        if (!isset($mimeTypes[$ext])) {
+        if ($mimeType === null) {
             http_response_code(403);
             exit('Preview not supported for this file type');
         }
-        
-        $mimeType = $mimeTypes[$ext];
         
         // Open file for reading before sending headers
         $fp = fopen($full, 'rb');
@@ -307,6 +284,44 @@
         }
     }
 
+    function getPreviewableFileTypes(): array {
+        return [
+            'image' => ['jpg', 'jpeg', 'png', 'gif', 'webp', 'svg', 'bmp', 'ico'],
+            'video' => ['mp4', 'webm', 'ogv'],
+            'audio' => ['mp3', 'wav', 'oga', 'flac', 'm4a'],
+            // PDF preview is limited in tooltips, shown as placeholder message
+            'pdf' => ['pdf'],
+        ];
+    }
+
+    function getPreviewMimeType(string $ext): ?string {
+        $mimeTypes = [
+            // Images
+            'jpg' => 'image/jpeg',
+            'jpeg' => 'image/jpeg',
+            'png' => 'image/png',
+            'gif' => 'image/gif',
+            'webp' => 'image/webp',
+            'svg' => 'image/svg+xml',
+            'bmp' => 'image/bmp',
+            'ico' => 'image/x-icon',
+            // Videos
+            'mp4' => 'video/mp4',
+            'webm' => 'video/webm',
+            'ogv' => 'video/ogg',
+            // Audio
+            'mp3' => 'audio/mpeg',
+            'wav' => 'audio/wav',
+            'oga' => 'audio/ogg',
+            'flac' => 'audio/flac',
+            'm4a' => 'audio/mp4',
+            // Documents
+            'pdf' => 'application/pdf',
+        ];
+        
+        return $mimeTypes[$ext] ?? null;
+    }
+
     function formatFileSize(int $bytes): string {
         if ($bytes === 0) {
             return '0 B';
@@ -364,19 +379,16 @@
             
             // Add data attributes for preview functionality
             $ext = strtolower(pathinfo($entry, PATHINFO_EXTENSION));
-            $previewableImages = ['jpg', 'jpeg', 'png', 'gif', 'webp', 'svg', 'bmp', 'ico'];
-            $previewableVideos = ['mp4', 'webm', 'ogg'];
-            $previewableAudio = ['mp3', 'wav', 'ogg', 'flac', 'm4a'];
-            $previewableDocs = ['pdf'];
+            $previewTypes = getPreviewableFileTypes();
             
             $dataAttributes = '';
-            if (in_array($ext, $previewableImages)) {
+            if (in_array($ext, $previewTypes['image'])) {
                 $dataAttributes = ' data-preview="image" data-file-path="' . htmlspecialchars($filePath, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8') . '"';
-            } elseif (in_array($ext, $previewableVideos)) {
+            } elseif (in_array($ext, $previewTypes['video'])) {
                 $dataAttributes = ' data-preview="video" data-file-path="' . htmlspecialchars($filePath, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8') . '"';
-            } elseif (in_array($ext, $previewableAudio)) {
+            } elseif (in_array($ext, $previewTypes['audio'])) {
                 $dataAttributes = ' data-preview="audio" data-file-path="' . htmlspecialchars($filePath, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8') . '"';
-            } elseif (in_array($ext, $previewableDocs)) {
+            } elseif (in_array($ext, $previewTypes['pdf'])) {
                 $dataAttributes = ' data-preview="pdf" data-file-path="' . htmlspecialchars($filePath, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8') . '"';
             }
         }
@@ -1267,8 +1279,8 @@
                         };
                         audio.src = previewUrl;
                     } else if (previewType === 'pdf') {
-                        // PDF preview is complex and may not work well in a tooltip
-                        // Show a message instead
+                        // PDF inline preview in a small tooltip is impractical due to size/readability
+                        // Instead, show a helpful message prompting user to click to view full document
                         tooltip.innerHTML = '<div class="preview-error">PDF preview not available<br>(Click to view)</div>';
                     }
                 }
