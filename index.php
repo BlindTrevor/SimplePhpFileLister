@@ -111,6 +111,14 @@
             $zipFilename = $safeFolderName . '.zip';
         }
         
+        // Open file for reading before sending headers
+        $fp = fopen($tempZip, 'rb');
+        if ($fp === false) {
+            @unlink($tempZip);
+            http_response_code(500);
+            exit('Failed to read ZIP file');
+        }
+        
         // Send the zip file
         $safeFilename = preg_replace('/[\x00-\x1F\x7F"\\\\]|[\r\n]/', '', $zipFilename);
         $encodedFilename = rawurlencode($zipFilename);
@@ -125,12 +133,9 @@
             ob_end_clean();
         }
         
-        // Use fopen/fpassthru instead of readfile for better memory efficiency
-        $fp = fopen($tempZip, 'rb');
-        if ($fp !== false) {
-            fpassthru($fp);
-            fclose($fp);
-        }
+        // Stream file content and cleanup
+        fpassthru($fp);
+        fclose($fp);
         @unlink($tempZip);
         exit;
     }
@@ -160,6 +165,13 @@
             exit('Forbidden');
         }
         
+        // Open file for reading before sending headers
+        $fp = fopen($full, 'rb');
+        if ($fp === false) {
+            http_response_code(500);
+            exit('Failed to read file');
+        }
+        
         // Set secure download headers with properly escaped filename
         $filename = basename($full);
         // Remove control characters and dangerous chars for header injection prevention
@@ -177,12 +189,9 @@
             ob_end_clean();
         }
         
-        // Use fopen/fpassthru instead of readfile for better memory efficiency
-        $fp = fopen($full, 'rb');
-        if ($fp !== false) {
-            fpassthru($fp);
-            fclose($fp);
-        }
+        // Stream file content
+        fpassthru($fp);
+        fclose($fp);
         exit;
     }
     
