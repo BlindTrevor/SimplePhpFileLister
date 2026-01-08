@@ -168,6 +168,7 @@
         // Open file for reading before sending headers
         $fp = fopen($full, 'rb');
         if ($fp === false) {
+            // No cleanup needed for regular files (unlike temp ZIP files)
             http_response_code(500);
             exit('Failed to read file');
         }
