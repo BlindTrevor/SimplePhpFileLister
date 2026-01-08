@@ -1163,8 +1163,12 @@
             
             // Preview tooltip functionality
             (function() {
-                // Skip on touch devices
-                if ('ontouchstart' in window || navigator.maxTouchPoints > 0) {
+                // Skip on touch-only devices (mobile/tablet)
+                // Allow on hybrid devices (laptops with touchscreens) by checking if hover is supported
+                const isTouchOnly = ('ontouchstart' in window || navigator.maxTouchPoints > 0) && 
+                                   !window.matchMedia('(hover: hover) and (pointer: fine)').matches;
+                
+                if (isTouchOnly) {
                     return;
                 }
                 
