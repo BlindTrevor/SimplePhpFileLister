@@ -1400,10 +1400,16 @@
                             // Clear any pending hide
                             clearTimeout(hideTimeout);
                             
-                            // Don't show if already showing for this link
+                            // If already showing for this exact link, don't restart
                             if (currentPreview === link) {
                                 console.log('[Preview] Already showing preview for this link');
                                 return;
+                            }
+                            
+                            // If showing preview for a different link, hide it immediately and show new one
+                            if (currentPreview && currentPreview !== link) {
+                                console.log('[Preview] Switching preview to different file');
+                                hidePreview();
                             }
                             
                             currentPreview = link;
