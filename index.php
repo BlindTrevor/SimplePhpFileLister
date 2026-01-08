@@ -270,6 +270,54 @@
             $sizeHtml
         );
     }
+
+    function hasDownloadableContent(string $dir, string $realRoot): bool {
+        $hasContent = false;
+        
+        $checkContent = function($checkDir) use (&$checkContent, $realRoot, &$hasContent) {
+            $handle = opendir($checkDir);
+            if ($handle === false) {
+                return;
+            }
+            
+            while (($entry = readdir($handle)) !== false) {
+                if ($hasContent) break; // Early exit if we found content
+                
+                if (in_array($entry, ['.', '..', 'index.php'], true) || $entry[0] === '.') {
+                    continue;
+                }
+                
+                $fullPath = $checkDir . '/' . $entry;
+                $realPath = realpath($fullPath);
+                
+                // Skip invalid paths, symlinks
+                if (is_link($fullPath) || $realPath === false || 
+                    strpos($realPath . DIRECTORY_SEPARATOR, $realRoot) !== 0) {
+                    continue;
+                }
+                
+                if (is_dir($fullPath)) {
+                    // Recurse into directory only if we haven't found content yet
+                    if (!$hasContent) {
+                        $checkContent($fullPath);
+                    }
+                } else {
+                    // Skip dangerous extensions
+                    $ext = strtolower(pathinfo($entry, PATHINFO_EXTENSION));
+                    if (in_array($ext, BLOCKED_EXTENSIONS, true)) {
+                        continue;
+                    }
+                    
+                    $hasContent = true;
+                    break;
+                }
+            }
+            closedir($handle);
+        };
+        
+        $checkContent($dir);
+        return $hasContent;
+    }
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -846,57 +894,11 @@
                     $statsHtml .= ' (' . htmlspecialchars(formatFileSize($totalSize), ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8') . ' total)';
                 }
                 
-                // Check if there's downloadable content for the button
-                $hasContent = false;
-                
-                // Recursive function to check if there's any downloadable content
-                $checkContent = function($dir) use (&$checkContent, $realRoot, &$hasContent) {
-                    $handle = opendir($dir);
-                    if ($handle === false) {
-                        return;
-                    }
-                    
-                    while (($entry = readdir($handle)) !== false) {
-                        if ($hasContent) break; // Early exit if we found content
-                        
-                        if (in_array($entry, ['.', '..', 'index.php'], true) || $entry[0] === '.') {
-                            continue;
-                        }
-                        
-                        $fullPath = $dir . '/' . $entry;
-                        $realPath = realpath($fullPath);
-                        
-                        // Skip invalid paths, symlinks
-                        if (is_link($fullPath) || $realPath === false || 
-                            strpos($realPath . DIRECTORY_SEPARATOR, $realRoot) !== 0) {
-                            continue;
-                        }
-                        
-                        if (is_dir($fullPath)) {
-                            // Recurse into directory only if we haven't found content yet
-                            if (!$hasContent) {
-                                $checkContent($fullPath);
-                            }
-                        } else {
-                            // Skip dangerous extensions
-                            $ext = strtolower(pathinfo($entry, PATHINFO_EXTENSION));
-                            if (in_array($ext, BLOCKED_EXTENSIONS, true)) {
-                                continue;
-                            }
-                            
-                            $hasContent = true;
-                            break;
-                        }
-                    }
-                    closedir($handle);
-                };
-                
-                $checkContent($basePath);
-                
                 echo '<div class="stats-container">';
                 echo '<div class="folder-file-count">' . $statsHtml . '</div>';
                 
-                if ($hasContent) {
+                // Show download button if there's any downloadable content
+                if (hasDownloadableContent($basePath, $realRoot)) {
                     $downloadAllUrl = '?download_all_zip=1';
                     if ($currentPath) {
                         $downloadAllUrl .= '&path=' . rawurlencode($currentPath);
