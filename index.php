@@ -1252,7 +1252,10 @@
                     });
 
                     // Pagination logic: combine dirs and files for pagination
+                    // Note: $dirs is an array of directory name strings
+                    // Note: $files is an array of ['name' => string, 'size' => int] arrays
                     $totalItems = count($dirs) + count($files);
+                    // Only show pagination if items exceed the threshold (e.g., 26+ items when threshold is 25)
                     $totalPages = ($totalItems > $paginationThreshold) ? (int)ceil($totalItems / $paginationThreshold) : 1;
                     
                     // Ensure current page is within valid range
@@ -1263,6 +1266,7 @@
                     $offset = ($currentPage - 1) * $itemsPerPage;
                     
                     // Merge dirs and files into a single array for pagination
+                    // Convert dirs (strings) to standardized format: ['type' => 'dir', 'name' => string, 'size' => 0]
                     $allItems = [];
                     foreach ($dirs as $dir) {
                         $allItems[] = ['type' => 'dir', 'name' => $dir, 'size' => 0];
