@@ -47,42 +47,52 @@
             exit('Failed to create ZIP file');
         }
         
-        // Add files to zip
-        $fileCount = 0;
-        $handle = opendir($basePath);
-        if ($handle === false) {
-            $zip->close();
-            @unlink($tempZip);
-            http_response_code(500);
-            exit('Unable to read directory');
-        }
+        // Recursive function to add directory contents to zip
+        $addToZip = function($dir, $zipPath, &$count) use (&$addToZip, $zip, $realRoot) {
+            $handle = opendir($dir);
+            if ($handle === false) {
+                return;
+            }
+            
+            while (($entry = readdir($handle)) !== false) {
+                if (in_array($entry, ['.', '..', 'index.php'], true) || $entry[0] === '.') {
+                    continue;
+                }
+                
+                $fullPath = $dir . '/' . $entry;
+                $realPath = realpath($fullPath);
+                
+                // Skip invalid paths, symlinks
+                if (is_link($fullPath) || $realPath === false || 
+                    strpos($realPath . DIRECTORY_SEPARATOR, $realRoot) !== 0) {
+                    continue;
+                }
+                
+                $zipEntryPath = $zipPath ? $zipPath . '/' . $entry : $entry;
+                
+                if (is_dir($fullPath)) {
+                    // Add directory to zip and recurse
+                    $zip->addEmptyDir($zipEntryPath);
+                    $addToZip($fullPath, $zipEntryPath, $count);
+                } else {
+                    // Block dangerous extensions
+                    $ext = strtolower(pathinfo($entry, PATHINFO_EXTENSION));
+                    if (in_array($ext, BLOCKED_EXTENSIONS, true)) {
+                        continue;
+                    }
+                    
+                    // Add file to zip
+                    if ($zip->addFile($fullPath, $zipEntryPath)) {
+                        $count++;
+                    }
+                }
+            }
+            closedir($handle);
+        };
         
-        while (($entry = readdir($handle)) !== false) {
-            if (in_array($entry, ['.', '..', 'index.php'], true) || $entry[0] === '.') {
-                continue;
-            }
-            
-            $fullPath = $basePath . '/' . $entry;
-            $realPath = realpath($fullPath);
-            
-            // Skip invalid paths, symlinks, directories
-            if (is_link($fullPath) || $realPath === false || 
-                strpos($realPath . DIRECTORY_SEPARATOR, $realRoot) !== 0 || is_dir($fullPath)) {
-                continue;
-            }
-            
-            // Block dangerous extensions
-            $ext = strtolower(pathinfo($entry, PATHINFO_EXTENSION));
-            if (in_array($ext, BLOCKED_EXTENSIONS, true)) {
-                continue;
-            }
-            
-            // Add file to zip
-            if ($zip->addFile($fullPath, $entry)) {
-                $fileCount++;
-            }
-        }
-        closedir($handle);
+        // Add files and directories to zip
+        $fileCount = 0;
+        $addToZip($basePath, '', $fileCount);
         
         $zip->close();
         
@@ -340,37 +350,53 @@
             <?php endif; ?>
 
             <?php
-                // Show download all button if there are downloadable files in current directory
+                // Show download all button if there are downloadable files or directories
                 if ($isValidPath) {
-                    $hasFiles = false;
-                    $handle = opendir($basePath);
-                    if ($handle !== false) {
+                    $hasContent = false;
+                    
+                    // Recursive function to check if there's any downloadable content
+                    $checkContent = function($dir) use (&$checkContent, $realRoot, &$hasContent) {
+                        $handle = opendir($dir);
+                        if ($handle === false) {
+                            return;
+                        }
+                        
                         while (($entry = readdir($handle)) !== false) {
+                            if ($hasContent) break; // Early exit if we found content
+                            
                             if (in_array($entry, ['.', '..', 'index.php'], true) || $entry[0] === '.') {
                                 continue;
                             }
-                            $fullPath = $basePath . '/' . $entry;
+                            
+                            $fullPath = $dir . '/' . $entry;
                             $realPath = realpath($fullPath);
                             
-                            // Skip invalid paths, symlinks, directories
+                            // Skip invalid paths, symlinks
                             if (is_link($fullPath) || $realPath === false || 
-                                strpos($realPath . DIRECTORY_SEPARATOR, $realRoot) !== 0 || is_dir($fullPath)) {
+                                strpos($realPath . DIRECTORY_SEPARATOR, $realRoot) !== 0) {
                                 continue;
                             }
                             
-                            // Skip dangerous extensions
-                            $ext = strtolower(pathinfo($entry, PATHINFO_EXTENSION));
-                            if (in_array($ext, BLOCKED_EXTENSIONS, true)) {
-                                continue;
+                            if (is_dir($fullPath)) {
+                                // Recurse into directory
+                                $checkContent($fullPath);
+                            } else {
+                                // Skip dangerous extensions
+                                $ext = strtolower(pathinfo($entry, PATHINFO_EXTENSION));
+                                if (in_array($ext, BLOCKED_EXTENSIONS, true)) {
+                                    continue;
+                                }
+                                
+                                $hasContent = true;
+                                break;
                             }
-                            
-                            $hasFiles = true;
-                            break;
                         }
                         closedir($handle);
-                    }
+                    };
                     
-                    if ($hasFiles) {
+                    $checkContent($basePath);
+                    
+                    if ($hasContent) {
                         $downloadAllUrl = '?download_all_zip=1';
                         if ($currentPath) {
                             $downloadAllUrl .= '&path=' . rawurlencode($currentPath);
