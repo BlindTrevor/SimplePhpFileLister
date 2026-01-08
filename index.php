@@ -854,6 +854,12 @@
                             if (is_dir($fullPath)) {
                                 $dirs[] = $entry;
                             } else {
+                                // Block dangerous extensions from being listed
+                                $ext = strtolower(pathinfo($entry, PATHINFO_EXTENSION));
+                                if (in_array($ext, BLOCKED_EXTENSIONS, true)) {
+                                    continue;
+                                }
+                                
                                 $fileSize = @filesize($fullPath);
                                 if ($fileSize !== false) {
                                     $files[] = ['name' => $entry, 'size' => $fileSize];
