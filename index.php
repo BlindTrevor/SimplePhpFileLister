@@ -59,18 +59,14 @@
         exit;
     }
 
+    // Generate a cryptographically secure nonce for CSP
+    $cspNonce = base64_encode(random_bytes(16));
+    
     header('X-Content-Type-Options: nosniff');
     header('X-Frame-Options: DENY');
     header('Referrer-Policy: no-referrer');
     header('Permissions-Policy: geolocation=(), camera=(), microphone=()');
-    header("Content-Security-Policy: default-src 'self';
-        style-src 'self' https://cdnjs.cloudflare.com 'unsafe-inline';
-        script-src 'self';
-        img-src 'self' https://img.shields.io;
-        font-src https://cdnjs.cloudflare.com;
-        object-src 'none';
-        base-uri 'self';
-        frame-ancestors 'none'");
+    header("Content-Security-Policy: default-src 'self'; style-src 'self' https://cdnjs.cloudflare.com 'nonce-{$cspNonce}'; script-src 'self' 'nonce-{$cspNonce}'; img-src 'self' https://img.shields.io; font-src https://cdnjs.cloudflare.com; object-src 'none'; base-uri 'self'; frame-ancestors 'none'");
     $currentPath = isset($_GET['path']) ? rtrim((string)$_GET['path'], '/') : '';
     $basePath = $currentPath ? './' . str_replace('\\', '/', $currentPath) : '.';
     $realBase = realpath($basePath);
@@ -94,49 +90,39 @@
     }
 
     function getFileIcon(string $path): array {
-        $colors = [
-            'pdf' => '#e74c3c', 'word' => '#2980b9', 'text' => '#7f8c8d',
-            'excel' => '#27ae60', 'powerpoint' => '#e67e22', 'archive' => '#8e44ad',
-            'image' => '#f39c12', 'audio' => '#c0392b', 'video' => '#16a085',
-            'code' => '#34495e', 'html' => '#e74c3c', 'css' => '#2980b9',
-            'js' => '#f1c40f', 'ts' => '#2b5bae', 'python' => '#3776ab',
-            'php' => '#777bb4', 'powershell' => '#0078d4', 'sql' => '#336791',
-            'yaml' => '#cb171e', 'markdown' => '#083fa1', 'default' => '#95a5a6',
-        ];
-
         $ext = strtolower(pathinfo($path, PATHINFO_EXTENSION));
         $extMap = [
-            'pdf' => ['fa-regular fa-file-pdf', $colors['pdf']],
-            'doc' => ['fa-regular fa-file-word', $colors['word']],
-            'docx' => ['fa-regular fa-file-word', $colors['word']],
-            'xlsx' => ['fa-regular fa-file-excel', $colors['excel']],
-            'pptx' => ['fa-regular fa-file-powerpoint', $colors['powerpoint']],
-            'zip' => ['fa-solid fa-file-zipper', $colors['archive']],
-            'jpg' => ['fa-regular fa-file-image', $colors['image']],
-            'png' => ['fa-regular fa-file-image', $colors['image']],
-            'mp3' => ['fa-regular fa-file-audio', $colors['audio']],
-            'mp4' => ['fa-regular fa-file-video', $colors['video']],
-            'html' => ['fa-regular fa-file-code', $colors['html']],
-            'css' => ['fa-regular fa-file-code', $colors['css']],
-            'js' => ['fa-regular fa-file-code', $colors['js']],
-            'php' => ['fa-regular fa-file-code', $colors['php']],
-            'md' => ['fa-regular fa-file-lines', $colors['markdown']],
+            'pdf' => ['fa-regular fa-file-pdf', 'icon-pdf'],
+            'doc' => ['fa-regular fa-file-word', 'icon-word'],
+            'docx' => ['fa-regular fa-file-word', 'icon-word'],
+            'xlsx' => ['fa-regular fa-file-excel', 'icon-excel'],
+            'pptx' => ['fa-regular fa-file-powerpoint', 'icon-powerpoint'],
+            'zip' => ['fa-solid fa-file-zipper', 'icon-archive'],
+            'jpg' => ['fa-regular fa-file-image', 'icon-image'],
+            'png' => ['fa-regular fa-file-image', 'icon-image'],
+            'mp3' => ['fa-regular fa-file-audio', 'icon-audio'],
+            'mp4' => ['fa-regular fa-file-video', 'icon-video'],
+            'html' => ['fa-regular fa-file-code', 'icon-html'],
+            'css' => ['fa-regular fa-file-code', 'icon-css'],
+            'js' => ['fa-regular fa-file-code', 'icon-js'],
+            'php' => ['fa-regular fa-file-code', 'icon-php'],
+            'md' => ['fa-regular fa-file-lines', 'icon-markdown'],
         ];
 
-        return $extMap[$ext] ?? ['fa-regular fa-file', $colors['default']];
+        return $extMap[$ext] ?? ['fa-regular fa-file', 'icon-default'];
     }
 
     function renderItem(string $entry, bool $isDir, string $currentPath): void {
         if ($isDir) {
             $href = '?path=' . rawurlencode($currentPath ? $currentPath . '/' . $entry : $entry);
             $iconClass = 'fa-solid fa-folder';
-            $iconColor = '#f6a623';
+            $colorClass = 'icon-folder';
             $linkAttributes = 'class="dir-link"';
         } else {
             // Use secure download handler for files
             $filePath = $currentPath ? $currentPath . '/' . $entry : $entry;
             $href = '?download=' . rawurlencode($filePath);
-            [$iconClass, $iconColor] = getFileIcon($entry);
+            [$iconClass, $colorClass] = getFileIcon($entry);
             // Open downloads in new tab to prevent loading overlay on main page
             $linkAttributes = 'target="_blank" rel="noopener noreferrer"';
         }
@@ -144,10 +130,10 @@
         $label = htmlspecialchars($entry, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
 
         printf(
-            '<li><a href="%s" %s><span class="file-icon" style="color:%s;"><i class="%s"></i></span><span class="file-name">%s</span></a></li>' . PHP_EOL,
+            '<li><a href="%s" %s><span class="file-icon %s"><i class="%s"></i></span><span class="file-name">%s</span></a></li>' . PHP_EOL,
             htmlspecialchars($href, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8'),
             $linkAttributes,
-            htmlspecialchars($iconColor, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8'),
+            htmlspecialchars($colorClass, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8'),
             htmlspecialchars($iconClass, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8'),
             $label
         );
@@ -158,8 +144,8 @@
 <head>
     <meta charset="UTF-8">
     <title><?php echo htmlspecialchars($title); ?></title>
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/7.0.1/css/all.min.css">
-    <style>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" integrity="sha512-DTOQO9RWCH3ppGqcWaEA1BIZOC6xxalwEsw9c2QQeAIftl+Vegovlnee1c9QX4TctnWMn13TZye+giMm8e2LwA==" crossorigin="anonymous">
+    <style nonce="<?php echo htmlspecialchars($cspNonce, ENT_QUOTES, 'UTF-8'); ?>">
         :root { --bg: #f2f4f8; --card: #ffffff; --accent: #4f46e5; --text: #1f2933; --muted: #6b7280; --hover: #eef2ff; --border: #e5e7eb; }
         * { box-sizing: border-box; }
         body { margin: 0; font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; background: var(--bg); color: var(--text); padding: 40px 16px; }
@@ -185,6 +171,28 @@
         .loading-overlay.is-active { display: flex; }
         @media (prefers-reduced-motion: reduce) { .loading-spinner { animation: none; border-top-color: var(--border); } }
         @keyframes spin { to { transform: rotate(360deg); } }
+        .icon-pdf { color: #e74c3c; }
+        .icon-word { color: #2980b9; }
+        .icon-text { color: #7f8c8d; }
+        .icon-excel { color: #27ae60; }
+        .icon-powerpoint { color: #e67e22; }
+        .icon-archive { color: #8e44ad; }
+        .icon-image { color: #f39c12; }
+        .icon-audio { color: #c0392b; }
+        .icon-video { color: #16a085; }
+        .icon-code { color: #34495e; }
+        .icon-html { color: #e74c3c; }
+        .icon-css { color: #2980b9; }
+        .icon-js { color: #f1c40f; }
+        .icon-ts { color: #2b5bae; }
+        .icon-python { color: #3776ab; }
+        .icon-php { color: #777bb4; }
+        .icon-powershell { color: #0078d4; }
+        .icon-sql { color: #336791; }
+        .icon-yaml { color: #cb171e; }
+        .icon-markdown { color: #083fa1; }
+        .icon-default { color: #95a5a6; }
+        .icon-folder { color: #f6a623; }
     </style>
 </head>
 
@@ -213,7 +221,7 @@
                     // Show parent directory link if not at root
                     if ($currentPath) {
                         $parentPath = dirname($currentPath);
-                        printf('<li><a href="?path=%s" class="dir-link"><span class="file-icon" style="color:#f6a623;"><i class="fa-solid fa-arrow-up"></i></span><span class="file-name">..</span></a></li>' . PHP_EOL, $parentPath ? rawurlencode($parentPath) : '');
+                        printf('<li><a href="?path=%s" class="dir-link"><span class="file-icon icon-folder"><i class="fa-solid fa-arrow-up"></i></span><span class="file-name">..</span></a></li>' . PHP_EOL, $parentPath ? rawurlencode($parentPath) : '');
                     }
 
                     $dirs = [];
@@ -278,7 +286,7 @@
         </div>
     </div>
 
-    <script>
+    <script nonce="<?php echo htmlspecialchars($cspNonce, ENT_QUOTES, 'UTF-8'); ?>">
         (function() {
             const overlay = document.querySelector('.loading-overlay');
 
