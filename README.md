@@ -4,7 +4,7 @@ A lightweight, no-configuration PHP file directory lister with a clean, modern i
 
 Just drop the `index.php` file into any directory on a PHP-enabled server and it will automatically list all files in that folder. No setup, no config files, no dependencies.
 
-Perfect for sharing downloads, band parts, documents, or quick internal file access.
+Perfect for sharing downloads, documents, or quick internal file access.
 
 ---
 
@@ -33,7 +33,7 @@ Perfect for sharing downloads, band parts, documents, or quick internal file acc
 2. Upload the directory to your PHP-enabled web server.
 3. Visit the directory in your browser.
 
-That’s it — the file list will render automatically.
+That’s it - the file list will render automatically.
 
 ---
 
@@ -42,7 +42,7 @@ That’s it — the file list will render automatically.
 - Uses PHP’s `opendir()` and `readdir()` functions to scan the current directory.
 - Outputs each file as a styled clickable link with an icon based on file type.
 - Files are displayed using a card-based layout for clarity and readability.
-- All styling and logic are embedded directly in the file — no external dependencies except Font Awesome CDN.
+- All styling and logic are embedded directly in the file - no external dependencies except Font Awesome CDN.
 
 ---
 
@@ -51,7 +51,7 @@ That’s it — the file list will render automatically.
 You can easily tailor the lister by editing the `index.php` file:
 
 - **Title & subtitle**  
-  Change the `$title` and `$subtitle` variables at the top of the file.
+  Change the `$title`, `$subtitle` and `$footer` variables at the top of the file.
 
 - **Styling**  
   Modify the CSS variables in the `<style>` block to adjust colors, spacing, or fonts.
