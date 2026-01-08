@@ -566,6 +566,9 @@ if ($isValidPath) {
     <title><?php echo htmlspecialchars($title); ?></title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" integrity="sha512-DTOQO9RWCH3ppGqcWaEA1BIZOC6xxalwEsw9c2QQeAIftl+Vegovlnee1c9QX4TctnWMn13TZye+giMm8e2LwA==" crossorigin="anonymous">
     <style nonce="<?php echo htmlspecialchars($cspNonce, ENT_QUOTES, 'UTF-8'); ?>">
+        /* ================================================================
+           CSS VARIABLES & THEME
+           ================================================================ */
         :root { 
             --bg: linear-gradient(135deg, #667eea 0%, #764ba2 100%); 
             --card: #ffffff; 
@@ -579,6 +582,9 @@ if ($isValidPath) {
             --shadow-hover: 0 15px 50px rgba(0, 0, 0, 0.15);
         }
         
+        /* ================================================================
+           BASE STYLES
+           ================================================================ */
         * { 
             box-sizing: border-box; 
             margin: 0;
@@ -594,6 +600,9 @@ if ($isValidPath) {
             line-height: 1.6;
         }
         
+        /* ================================================================
+           LAYOUT COMPONENTS
+           ================================================================ */
         .container { 
             max-width: 900px; 
             margin: 0 auto; 
@@ -613,6 +622,9 @@ if ($isValidPath) {
             to { opacity: 1; transform: translateY(0); }
         }
         
+        /* ================================================================
+           TYPOGRAPHY
+           ================================================================ */
         h1 { 
             margin: 0 0 8px 0; 
             font-size: clamp(1.5rem, 4vw, 2rem);
@@ -628,6 +640,9 @@ if ($isValidPath) {
             font-weight: 400;
         }
         
+        /* ================================================================
+           NAVIGATION & BREADCRUMBS
+           ================================================================ */
         .breadcrumbs { 
             display: flex; 
             align-items: center; 
@@ -658,6 +673,9 @@ if ($isValidPath) {
             font-weight: 600; 
         }
         
+        /* ================================================================
+           FILE LIST STYLES
+           ================================================================ */
         .file-list { 
             list-style: none; 
             padding: 0; 
@@ -736,6 +754,9 @@ if ($isValidPath) {
             font-weight: 500;
         }
         
+        /* ================================================================
+           STATISTICS & INFO DISPLAY
+           ================================================================ */
         .stats-container {
             margin-top: 24px;
             padding: 16px 20px;
@@ -755,6 +776,9 @@ if ($isValidPath) {
             flex: 1;
         }
         
+        /* ================================================================
+           FOOTER & BRANDING
+           ================================================================ */
         footer { 
             margin-top: 20px; 
             text-align: center; 
@@ -773,6 +797,9 @@ if ($isValidPath) {
             transform: scale(1.05);
         }
         
+        /* ================================================================
+           LOADING OVERLAY & ANIMATIONS
+           ================================================================ */
         .loading-overlay { 
             position: fixed; 
             inset: 0; 
@@ -815,7 +842,9 @@ if ($isValidPath) {
             to { transform: rotate(360deg); } 
         }
         
-        /* File type icon colors */
+        /* ================================================================
+           FILE TYPE ICON COLORS
+           ================================================================ */
         .icon-pdf { color: #e74c3c; }
         .icon-word { color: #2980b9; }
         .icon-text { color: #7f8c8d; }
@@ -839,6 +868,9 @@ if ($isValidPath) {
         .icon-default { color: #95a5a6; }
         .icon-folder { color: #f6a623; }
         
+        /* ================================================================
+           BUTTONS & INTERACTIVE ELEMENTS
+           ================================================================ */
         .download-all-btn { 
             display: inline-flex; 
             align-items: center; 
@@ -871,7 +903,9 @@ if ($isValidPath) {
             font-size: 1.1rem; 
         }
         
-        /* Responsive breakpoints */
+        /* ================================================================
+           RESPONSIVE DESIGN - MEDIA QUERIES
+           ================================================================ */
         
         /* Mobile phones (portrait) */
         @media (max-width: 480px) {
@@ -1021,7 +1055,9 @@ if ($isValidPath) {
             }
         }
         
-        /* Thumbnail preview tooltip */
+        /* ================================================================
+           PREVIEW TOOLTIPS
+           ================================================================ */
         .preview-tooltip {
             position: fixed;
             z-index: 10000;
@@ -1088,7 +1124,9 @@ if ($isValidPath) {
             }
         }
         
-        /* Print styles */
+        /* ================================================================
+           PRINT STYLES
+           ================================================================ */
         @media print {
             body {
                 background: white;
@@ -1113,7 +1151,9 @@ if ($isValidPath) {
             }
         }
         
-        /* Pagination styles */
+        /* ================================================================
+           PAGINATION CONTROLS
+           ================================================================ */
         .pagination {
             display: flex;
             align-items: center;
