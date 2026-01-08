@@ -89,6 +89,21 @@
         }
     }
 
+    function formatFileSize(int $bytes): string {
+        if ($bytes === 0) {
+            return '0 B';
+        }
+        $units = ['B', 'KB', 'MB', 'GB', 'TB'];
+        $i = floor(log($bytes, 1024));
+        $i = min($i, count($units) - 1);
+        $size = $bytes / pow(1024, $i);
+        
+        if ($i === 0) {
+            return sprintf('%d B', $size);
+        }
+        return sprintf('%.2f %s', $size, $units[$i]);
+    }
+
     function getFileIcon(string $path): array {
         $ext = strtolower(pathinfo($path, PATHINFO_EXTENSION));
         $extMap = [
@@ -112,12 +127,13 @@
         return $extMap[$ext] ?? ['fa-regular fa-file', 'icon-default'];
     }
 
-    function renderItem(string $entry, bool $isDir, string $currentPath): void {
+    function renderItem(string $entry, bool $isDir, string $currentPath, int $fileSize = 0): void {
         if ($isDir) {
             $href = '?path=' . rawurlencode($currentPath ? $currentPath . '/' . $entry : $entry);
             $iconClass = 'fa-solid fa-folder';
             $colorClass = 'icon-folder';
             $linkAttributes = 'class="dir-link"';
+            $sizeHtml = '';
         } else {
             // Use secure download handler for files
             $filePath = $currentPath ? $currentPath . '/' . $entry : $entry;
@@ -125,17 +141,19 @@
             [$iconClass, $colorClass] = getFileIcon($entry);
             // Open downloads in new tab to prevent loading overlay on main page
             $linkAttributes = 'target="_blank" rel="noopener noreferrer"';
+            $sizeHtml = '<span class="file-size">' . htmlspecialchars(formatFileSize($fileSize), ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8') . '</span>';
         }
 
         $label = htmlspecialchars($entry, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
 
         printf(
-            '<li><a href="%s" %s><span class="file-icon %s"><i class="%s"></i></span><span class="file-name">%s</span></a></li>' . PHP_EOL,
+            '<li><a href="%s" %s><span class="file-icon %s"><i class="%s"></i></span><span class="file-name">%s</span>%s</a></li>' . PHP_EOL,
             htmlspecialchars($href, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8'),
             $linkAttributes,
             htmlspecialchars($colorClass, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8'),
             htmlspecialchars($iconClass, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8'),
-            $label
+            $label,
+            $sizeHtml
         );
     }
 ?>
@@ -162,7 +180,8 @@
         .file-list a { display: flex; align-items: center; gap: 12px; padding: 14px 16px; border: 1px solid var(--border); border-radius: 8px; text-decoration: none; color: var(--text); background: #fafafa; transition: background 0.2s ease, border-color 0.2s ease, transform 0.1s ease; }
         .file-list a:hover { background: var(--hover); border-color: var(--accent); transform: translateX(4px); }
         .file-icon { font-size: 1.25rem; color: var(--accent); flex-shrink: 0; }
-        .file-name { font-weight: 500; word-break: break-all; }
+        .file-name { font-weight: 500; word-break: break-all; flex: 1; }
+        .file-size { font-size: 0.85rem; color: var(--muted); white-space: nowrap; margin-left: auto; padding-left: 12px; }
         .folder-file-count { margin-top: 20px; padding: 12px 16px; background: #f0f0f0; border-radius: 8px; text-align: center; color: var(--muted); }
         footer { margin-top: 16px; text-align: center; font-size: 0.85rem; color: var(--muted); }
         .loading-overlay { position: fixed; inset: 0; background: rgba(255, 255, 255, 0.85); backdrop-filter: saturate(180%) blur(2px); display: none; align-items: center; justify-content: center; z-index: 9999; }
@@ -226,6 +245,7 @@
 
                     $dirs = [];
                     $files = [];
+                    $totalSize = 0;
 
                     if ($handle = opendir($basePath)) {
                         while (($entry = readdir($handle)) !== false) {
@@ -243,25 +263,37 @@
                             if (is_dir($fullPath)) {
                                 $dirs[] = $entry;
                             } else {
-                                $files[] = $entry;
+                                $fileSize = @filesize($fullPath);
+                                if ($fileSize !== false) {
+                                    $files[] = ['name' => $entry, 'size' => $fileSize];
+                                    $totalSize += $fileSize;
+                                } else {
+                                    // If filesize fails, still list the file but with size 0
+                                    $files[] = ['name' => $entry, 'size' => 0];
+                                }
                             }
                         }
                         closedir($handle);
                     }
 
                     natcasesort($dirs);
-                    natcasesort($files);
+                    usort($files, function($a, $b) {
+                        return strnatcasecmp($a['name'], $b['name']);
+                    });
 
                     foreach ($dirs as $entry) {
                         renderItem($entry, true, $currentPath);
                     }
-                    foreach ($files as $entry) {
-                        renderItem($entry, false, $currentPath);
+                    foreach ($files as $file) {
+                        renderItem($file['name'], false, $currentPath, $file['size']);
                     }
 
                     echo '<li class="folder-file-count">';
                     echo count($dirs) . ' folder' . (count($dirs) !== 1 ? 's' : '') . ', ';
                     echo count($files) . ' file' . (count($files) !== 1 ? 's' : '');
+                    if ($totalSize > 0) {
+                        echo ' (' . htmlspecialchars(formatFileSize($totalSize), ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8') . ' total)';
+                    }
                     echo '</li>';
                 }
                 ?>
