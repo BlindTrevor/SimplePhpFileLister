@@ -120,7 +120,17 @@
         header('X-Content-Type-Options: nosniff');
         header('Content-Length: ' . filesize($tempZip));
         
-        readfile($tempZip);
+        // Disable output buffering for efficient streaming of large files
+        if (ob_get_level() > 0) {
+            ob_end_clean();
+        }
+        
+        // Use fopen/fpassthru instead of readfile for better memory efficiency
+        $fp = fopen($tempZip, 'rb');
+        if ($fp !== false) {
+            fpassthru($fp);
+            fclose($fp);
+        }
         @unlink($tempZip);
         exit;
     }
@@ -162,8 +172,17 @@
         header('X-Content-Type-Options: nosniff');
         header('Content-Length: ' . filesize($full));
         
-        // Serve the file
-        readfile($full);
+        // Disable output buffering for efficient streaming of large files
+        if (ob_get_level() > 0) {
+            ob_end_clean();
+        }
+        
+        // Use fopen/fpassthru instead of readfile for better memory efficiency
+        $fp = fopen($full, 'rb');
+        if ($fp !== false) {
+            fpassthru($fp);
+            fclose($fp);
+        }
         exit;
     }
     
