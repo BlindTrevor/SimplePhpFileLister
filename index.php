@@ -4,6 +4,9 @@
     
     // FAST PATH: Secure preview handler (for inline display in browser)
     // This is placed at the top for maximum performance - exits immediately without loading anything else
+    // NOTE: MIME types array is intentionally duplicated here (also in getPreviewMimeType()) 
+    //       to avoid loading any functions. This duplication is a performance optimization.
+    //       When updating supported file types, update BOTH locations.
     if (isset($_GET['preview'])) {
         $rel = (string)$_GET['preview'];
         $full = realpath($realRoot . $rel);
