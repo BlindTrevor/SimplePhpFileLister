@@ -3374,10 +3374,15 @@ if ($isValidPath) {
                 
                 // Load all items data (for select all across pagination)
                 let allItemsData = [];
+                let allItemsMap = new Map(); // For O(1) lookup by path
                 const allItemsDataEl = document.getElementById('allItemsData');
                 if (allItemsDataEl) {
                     try {
                         allItemsData = JSON.parse(allItemsDataEl.textContent);
+                        // Build map for efficient lookup
+                        allItemsData.forEach(item => {
+                            allItemsMap.set(item.path, item);
+                        });
                     } catch (e) {
                         console.error('Failed to parse all items data:', e);
                     }
@@ -3406,10 +3411,10 @@ if ($isValidPath) {
                 function updateUI() {
                     const count = selectedItems.size;
                     
-                    // Calculate total size from selectedItems and allItemsData
+                    // Calculate total size from selectedItems using map for O(1) lookup
                     let totalSize = 0;
                     selectedItems.forEach(path => {
-                        const item = allItemsData.find(i => i.path === path);
+                        const item = allItemsMap.get(path);
                         if (item) {
                             totalSize += item.size || 0;
                         }
