@@ -159,8 +159,9 @@ function getFileIcon(string $path): array {
  * @param bool $enableDelete Whether delete functionality is enabled
  * @param bool $showCheckbox Whether to show checkbox for multi-select
  * @param bool $showFileSize Whether to show file sizes
+ * @param bool $enableDownload Whether individual downloads are enabled
  */
-function renderItem(string $entry, bool $isDir, string $currentPath, int $fileSize = 0, bool $enableRename = false, bool $enableDelete = false, bool $showCheckbox = false, bool $showFileSize = true): void {
+function renderItem(string $entry, bool $isDir, string $currentPath, int $fileSize = 0, bool $enableRename = false, bool $enableDelete = false, bool $showCheckbox = false, bool $showFileSize = true, bool $enableDownload = true): void {
     if ($isDir) {
         $href = '?path=' . rawurlencode($currentPath ? $currentPath . '/' . $entry : $entry);
         $iconClass = 'fa-solid fa-folder';
@@ -169,12 +170,18 @@ function renderItem(string $entry, bool $isDir, string $currentPath, int $fileSi
         $sizeHtml = '';
         $dataAttributes = '';
     } else {
-        // Use secure download handler for files
+        // Use secure download handler for files (or # if downloads disabled)
         $filePath = $currentPath ? $currentPath . '/' . $entry : $entry;
-        $href = '?download=' . rawurlencode($filePath);
+        if ($enableDownload) {
+            $href = '?download=' . rawurlencode($filePath);
+            // Open downloads in new tab to prevent loading overlay on main page
+            $linkAttributes = 'target="_blank" rel="noopener noreferrer"';
+        } else {
+            // When downloads are disabled, use # as href and add aria-disabled
+            $href = '#';
+            $linkAttributes = 'aria-disabled="true" style="cursor: not-allowed; opacity: 0.6;"';
+        }
         [$iconClass, $colorClass] = getFileIcon($entry);
-        // Open downloads in new tab to prevent loading overlay on main page
-        $linkAttributes = 'target="_blank" rel="noopener noreferrer"';
         // Conditionally show file size based on configuration
         $sizeHtml = $showFileSize ? '<span class="file-size">' . htmlspecialchars(formatFileSize($fileSize), ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8') . '</span>' : '';
         
@@ -2551,9 +2558,9 @@ if ($isValidPath) {
 
                     foreach ($itemsToDisplay as $item) {
                         if ($item['type'] === 'dir') {
-                            renderItem($item['name'], true, $currentPath, 0, $enableRename, $enableDelete, true, $showFileSize);
+                            renderItem($item['name'], true, $currentPath, 0, $enableRename, $enableDelete, ($enableBatchDownload || $enableDelete), $showFileSize, $enableIndividualDownload);
                         } else {
-                            renderItem($item['name'], false, $currentPath, $item['size'], $enableRename, $enableDelete, true, $showFileSize);
+                            renderItem($item['name'], false, $currentPath, $item['size'], $enableRename, $enableDelete, ($enableBatchDownload || $enableDelete), $showFileSize, $enableIndividualDownload);
                         }
                     }
                 }
