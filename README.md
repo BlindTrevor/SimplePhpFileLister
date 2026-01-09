@@ -37,6 +37,7 @@ The version information is embedded in `index.php` and includes:
 - 🔒 **Security-hardened** — protects against path traversal, code execution, and other vulnerabilities
 - 🚫 **Smart exclusions** — hides hidden files (starting with `.`), system files, and dangerous executables
 - 🎨 **Modern, responsive design** — works beautifully on desktop, tablet, and mobile
+- 🎭 **Multiple theme options** — choose from 5 built-in themes (Purple, Blue, Green, Dark, Light)
 - 🖼 **File-type icons & color coding** powered by Font Awesome
 - 👁️ **Hover previews** — see thumbnails of images, videos, audio, and PDFs before downloading
 - ✏️ **Rename files and folders** — easily rename items directly from the web interface (optional, configurable)
@@ -204,6 +205,20 @@ You can easily tailor the lister by editing the `index.php` file:
   - When `$includeHiddenFiles` is `true`, files and folders starting with `.` (except `.` and `..`) are included in listings and ZIP downloads. **Warning: This may expose sensitive files.**
   - `$zipCompressionLevel` controls compression for ZIP downloads. Level 0 = no compression (fastest), 9 = maximum compression (smallest size), 6 = balanced (default).
 
+- **Theme Configuration**  
+  Customize the visual appearance with multiple theme options:
+  ```php
+  $defaultTheme = 'purple';       // Default theme: 'purple', 'blue', 'green', 'dark', 'light'
+  $allowThemeChange = true;       // Allow users to change the theme via settings icon
+  ```
+  - `$defaultTheme` sets the initial theme when users first visit. Available themes:
+    - `purple` — Purple gradient (default)
+    - `blue` — Blue gradient
+    - `green` — Green gradient
+    - `dark` — Dark mode with gray tones
+    - `light` — Light mode with minimal colors
+  - `$allowThemeChange` controls whether users can change themes using the floating settings button. When set to `false`, the theme settings button is hidden and users cannot change themes. When set to `true`, a floating settings icon appears in the bottom-right corner allowing users to select their preferred theme. Theme preferences are saved in the browser's localStorage and persist across visits.
+
 - **Title, subtitle & footer**  
   Change the `$title`, `$subtitle`, and `$footer` variables at the top of the file.
 
@@ -226,6 +241,65 @@ You can easily tailor the lister by editing the `index.php` file:
   ```php
   $realRoot = rtrim(realpath('.'), DIRECTORY_SEPARATOR) . DIRECTORY_SEPARATOR;
   ```
+
+---
+
+## Themes
+
+Simple PHP File Lister includes 5 beautiful built-in themes to customize the visual appearance of your file listing.
+
+### Available Themes
+
+- **Purple (Default)** — A vibrant purple-to-magenta gradient with modern styling
+- **Blue** — A fresh cyan-to-blue gradient for a cool, professional look
+- **Green** — A natural teal-to-green gradient for an organic feel
+- **Dark** — A sleek dark mode with gray tones, perfect for low-light environments
+- **Light** — A minimal light theme with subtle gradients and clean aesthetics
+
+### Changing Themes
+
+Users can change themes in two ways:
+
+1. **Via Settings Icon** (when `$allowThemeChange` is `true`):
+   - Click the floating palette icon in the bottom-right corner
+   - Select your preferred theme from the modal
+   - The theme preference is saved automatically in your browser
+
+2. **Via Configuration** (for site-wide default):
+   - Edit the `$defaultTheme` variable in `index.php`
+   - Set to one of: `'purple'`, `'blue'`, `'green'`, `'dark'`, or `'light'`
+
+### Configuration Options
+
+Control theme behavior with these settings:
+
+```php
+$defaultTheme = 'purple';       // Set the default theme
+$allowThemeChange = true;       // Allow/disallow user theme changes
+```
+
+- **`$defaultTheme`** — Sets the initial theme for all users. This theme is applied on first visit before any user preference is set.
+- **`$allowThemeChange`** — When `true`, shows a floating settings icon that allows users to change themes. When `false`, hides the settings icon and locks the theme to `$defaultTheme`.
+
+### Theme Persistence
+
+When users change themes (and `$allowThemeChange` is `true`), their preference is stored in the browser's localStorage. This means:
+- The selected theme persists across page reloads and navigation
+- Theme preferences are per-browser (not shared across devices)
+- Clearing browser data will reset the theme to `$defaultTheme`
+
+### Disabling Theme Changes
+
+To lock the theme and prevent user customization:
+
+```php
+$allowThemeChange = false;  // Disable theme changing
+```
+
+This is useful for:
+- Maintaining consistent branding across all users
+- Simplifying the interface for basic deployments
+- Corporate environments with strict design guidelines
 
 ---
 

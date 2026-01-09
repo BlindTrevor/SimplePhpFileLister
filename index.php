@@ -44,6 +44,16 @@ $showTotalSize = true; // Show/hide total size in statistics
 $includeHiddenFiles = false; // Include hidden files (starting with .) in listings
 $zipCompressionLevel = 6; // ZIP compression level (0-9, where 0=no compression, 9=maximum compression)
 
+// Theme Configuration
+$defaultTheme = 'purple'; // Default theme: 'purple', 'blue', 'green', 'dark', 'light'
+$allowThemeChange = true; // Allow users to change the theme via settings icon
+
+// Validate default theme to prevent injection
+$validThemes = ['purple', 'blue', 'green', 'dark', 'light'];
+if (!in_array($defaultTheme, $validThemes, true)) {
+    $defaultTheme = 'purple'; // Fallback to purple if invalid
+}
+
 // Validate ZIP compression level to ensure it's within valid range
 $zipCompressionLevel = max(0, min(9, (int)$zipCompressionLevel));
 
@@ -1220,7 +1230,9 @@ if ($isValidPath) {
         /* ================================================================
            CSS VARIABLES & THEME
            ================================================================ */
-        :root { 
+        /* Purple Theme (Default) */
+        :root,
+        [data-theme="purple"] { 
             --bg: linear-gradient(135deg, #667eea 0%, #764ba2 100%); 
             --card: #ffffff; 
             --accent: #667eea; 
@@ -1231,6 +1243,92 @@ if ($isValidPath) {
             --border: #e2e8f0; 
             --shadow: 0 10px 40px rgba(0, 0, 0, 0.1);
             --shadow-hover: 0 15px 50px rgba(0, 0, 0, 0.15);
+            --footer-text: rgba(255, 255, 255, 0.95);
+            --footer-shadow: rgba(0, 0, 0, 0.3);
+            --stats-bg: linear-gradient(135deg, #ffffff 0%, #f8f9fa 100%);
+            --stats-border: rgba(0, 0, 0, 0.08);
+            --stats-divider: rgba(0, 0, 0, 0.06);
+            --stats-shadow: rgba(0, 0, 0, 0.06);
+        }
+        
+        /* Blue Theme */
+        [data-theme="blue"] {
+            --bg: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+            --card: #ffffff;
+            --accent: #4facfe;
+            --accent-hover: #3b8fdb;
+            --text: #1a202c;
+            --muted: #718096;
+            --hover: #f7fafc;
+            --border: #e2e8f0;
+            --shadow: 0 10px 40px rgba(0, 0, 0, 0.1);
+            --shadow-hover: 0 15px 50px rgba(0, 0, 0, 0.15);
+            --footer-text: rgba(255, 255, 255, 0.95);
+            --footer-shadow: rgba(0, 0, 0, 0.3);
+            --stats-bg: linear-gradient(135deg, #ffffff 0%, #f8f9fa 100%);
+            --stats-border: rgba(0, 0, 0, 0.08);
+            --stats-divider: rgba(0, 0, 0, 0.06);
+            --stats-shadow: rgba(0, 0, 0, 0.06);
+        }
+        
+        /* Green Theme */
+        [data-theme="green"] {
+            --bg: linear-gradient(135deg, #11998e 0%, #38ef7d 100%);
+            --card: #ffffff;
+            --accent: #11998e;
+            --accent-hover: #0d7a71;
+            --text: #1a202c;
+            --muted: #718096;
+            --hover: #f7fafc;
+            --border: #e2e8f0;
+            --shadow: 0 10px 40px rgba(0, 0, 0, 0.1);
+            --shadow-hover: 0 15px 50px rgba(0, 0, 0, 0.15);
+            --footer-text: rgba(255, 255, 255, 0.95);
+            --footer-shadow: rgba(0, 0, 0, 0.3);
+            --stats-bg: linear-gradient(135deg, #ffffff 0%, #f8f9fa 100%);
+            --stats-border: rgba(0, 0, 0, 0.08);
+            --stats-divider: rgba(0, 0, 0, 0.06);
+            --stats-shadow: rgba(0, 0, 0, 0.06);
+        }
+        
+        /* Dark Theme */
+        [data-theme="dark"] {
+            --bg: linear-gradient(135deg, #232526 0%, #414345 100%);
+            --card: #2d3748;
+            --accent: #4299e1;
+            --accent-hover: #3182ce;
+            --text: #f7fafc;
+            --muted: #a0aec0;
+            --hover: #1a202c;
+            --border: #4a5568;
+            --shadow: 0 10px 40px rgba(0, 0, 0, 0.3);
+            --shadow-hover: 0 15px 50px rgba(0, 0, 0, 0.4);
+            --footer-text: rgba(255, 255, 255, 0.95);
+            --footer-shadow: rgba(0, 0, 0, 0.3);
+            --stats-bg: #1a202c;
+            --stats-border: rgba(255, 255, 255, 0.1);
+            --stats-divider: rgba(255, 255, 255, 0.1);
+            --stats-shadow: rgba(0, 0, 0, 0.3);
+        }
+        
+        /* Light Theme */
+        [data-theme="light"] {
+            --bg: linear-gradient(135deg, #fdfbfb 0%, #ebedee 100%);
+            --card: #ffffff;
+            --accent: #5a67d8;
+            --accent-hover: #4c51bf;
+            --text: #1a202c;
+            --muted: #718096;
+            --hover: #f7fafc;
+            --border: #cbd5e0;
+            --shadow: 0 10px 40px rgba(0, 0, 0, 0.08);
+            --shadow-hover: 0 15px 50px rgba(0, 0, 0, 0.12);
+            --footer-text: #2d3748;
+            --footer-shadow: rgba(255, 255, 255, 0.8);
+            --stats-bg: linear-gradient(135deg, #ffffff 0%, #f8f9fa 100%);
+            --stats-border: rgba(0, 0, 0, 0.08);
+            --stats-divider: rgba(0, 0, 0, 0.06);
+            --stats-shadow: rgba(0, 0, 0, 0.06);
         }
         
         /* ================================================================
@@ -1683,13 +1781,13 @@ if ($isValidPath) {
         .stats-container {
             margin-top: 24px;
             padding: 14px 18px;
-            background: linear-gradient(135deg, #ffffff 0%, #f8f9fa 100%);
+            background: var(--stats-bg);
             border-radius: 10px;
-            border: 1px solid rgba(0, 0, 0, 0.08);
+            border: 1px solid var(--stats-border);
             display: flex;
             flex-direction: column;
             gap: 12px;
-            box-shadow: 0 2px 12px rgba(0, 0, 0, 0.06);
+            box-shadow: 0 2px 12px var(--stats-shadow);
         }
         
         .stats-top-row {
@@ -1714,7 +1812,7 @@ if ($isValidPath) {
             gap: 12px;
             flex-wrap: wrap;
             padding-top: 12px;
-            border-top: 1px solid rgba(0, 0, 0, 0.06);
+            border-top: 1px solid var(--stats-divider);
         }
         
         /* ================================================================
@@ -1724,15 +1822,15 @@ if ($isValidPath) {
             margin-top: 20px; 
             text-align: center; 
             font-size: clamp(0.75rem, 2vw, 0.875rem);
-            color: rgba(255, 255, 255, 0.95);
+            color: var(--footer-text);
             font-weight: 400;
-            text-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+            text-shadow: 0 1px 3px var(--footer-shadow);
         }
         
         footer a {
             display: inline-block;
             transition: transform 0.2s ease;
-            color: rgba(255, 255, 255, 0.95);
+            color: var(--footer-text);
         }
         
         footer a:hover {
@@ -2399,6 +2497,207 @@ if ($isValidPath) {
         }
         
         /* ================================================================
+           THEME SETTINGS BUTTON & MODAL
+           ================================================================ */
+        .theme-settings-btn {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            width: 56px;
+            height: 56px;
+            border-radius: 50%;
+            background: var(--accent);
+            color: white;
+            border: none;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+            cursor: pointer;
+            font-size: 1.5rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.3s ease;
+            z-index: 999;
+        }
+        
+        .theme-settings-btn:hover {
+            background: var(--accent-hover);
+            transform: scale(1.1) rotate(90deg);
+            box-shadow: 0 6px 16px rgba(0, 0, 0, 0.2);
+        }
+        
+        .theme-settings-btn:active {
+            transform: scale(1.05) rotate(90deg);
+        }
+        
+        .theme-modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.5);
+            z-index: 1000;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+        
+        .theme-modal.active {
+            display: flex;
+        }
+        
+        .theme-modal-content {
+            background: var(--card);
+            border-radius: 16px;
+            padding: 32px;
+            max-width: 500px;
+            width: 100%;
+            box-shadow: var(--shadow-hover);
+            animation: modalSlideIn 0.3s ease;
+        }
+        
+        .theme-modal-title {
+            margin: 0 0 8px 0;
+            font-size: 1.5rem;
+            font-weight: 700;
+            color: var(--text);
+        }
+        
+        .theme-modal-subtitle {
+            margin-bottom: 24px;
+            color: var(--muted);
+            font-size: 0.95rem;
+        }
+        
+        .theme-options {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+            gap: 12px;
+            margin-bottom: 24px;
+        }
+        
+        .theme-option {
+            position: relative;
+            border: 3px solid var(--border);
+            border-radius: 12px;
+            padding: 16px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            background: var(--card);
+            text-align: center;
+        }
+        
+        .theme-option:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 6px 16px rgba(0, 0, 0, 0.1);
+            border-color: var(--accent);
+        }
+        
+        .theme-option.selected {
+            border-color: var(--accent);
+            background: var(--hover);
+            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.15);
+        }
+        
+        .theme-option.selected::after {
+            content: '✓';
+            position: absolute;
+            top: 8px;
+            right: 8px;
+            width: 24px;
+            height: 24px;
+            border-radius: 50%;
+            background: var(--accent);
+            color: white;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            font-size: 0.875rem;
+        }
+        
+        .theme-option-preview {
+            width: 100%;
+            height: 60px;
+            border-radius: 8px;
+            margin-bottom: 12px;
+            display: flex;
+            gap: 4px;
+            padding: 8px;
+        }
+        
+        .theme-option-preview-color {
+            flex: 1;
+            border-radius: 4px;
+        }
+        
+        /* Theme preview colors */
+        .theme-option[data-theme="purple"] .theme-option-preview {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        }
+        
+        .theme-option[data-theme="blue"] .theme-option-preview {
+            background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+        }
+        
+        .theme-option[data-theme="green"] .theme-option-preview {
+            background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%);
+        }
+        
+        .theme-option[data-theme="dark"] .theme-option-preview {
+            background: linear-gradient(135deg, #232526 0%, #414345 100%);
+        }
+        
+        .theme-option[data-theme="light"] .theme-option-preview {
+            background: linear-gradient(135deg, #fdfbfb 0%, #ebedee 100%);
+            border: 1px solid #cbd5e0;
+        }
+        
+        .theme-option-name {
+            font-weight: 600;
+            color: var(--text);
+            font-size: 0.95rem;
+        }
+        
+        .theme-modal-close-btn {
+            width: 100%;
+            padding: 12px 24px;
+            border: none;
+            border-radius: 8px;
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            background: var(--accent);
+            color: white;
+        }
+        
+        .theme-modal-close-btn:hover {
+            background: var(--accent-hover);
+            transform: translateY(-2px);
+        }
+        
+        /* Mobile responsive adjustments */
+        @media (max-width: 480px) {
+            .theme-settings-btn {
+                width: 48px;
+                height: 48px;
+                font-size: 1.25rem;
+                bottom: 16px;
+                right: 16px;
+            }
+            
+            .theme-modal-content {
+                padding: 24px;
+            }
+            
+            .theme-options {
+                grid-template-columns: 1fr;
+            }
+        }
+        
+        /* ================================================================
            PRINT STYLES
            ================================================================ */
         @media print {
@@ -2908,6 +3207,46 @@ if ($isValidPath) {
             </div>
         </div>
     </div>
+
+    <?php if ($allowThemeChange): ?>
+    <!-- Theme Settings Button -->
+    <button class="theme-settings-btn" id="themeSettingsBtn" title="Change Theme" aria-label="Change Theme">
+        <i class="fa-solid fa-palette"></i>
+    </button>
+
+    <!-- Theme Settings Modal -->
+    <div class="theme-modal" id="themeModal" role="dialog" aria-labelledby="themeModalTitle" aria-modal="true">
+        <div class="theme-modal-content">
+            <h2 class="theme-modal-title" id="themeModalTitle">Choose a Theme</h2>
+            <p class="theme-modal-subtitle">Select your preferred color scheme</p>
+            
+            <div class="theme-options">
+                <div class="theme-option" data-theme="purple" role="button" tabindex="0" aria-label="Purple theme">
+                    <div class="theme-option-preview"></div>
+                    <div class="theme-option-name">Purple</div>
+                </div>
+                <div class="theme-option" data-theme="blue" role="button" tabindex="0" aria-label="Blue theme">
+                    <div class="theme-option-preview"></div>
+                    <div class="theme-option-name">Blue</div>
+                </div>
+                <div class="theme-option" data-theme="green" role="button" tabindex="0" aria-label="Green theme">
+                    <div class="theme-option-preview"></div>
+                    <div class="theme-option-name">Green</div>
+                </div>
+                <div class="theme-option" data-theme="dark" role="button" tabindex="0" aria-label="Dark theme">
+                    <div class="theme-option-preview"></div>
+                    <div class="theme-option-name">Dark</div>
+                </div>
+                <div class="theme-option" data-theme="light" role="button" tabindex="0" aria-label="Light theme">
+                    <div class="theme-option-preview"></div>
+                    <div class="theme-option-name">Light</div>
+                </div>
+            </div>
+            
+            <button class="theme-modal-close-btn" id="themeModalCloseBtn">Done</button>
+        </div>
+    </div>
+    <?php endif; ?>
 
     <div class="loading-overlay" aria-hidden="true">
         <div role="status" aria-live="polite" aria-label="Loading">
@@ -3766,6 +4105,106 @@ if ($isValidPath) {
                     if (e.key === 'Escape') {
                         e.preventDefault();
                         closeModal();
+                    }
+                });
+            })();
+            
+            // Theme functionality
+            (function() {
+                const themeSettingsBtn = document.getElementById('themeSettingsBtn');
+                const themeModal = document.getElementById('themeModal');
+                const themeModalCloseBtn = document.getElementById('themeModalCloseBtn');
+                const themeOptions = document.querySelectorAll('.theme-option');
+                
+                if (!themeSettingsBtn || !themeModal) return;
+                
+                // Get default theme from server
+                const defaultTheme = '<?php echo htmlspecialchars($defaultTheme, ENT_QUOTES, 'UTF-8'); ?>';
+                
+                // Load saved theme or use default
+                function loadTheme() {
+                    try {
+                        const savedTheme = localStorage.getItem('selectedTheme');
+                        // Return saved theme if it exists and is not null/empty, otherwise use default
+                        return (savedTheme !== null && savedTheme !== '') ? savedTheme : defaultTheme;
+                    } catch (e) {
+                        console.error('Failed to load theme from localStorage:', e);
+                        return defaultTheme;
+                    }
+                }
+                
+                // Save theme to localStorage
+                function saveTheme(theme) {
+                    try {
+                        localStorage.setItem('selectedTheme', theme);
+                    } catch (e) {
+                        console.error('Failed to save theme to localStorage:', e);
+                    }
+                }
+                
+                // Apply theme to document
+                function applyTheme(theme) {
+                    document.documentElement.setAttribute('data-theme', theme);
+                    
+                    // Update selected state in modal
+                    themeOptions.forEach(option => {
+                        if (option.dataset.theme === theme) {
+                            option.classList.add('selected');
+                        } else {
+                            option.classList.remove('selected');
+                        }
+                    });
+                }
+                
+                // Initialize theme on page load
+                const currentTheme = loadTheme();
+                applyTheme(currentTheme);
+                
+                // Open theme modal
+                themeSettingsBtn.addEventListener('click', function() {
+                    themeModal.classList.add('active');
+                    themeModal.setAttribute('aria-hidden', 'false');
+                });
+                
+                // Close theme modal
+                function closeThemeModal() {
+                    themeModal.classList.remove('active');
+                    themeModal.setAttribute('aria-hidden', 'true');
+                }
+                
+                themeModalCloseBtn.addEventListener('click', closeThemeModal);
+                
+                // Close modal when clicking outside
+                themeModal.addEventListener('click', function(e) {
+                    if (e.target === themeModal) {
+                        closeThemeModal();
+                    }
+                });
+                
+                // Handle theme selection
+                themeOptions.forEach(option => {
+                    option.addEventListener('click', function() {
+                        const selectedTheme = this.dataset.theme;
+                        applyTheme(selectedTheme);
+                        saveTheme(selectedTheme);
+                    });
+                    
+                    // Keyboard support
+                    option.addEventListener('keydown', function(e) {
+                        if (e.key === 'Enter' || e.key === ' ') {
+                            e.preventDefault();
+                            const selectedTheme = this.dataset.theme;
+                            applyTheme(selectedTheme);
+                            saveTheme(selectedTheme);
+                        }
+                    });
+                });
+                
+                // Keyboard support for closing modal
+                themeModal.addEventListener('keydown', function(e) {
+                    if (e.key === 'Escape') {
+                        e.preventDefault();
+                        closeThemeModal();
                     }
                 });
             })();
