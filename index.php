@@ -925,6 +925,17 @@ if ($isValidPath) {
             min-height: 60px;
         }
         
+        /* Add right padding on hover when action buttons appear to prevent overlap with file size */
+        <?php if ($enableRename && $enableDelete): ?>
+        .file-list li:not(:first-child):hover a {
+            padding-right: 104px; /* Space for both rename (36px) + delete (36px) + gaps */
+        }
+        <?php elseif ($enableRename || $enableDelete): ?>
+        .file-list li:not(:first-child):hover a {
+            padding-right: 60px; /* Space for one button (36px) + gap */
+        }
+        <?php endif; ?>
+        
         .file-list a::before {
             content: '';
             position: absolute;
@@ -1293,6 +1304,17 @@ if ($isValidPath) {
                 height: 32px;
                 font-size: 0.85rem;
             }
+            
+            /* Adjust padding for mobile when action buttons are present */
+            <?php if ($enableRename && $enableDelete): ?>
+            .file-list li:not(:first-child) a {
+                padding-right: 92px; /* Smaller buttons on mobile: 32px + 32px + gaps */
+            }
+            <?php elseif ($enableRename || $enableDelete): ?>
+            .file-list li:not(:first-child) a {
+                padding-right: 52px; /* Space for one smaller button (32px) + gap */
+            }
+            <?php endif; ?>
             
             .rename-modal-content,
             .delete-modal-content {
