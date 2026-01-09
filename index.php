@@ -2944,6 +2944,20 @@ if ($isValidPath) {
                 const isDirLink = a.classList.contains('dir-link') && !a.hasAttribute('download');
                 const isPaginationLink = a.classList.contains('pagination-btn') || a.classList.contains('pagination-number');
                 
+                // Clear selection storage when navigating to a different directory
+                if (isDirLink) {
+                    const urlParams = new URLSearchParams(window.location.search);
+                    const currentPath = urlParams.get('path') || '';
+                    const currentStorageKey = 'selectedItems_' + currentPath;
+                    
+                    // Clear current directory's selection when navigating away
+                    try {
+                        sessionStorage.removeItem(currentStorageKey);
+                    } catch (e) {
+                        console.error('Failed to clear selection storage:', e);
+                    }
+                }
+                
                 if (isDirLink || isPaginationLink) showOverlay();
             }, { capture: true });
 
@@ -3370,6 +3384,11 @@ if ($isValidPath) {
                 
                 if (!selectAllCheckbox) return;
                 
+                // Get current path for storage key
+                const urlParams = new URLSearchParams(window.location.search);
+                const currentPath = urlParams.get('path') || '';
+                const storageKey = 'selectedItems_' + currentPath;
+                
                 let selectedItems = new Set();
                 
                 // Load all items data (for select all across pagination)
@@ -3385,6 +3404,31 @@ if ($isValidPath) {
                         });
                     } catch (e) {
                         console.error('Failed to parse all items data:', e);
+                    }
+                }
+                
+                // Load selected items from sessionStorage
+                try {
+                    const storedSelection = sessionStorage.getItem(storageKey);
+                    if (storedSelection) {
+                        const storedPaths = JSON.parse(storedSelection);
+                        // Only restore selections that still exist in current directory
+                        storedPaths.forEach(path => {
+                            if (allItemsMap.has(path)) {
+                                selectedItems.add(path);
+                            }
+                        });
+                    }
+                } catch (e) {
+                    console.error('Failed to load selected items from storage:', e);
+                }
+                
+                // Save selected items to sessionStorage
+                function saveSelection() {
+                    try {
+                        sessionStorage.setItem(storageKey, JSON.stringify(Array.from(selectedItems)));
+                    } catch (e) {
+                        console.error('Failed to save selected items to storage:', e);
                     }
                 }
                 
@@ -3481,6 +3525,7 @@ if ($isValidPath) {
                         });
                     }
                     
+                    saveSelection();
                     updateUI();
                 });
                 
@@ -3498,6 +3543,7 @@ if ($isValidPath) {
                             if (listItem) listItem.classList.remove('selected');
                         }
                         
+                        saveSelection();
                         updateUI();
                     }
                 });
