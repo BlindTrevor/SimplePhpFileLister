@@ -1443,12 +1443,6 @@ if ($isValidPath) {
         /* ================================================================
            MULTI-SELECT CONTROLS
            ================================================================ */
-        .multi-select-controls-bottom {
-            display: flex;
-            align-items: center;
-            gap: 10px;
-            flex-wrap: wrap;
-        }
         
         .select-all-container {
             display: inline-flex;
@@ -1639,11 +1633,18 @@ if ($isValidPath) {
             background: linear-gradient(135deg, #ffffff 0%, #f8f9fa 100%);
             border-radius: 10px;
             border: 1px solid rgba(0, 0, 0, 0.08);
-            display: grid;
-            grid-template-columns: 1fr auto;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            box-shadow: 0 2px 12px rgba(0, 0, 0, 0.06);
+        }
+        
+        .stats-top-row {
+            display: flex;
+            justify-content: space-between;
             align-items: center;
             gap: 16px;
-            box-shadow: 0 2px 12px rgba(0, 0, 0, 0.06);
+            flex-wrap: wrap;
         }
         
         .folder-file-count {
@@ -1651,11 +1652,9 @@ if ($isValidPath) {
             font-size: clamp(0.8rem, 2vw, 0.85rem);
             font-weight: 600;
             letter-spacing: 0.01em;
-            grid-column: 1;
         }
         
         .stats-actions-row {
-            grid-column: 1 / -1;
             display: flex;
             justify-content: space-between;
             align-items: center;
@@ -1926,8 +1925,7 @@ if ($isValidPath) {
                 padding-top: 12px;
             }
             
-            .multi-select-controls-bottom {
-                width: 100%;
+            .stats-top-row {
                 flex-direction: column;
                 align-items: stretch;
                 gap: 10px;
@@ -1980,8 +1978,9 @@ if ($isValidPath) {
                 gap: 12px;
             }
             
-            .multi-select-controls-bottom {
-                width: 100%;
+            .stats-top-row {
+                flex-direction: column;
+                align-items: stretch;
             }
             
             .batch-actions-container {
@@ -2730,23 +2729,29 @@ if ($isValidPath) {
                 
                 if ($showStatsContainer) {
                     echo '<div class="stats-container">';
+                    
+                    // First row: folder/file count and Select All checkbox
+                    echo '<div class="stats-top-row">';
                     if (!empty($statsHtml)) {
                         echo '<div class="folder-file-count">' . $statsHtml . '</div>';
                     }
                     
-                    // Combined actions row
-                    echo '<div class="stats-actions-row">';
-                    
-                    // Multi-select controls (when items are available and batch download or delete is enabled)
+                    // Multi-select checkbox (when items are available and batch download or delete is enabled)
                     if (isset($hasItemsToSelect) && $hasItemsToSelect && ($enableBatchDownload || $enableDelete)) {
-                        echo '<div class="multi-select-controls-bottom">';
                         echo '<label class="select-all-container">';
                         echo '<input type="checkbox" id="selectAllCheckbox" aria-label="Select all items">';
                         echo '<span>Select All</span>';
                         echo '</label>';
+                    }
+                    echo '</div>'; // end stats-top-row
+                    
+                    // Second row: selected count and action buttons
+                    echo '<div class="stats-actions-row">';
+                    
+                    // Selected count display (when items are available and batch download or delete is enabled)
+                    if (isset($hasItemsToSelect) && $hasItemsToSelect && ($enableBatchDownload || $enableDelete)) {
                         echo '<div class="multi-select-actions multi-select-actions-hidden" id="multiSelectActions">';
                         echo '<span class="selected-count" id="selectedCount">0 selected</span>';
-                        echo '</div>';
                         echo '</div>';
                     }
                     
