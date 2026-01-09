@@ -1471,13 +1471,28 @@ if ($isValidPath) {
         }
         
         .item-checkbox {
-            width: 18px;
-            height: 18px;
+            width: 20px;
+            height: 20px;
             cursor: pointer;
-            margin-right: 10px;
-            margin-left: 10px;
+            margin-right: 12px;
+            margin-left: 12px;
             flex-shrink: 0;
             accent-color: var(--accent);
+            border-radius: 4px;
+            transition: transform 0.15s ease, box-shadow 0.15s ease;
+        }
+        
+        .item-checkbox:hover {
+            transform: scale(1.1);
+            box-shadow: 0 0 0 4px rgba(102, 126, 234, 0.1);
+        }
+        
+        .item-checkbox:checked {
+            transform: scale(1.05);
+        }
+        
+        .item-checkbox:active {
+            transform: scale(0.95);
         }
         
         .file-list li {
