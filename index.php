@@ -1548,6 +1548,7 @@ if ($isValidPath) {
             align-items: center;
             gap: 0;
             flex-wrap: wrap;
+            margin-left: auto;
         }
         
         /* Style batch buttons as a group when visible */
