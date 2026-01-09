@@ -2796,10 +2796,27 @@ if ($isValidPath) {
                     
                     // Multi-select checkbox (when items are available and batch download or delete is enabled)
                     if (isset($hasItemsToSelect) && $hasItemsToSelect && ($enableBatchDownload || $enableDelete)) {
+                        // Build list of all items (for select all across pagination)
+                        $allItemsData = [];
+                        foreach ($allItems as $item) {
+                            $itemPath = $currentPath ? $currentPath . '/' . $item['name'] : $item['name'];
+                            $allItemsData[] = [
+                                'path' => $itemPath,
+                                'name' => $item['name'],
+                                'isDir' => $item['type'] === 'dir',
+                                'size' => $item['size']
+                            ];
+                        }
+                        
                         echo '<label class="select-all-container">';
                         echo '<input type="checkbox" id="selectAllCheckbox" aria-label="Select all items">';
                         echo '<span>Select All</span>';
                         echo '</label>';
+                        
+                        // Hidden data element with all items for pagination support
+                        echo '<script nonce="' . htmlspecialchars($cspNonce, ENT_QUOTES, 'UTF-8') . '" type="application/json" id="allItemsData">';
+                        echo json_encode($allItemsData, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT);
+                        echo '</script>';
                     }
                     echo '</div>'; // end stats-top-row
                     
@@ -2926,6 +2943,20 @@ if ($isValidPath) {
                 // Show loading overlay for directory navigation and pagination
                 const isDirLink = a.classList.contains('dir-link') && !a.hasAttribute('download');
                 const isPaginationLink = a.classList.contains('pagination-btn') || a.classList.contains('pagination-number');
+                
+                // Clear selection storage when navigating to a different directory
+                if (isDirLink) {
+                    const urlParams = new URLSearchParams(window.location.search);
+                    const currentPath = urlParams.get('path') || '';
+                    const currentStorageKey = 'selectedItems_' + currentPath;
+                    
+                    // Clear current directory's selection when navigating away
+                    try {
+                        sessionStorage.removeItem(currentStorageKey);
+                    } catch (e) {
+                        console.error('Failed to clear selection storage:', e);
+                    }
+                }
                 
                 if (isDirLink || isPaginationLink) showOverlay();
             }, { capture: true });
@@ -3353,7 +3384,56 @@ if ($isValidPath) {
                 
                 if (!selectAllCheckbox) return;
                 
+                // Get current path for storage key
+                const urlParams = new URLSearchParams(window.location.search);
+                const currentPath = urlParams.get('path') || '';
+                const storageKey = 'selectedItems_' + currentPath;
+                
                 let selectedItems = new Set();
+                
+                // Load all items data (for select all across pagination)
+                let allItemsData = [];
+                let allItemsMap = new Map(); // For O(1) lookup by path
+                const allItemsDataEl = document.getElementById('allItemsData');
+                if (allItemsDataEl) {
+                    try {
+                        allItemsData = JSON.parse(allItemsDataEl.textContent);
+                        // Build map for efficient lookup
+                        allItemsData.forEach(item => {
+                            allItemsMap.set(item.path, item);
+                        });
+                    } catch (e) {
+                        console.error('Failed to parse all items data:', e);
+                    }
+                }
+                
+                // Load selected items from sessionStorage
+                try {
+                    const storedSelection = sessionStorage.getItem(storageKey);
+                    if (storedSelection) {
+                        const storedPaths = JSON.parse(storedSelection);
+                        // Validate that parsed data is an array
+                        if (Array.isArray(storedPaths)) {
+                            // Only restore selections that still exist in current directory
+                            storedPaths.forEach(path => {
+                                if (allItemsMap.has(path)) {
+                                    selectedItems.add(path);
+                                }
+                            });
+                        }
+                    }
+                } catch (e) {
+                    console.error('Failed to load selected items from storage:', e);
+                }
+                
+                // Save selected items to sessionStorage
+                function saveSelection() {
+                    try {
+                        sessionStorage.setItem(storageKey, JSON.stringify(Array.from(selectedItems)));
+                    } catch (e) {
+                        console.error('Failed to save selected items to storage:', e);
+                    }
+                }
                 
                 /**
                  * Format file size in human-readable format
@@ -3378,16 +3458,30 @@ if ($isValidPath) {
                 function updateUI() {
                     const count = selectedItems.size;
                     
-                    // Query all checkboxes once and calculate totals in single pass
-                    const allCheckboxes = document.querySelectorAll('.item-checkbox');
+                    // Calculate total size from selectedItems using map for O(1) lookup
                     let totalSize = 0;
-                    let checkedCount = 0;
+                    selectedItems.forEach(path => {
+                        const item = allItemsMap.get(path);
+                        if (item) {
+                            totalSize += item.size || 0;
+                        }
+                    });
                     
+                    // Update visible checkboxes to match selectedItems
+                    const allCheckboxes = document.querySelectorAll('.item-checkbox');
                     allCheckboxes.forEach(checkbox => {
-                        if (checkbox.checked) {
-                            checkedCount++;
-                            const itemSize = parseInt(checkbox.dataset.itemSize || '0', 10);
-                            totalSize += itemSize;
+                        const path = checkbox.dataset.itemPath;
+                        const shouldBeChecked = selectedItems.has(path);
+                        if (checkbox.checked !== shouldBeChecked) {
+                            checkbox.checked = shouldBeChecked;
+                            const listItem = checkbox.closest('li');
+                            if (listItem) {
+                                if (shouldBeChecked) {
+                                    listItem.classList.add('selected');
+                                } else {
+                                    listItem.classList.remove('selected');
+                                }
+                            }
                         }
                     });
                     
@@ -3411,34 +3505,30 @@ if ($isValidPath) {
                         if (batchDeleteBtn) batchDeleteBtn.classList.add('batch-btn-hidden');
                     }
                     
-                    // Update select all checkbox state
-                    selectAllCheckbox.checked = checkedCount > 0 && checkedCount === allCheckboxes.length;
-                    selectAllCheckbox.indeterminate = checkedCount > 0 && checkedCount < allCheckboxes.length;
+                    // Update select all checkbox state based on all items (not just visible)
+                    const totalItems = allItemsData.length;
+                    selectAllCheckbox.checked = count > 0 && count === totalItems;
+                    selectAllCheckbox.indeterminate = count > 0 && count < totalItems;
                 }
                 
                 function getSelectedPaths() {
                     return Array.from(selectedItems);
                 }
                 
-                // Select all/deselect all
+                // Select all/deselect all - now works across all pages
                 selectAllCheckbox.addEventListener('change', function() {
-                    const checkboxes = document.querySelectorAll('.item-checkbox');
                     const shouldCheck = this.checked;
                     
                     selectedItems.clear();
-                    checkboxes.forEach(checkbox => {
-                        checkbox.checked = shouldCheck;
-                        const listItem = checkbox.closest('li');
-                        if (listItem) {
-                            if (shouldCheck) {
-                                listItem.classList.add('selected');
-                                selectedItems.add(checkbox.dataset.itemPath);
-                            } else {
-                                listItem.classList.remove('selected');
-                            }
-                        }
-                    });
                     
+                    if (shouldCheck) {
+                        // Add all items from allItemsData
+                        allItemsData.forEach(item => {
+                            selectedItems.add(item.path);
+                        });
+                    }
+                    
+                    saveSelection();
                     updateUI();
                 });
                 
@@ -3456,6 +3546,7 @@ if ($isValidPath) {
                             if (listItem) listItem.classList.remove('selected');
                         }
                         
+                        saveSelection();
                         updateUI();
                     }
                 });
@@ -3546,6 +3637,9 @@ if ($isValidPath) {
                         });
                     });
                 }
+                
+                // Initialize UI on page load
+                updateUI();
             })();
             
             // Delete functionality
