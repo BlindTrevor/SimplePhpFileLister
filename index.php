@@ -1679,11 +1679,6 @@ if ($isValidPath) {
             border-right: 1px solid rgba(255, 255, 255, 0.2);
         }
         
-        /* Add gap before download-all button when batch buttons are visible */
-        .batch-actions-container > .download-all-btn {
-            margin-left: 8px;
-        }
-        
         .batch-download-btn,
         .batch-delete-btn {
             display: inline-flex;
@@ -3145,7 +3140,9 @@ if ($isValidPath) {
                         echo '</button>';
                     }
                     
-                    // Show download all button if enabled and content check already passed
+                    echo '</div>'; // end batch-actions-container
+                    
+                    // Show download all button if enabled and content check already passed (separate from batch actions)
                     if ($hasDownloadAll) {
                         $downloadAllUrl = '?download_all_zip=1';
                         if ($currentPath) {
@@ -3157,7 +3154,6 @@ if ($isValidPath) {
                         echo '</a>';
                     }
                     
-                    echo '</div>'; // end batch-actions-container
                     echo '</div>'; // end stats-actions-row
                     echo '</div>'; // end stats-container
                 }
