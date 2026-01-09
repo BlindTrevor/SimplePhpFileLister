@@ -73,7 +73,7 @@ jobs:
             echo "Previous tag: $PREVIOUS_TAG"
             
             # Get commits since the last tag, excluding version bump commits and merge commits
-            COMMITS=$(git log ${PREVIOUS_TAG}..HEAD --no-merges --pretty=format:"- %s" \
+            COMMITS=$(git log "${PREVIOUS_TAG}..HEAD" --no-merges --pretty=format:"- %s" \
               | grep -v "chore: bump version" \
               | grep -v "Initial plan" \
               | grep -v "\[skip-version\]" \
@@ -87,7 +87,7 @@ jobs:
           fi
           
           # Save changelog to a file to preserve formatting
-          echo "$CHANGELOG" > /tmp/changelog.txt
+          echo "$CHANGELOG" > "$RUNNER_TEMP/changelog.txt"
           
           # Output for later steps (just for logging)
           echo "Generated changelog:"
@@ -112,10 +112,10 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           # Read the changelog from file
-          CHANGELOG=$(cat /tmp/changelog.txt)
+          CHANGELOG=$(cat "$RUNNER_TEMP/changelog.txt")
           
           # Create the release body with version and date substitution
-          cat > /tmp/release_body.md <<EOF
+          cat > "$RUNNER_TEMP/release_body.md" <<EOF
           ## Version ${{ steps.increment.outputs.version }}
           
           Released on ${{ steps.increment.outputs.date }}
@@ -135,5 +135,5 @@ jobs:
           # Create the release using GitHub CLI
           gh release create "v${{ steps.increment.outputs.version }}" \
             --title "Version ${{ steps.increment.outputs.version }}" \
-            --notes-file /tmp/release_body.md
+            --notes-file "$RUNNER_TEMP/release_body.md"
 
