@@ -48,6 +48,12 @@ $zipCompressionLevel = 6; // ZIP compression level (0-9, where 0=no compression,
 $defaultTheme = 'purple'; // Default theme: 'purple', 'blue', 'green', 'dark', 'light'
 $allowThemeChange = true; // Allow users to change the theme via settings icon
 
+// Validate default theme to prevent injection
+$validThemes = ['purple', 'blue', 'green', 'dark', 'light'];
+if (!in_array($defaultTheme, $validThemes, true)) {
+    $defaultTheme = 'purple'; // Fallback to purple if invalid
+}
+
 // Validate ZIP compression level to ensure it's within valid range
 $zipCompressionLevel = max(0, min(9, (int)$zipCompressionLevel));
 
@@ -4089,7 +4095,8 @@ if ($isValidPath) {
                 function loadTheme() {
                     try {
                         const savedTheme = localStorage.getItem('selectedTheme');
-                        return savedTheme || defaultTheme;
+                        // Return saved theme if it exists and is not null/empty, otherwise use default
+                        return (savedTheme !== null && savedTheme !== '') ? savedTheme : defaultTheme;
                     } catch (e) {
                         console.error('Failed to load theme from localStorage:', e);
                         return defaultTheme;
