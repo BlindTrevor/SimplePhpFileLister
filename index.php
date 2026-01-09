@@ -780,8 +780,13 @@ if (isset($_GET['download_batch_zip'])) {
                 if ($zip->addFile($fullPath, $zipEntryPath)) {
                     // Set compression level for this file if supported
                     if (method_exists($zip, 'setCompressionIndex')) {
-                        $fileIndex = $zip->numFiles - 1;
-                        $zip->setCompressionIndex($fileIndex, ZipArchive::CM_DEFLATE, $zipCompressionLevel);
+                        try {
+                            $fileIndex = $zip->numFiles - 1;
+                            $zip->setCompressionIndex($fileIndex, ZipArchive::CM_DEFLATE, $zipCompressionLevel);
+                        } catch (Exception $e) {
+                            // Compression setting failed - file will use default compression
+                            // Continue processing without failing the entire operation
+                        }
                     }
                     $count++;
                 }
@@ -827,8 +832,13 @@ if (isset($_GET['download_batch_zip'])) {
             if ($zip->addFile($fullPath, $baseName)) {
                 // Set compression level for this file if supported
                 if (method_exists($zip, 'setCompressionIndex')) {
-                    $fileIndex = $zip->numFiles - 1;
-                    $zip->setCompressionIndex($fileIndex, ZipArchive::CM_DEFLATE, $zipCompressionLevel);
+                    try {
+                        $fileIndex = $zip->numFiles - 1;
+                        $zip->setCompressionIndex($fileIndex, ZipArchive::CM_DEFLATE, $zipCompressionLevel);
+                    } catch (Exception $e) {
+                        // Compression setting failed - file will use default compression
+                        // Continue processing without failing the entire operation
+                    }
                 }
                 $fileCount++;
             }
@@ -959,8 +969,13 @@ if (isset($_GET['download_all_zip'])) {
                 if ($zip->addFile($fullPath, $zipEntryPath)) {
                     // Set compression level for this file if supported
                     if (method_exists($zip, 'setCompressionIndex')) {
-                        $fileIndex = $zip->numFiles - 1;
-                        $zip->setCompressionIndex($fileIndex, ZipArchive::CM_DEFLATE, $zipCompressionLevel);
+                        try {
+                            $fileIndex = $zip->numFiles - 1;
+                            $zip->setCompressionIndex($fileIndex, ZipArchive::CM_DEFLATE, $zipCompressionLevel);
+                        } catch (Exception $e) {
+                            // Compression setting failed - file will use default compression
+                            // Continue processing without failing the entire operation
+                        }
                     }
                     $count++;
                 }
@@ -2665,8 +2680,11 @@ if ($isValidPath) {
                     }
                 }
                 
-                // Only show stats container if there's content to show or actions available
-                $showStatsContainer = !empty($statsHtml) || (isset($hasItemsToSelect) && $hasItemsToSelect && ($enableBatchDownload || $enableDelete)) || $enableDownloadAll;
+                // Determine if stats container should be displayed
+                $hasStatsToShow = !empty($statsHtml);
+                $hasBatchActions = isset($hasItemsToSelect) && $hasItemsToSelect && ($enableBatchDownload || $enableDelete);
+                $hasDownloadAll = $enableDownloadAll && hasDownloadableContent($basePath, $realRoot, $includeHiddenFiles);
+                $showStatsContainer = $hasStatsToShow || $hasBatchActions || $hasDownloadAll;
                 
                 if ($showStatsContainer) {
                     echo '<div class="stats-container">';
@@ -2707,8 +2725,8 @@ if ($isValidPath) {
                         echo '</button>';
                     }
                     
-                    // Show download all button if enabled and there's any downloadable content
-                    if ($enableDownloadAll && hasDownloadableContent($basePath, $realRoot, $includeHiddenFiles)) {
+                    // Show download all button if enabled and content check already passed
+                    if ($hasDownloadAll) {
                         $downloadAllUrl = '?download_all_zip=1';
                         if ($currentPath) {
                             $downloadAllUrl .= '&path=' . rawurlencode($currentPath);
