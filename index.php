@@ -1471,61 +1471,28 @@ if ($isValidPath) {
         }
         
         .item-checkbox {
-            width: 22px;
-            height: 22px;
+            width: 18px;
+            height: 18px;
             cursor: pointer;
-            margin-right: 14px;
+            margin-right: 10px;
+            margin-left: 10px;
             flex-shrink: 0;
-            border-radius: 6px;
-            transition: all 0.25s ease;
-            position: relative;
-            -webkit-appearance: none;
-            -moz-appearance: none;
-            appearance: none;
-            border: 2px solid #cbd5e1;
-            background: white;
-            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
-        }
-        
-        .item-checkbox:hover {
-            border-color: var(--accent);
-            box-shadow: 0 2px 6px rgba(102, 126, 234, 0.25);
-            transform: scale(1.08);
-        }
-        
-        .item-checkbox:checked {
-            background: linear-gradient(135deg, var(--accent) 0%, var(--accent-hover) 100%);
-            border-color: var(--accent);
-            box-shadow: 0 3px 10px rgba(102, 126, 234, 0.4);
-            transform: scale(1.02);
-        }
-        
-        .item-checkbox:checked::before {
-            content: '';
-            position: absolute;
-            left: 7px;
-            top: 3px;
-            width: 5px;
-            height: 10px;
-            border: solid white;
-            border-width: 0 3px 3px 0;
-            transform: rotate(45deg);
-            display: block;
-        }
-        
-        .item-checkbox:focus {
-            outline: none;
-            border-color: var(--accent);
-            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.2);
-        }
-        
-        .item-checkbox:active {
-            transform: scale(0.95);
+            accent-color: var(--accent);
         }
         
         .file-list li {
             display: flex;
             align-items: center;
+            transition: all 0.2s ease;
+        }
+        
+        .file-list li.selected {
+            background: linear-gradient(135deg, rgba(102, 126, 234, 0.08) 0%, rgba(85, 104, 211, 0.12) 100%);
+            border-left: 4px solid var(--accent);
+        }
+        
+        .file-list li.selected a {
+            padding-left: 12px;
         }
         
         .file-list li a {
@@ -3209,8 +3176,14 @@ if ($isValidPath) {
                     selectedItems.clear();
                     checkboxes.forEach(checkbox => {
                         checkbox.checked = shouldCheck;
-                        if (shouldCheck) {
-                            selectedItems.add(checkbox.dataset.itemPath);
+                        const listItem = checkbox.closest('li');
+                        if (listItem) {
+                            if (shouldCheck) {
+                                listItem.classList.add('selected');
+                                selectedItems.add(checkbox.dataset.itemPath);
+                            } else {
+                                listItem.classList.remove('selected');
+                            }
                         }
                     });
                     
@@ -3221,11 +3194,14 @@ if ($isValidPath) {
                 document.addEventListener('change', function(e) {
                     if (e.target.classList.contains('item-checkbox')) {
                         const path = e.target.dataset.itemPath;
+                        const listItem = e.target.closest('li');
                         
                         if (e.target.checked) {
                             selectedItems.add(path);
+                            if (listItem) listItem.classList.add('selected');
                         } else {
                             selectedItems.delete(path);
+                            if (listItem) listItem.classList.remove('selected');
                         }
                         
                         updateUI();
