@@ -3296,7 +3296,7 @@ if ($isValidPath) {
                     const size = bytes / Math.pow(1024, actualI);
                     
                     if (actualI === 0) {
-                        return size + ' B';
+                        return Math.floor(size) + ' B';
                     }
                     return size.toFixed(2) + ' ' + units[actualI];
                 }
@@ -3304,12 +3304,14 @@ if ($isValidPath) {
                 function updateUI() {
                     const count = selectedItems.size;
                     
+                    // Query all checkboxes once
+                    const allCheckboxes = document.querySelectorAll('.item-checkbox');
+                    
                     if (count > 0) {
                         multiSelectActions.classList.remove('multi-select-actions-hidden');
                         
                         // Calculate total size of selected items
                         let totalSize = 0;
-                        const allCheckboxes = document.querySelectorAll('.item-checkbox');
                         allCheckboxes.forEach(checkbox => {
                             if (checkbox.checked) {
                                 const itemSize = parseInt(checkbox.dataset.itemSize || '0', 10);
@@ -3335,7 +3337,6 @@ if ($isValidPath) {
                     }
                     
                     // Update select all checkbox state
-                    const allCheckboxes = document.querySelectorAll('.item-checkbox');
                     const checkedCount = Array.from(allCheckboxes).filter(cb => cb.checked).length;
                     selectAllCheckbox.checked = checkedCount > 0 && checkedCount === allCheckboxes.length;
                     selectAllCheckbox.indeterminate = checkedCount > 0 && checkedCount < allCheckboxes.length;
