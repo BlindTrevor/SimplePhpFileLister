@@ -23,6 +23,20 @@ $footer = "Made with ❤️ by Blind Trevor";
 $enableRename = false; // Set to false to disable rename functionality
 $enableDelete = false; // Set to false to disable delete functionality
 
+// Download & Export Configuration
+$enableDownloadAll = true; // Enable/disable "Download All as ZIP" button
+$enableBatchDownload = true; // Enable/disable batch download of selected items as ZIP
+$enableIndividualDownload = true; // Enable/disable individual file downloads
+
+// Display Configuration
+$showFileSize = true; // Show/hide file sizes in file listings
+$showFolderFileCount = true; // Show/hide folder/file count statistics
+$showTotalSize = true; // Show/hide total size in statistics
+
+// Advanced Options
+$includeHiddenFiles = false; // Include hidden files (starting with .) in listings
+$zipCompressionLevel = 6; // ZIP compression level (0-9, where 0=no compression, 9=maximum compression)
+
 // Security Configuration
 $realRoot = rtrim(realpath('.'), DIRECTORY_SEPARATOR) . DIRECTORY_SEPARATOR;
 
@@ -141,8 +155,9 @@ function getFileIcon(string $path): array {
  * @param bool $enableRename Whether rename functionality is enabled
  * @param bool $enableDelete Whether delete functionality is enabled
  * @param bool $showCheckbox Whether to show checkbox for multi-select
+ * @param bool $showFileSize Whether to show file sizes
  */
-function renderItem(string $entry, bool $isDir, string $currentPath, int $fileSize = 0, bool $enableRename = false, bool $enableDelete = false, bool $showCheckbox = false): void {
+function renderItem(string $entry, bool $isDir, string $currentPath, int $fileSize = 0, bool $enableRename = false, bool $enableDelete = false, bool $showCheckbox = false, bool $showFileSize = true): void {
     if ($isDir) {
         $href = '?path=' . rawurlencode($currentPath ? $currentPath . '/' . $entry : $entry);
         $iconClass = 'fa-solid fa-folder';
@@ -157,7 +172,8 @@ function renderItem(string $entry, bool $isDir, string $currentPath, int $fileSi
         [$iconClass, $colorClass] = getFileIcon($entry);
         // Open downloads in new tab to prevent loading overlay on main page
         $linkAttributes = 'target="_blank" rel="noopener noreferrer"';
-        $sizeHtml = '<span class="file-size">' . htmlspecialchars(formatFileSize($fileSize), ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8') . '</span>';
+        // Conditionally show file size based on configuration
+        $sizeHtml = $showFileSize ? '<span class="file-size">' . htmlspecialchars(formatFileSize($fileSize), ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8') . '</span>' : '';
         
         // Add data attributes for preview functionality
         $ext = strtolower(pathinfo($entry, PATHINFO_EXTENSION));
@@ -235,12 +251,13 @@ function renderItem(string $entry, bool $isDir, string $currentPath, int $fileSi
  * Check if directory has downloadable content (recursively)
  * @param string $dir Directory path
  * @param string $realRoot Real root path for security validation
+ * @param bool $includeHiddenFiles Whether to include hidden files
  * @return bool True if directory contains downloadable files
  */
-function hasDownloadableContent(string $dir, string $realRoot): bool {
+function hasDownloadableContent(string $dir, string $realRoot, bool $includeHiddenFiles = false): bool {
     $hasContent = false;
     
-    $checkContent = function($checkDir) use (&$checkContent, $realRoot, &$hasContent) {
+    $checkContent = function($checkDir) use (&$checkContent, $realRoot, &$hasContent, $includeHiddenFiles) {
         $handle = opendir($checkDir);
         if ($handle === false) {
             return;
@@ -249,7 +266,8 @@ function hasDownloadableContent(string $dir, string $realRoot): bool {
         while (($entry = readdir($handle)) !== false) {
             if ($hasContent) break; // Early exit if we found content
             
-            if (in_array($entry, ['.', '..', 'index.php'], true) || $entry[0] === '.') {
+            // Skip hidden files based on configuration
+            if (in_array($entry, ['.', '..', 'index.php'], true) || (!$includeHiddenFiles && $entry[0] === '.')) {
                 continue;
             }
             
@@ -668,6 +686,12 @@ if (isset($_POST['delete_batch'])) {
  * Secure batch download as zip handler
  */
 if (isset($_GET['download_batch_zip'])) {
+    // Check if batch download is enabled
+    if (!$enableBatchDownload) {
+        http_response_code(403);
+        exit('Batch download functionality is disabled');
+    }
+    
     // Check if ZipArchive is available
     if (!class_exists('ZipArchive')) {
         http_response_code(500);
@@ -708,14 +732,15 @@ if (isset($_GET['download_batch_zip'])) {
     }
     
     // Recursive function to add directory contents to zip
-    $addToZip = function($dir, $zipPath, &$count) use (&$addToZip, $zip, $realRoot) {
+    $addToZip = function($dir, $zipPath, &$count) use (&$addToZip, $zip, $realRoot, $zipCompressionLevel, $includeHiddenFiles) {
         $handle = opendir($dir);
         if ($handle === false) {
             return;
         }
         
         while (($entry = readdir($handle)) !== false) {
-            if (in_array($entry, ['.', '..', 'index.php'], true) || $entry[0] === '.') {
+            // Skip hidden files based on configuration
+            if (in_array($entry, ['.', '..', 'index.php'], true) || (!$includeHiddenFiles && $entry[0] === '.')) {
                 continue;
             }
             
@@ -743,6 +768,11 @@ if (isset($_GET['download_batch_zip'])) {
                 
                 // Add file to zip
                 if ($zip->addFile($fullPath, $zipEntryPath)) {
+                    // Set compression level for this file if supported
+                    if (method_exists($zip, 'setCompressionIndex')) {
+                        $fileIndex = $zip->numFiles - 1;
+                        $zip->setCompressionIndex($fileIndex, ZipArchive::CM_DEFLATE, $zipCompressionLevel);
+                    }
                     $count++;
                 }
             }
@@ -766,9 +796,9 @@ if (isset($_GET['download_batch_zip'])) {
             continue;
         }
         
-        // Ensure it's not the index.php file or a hidden file
+        // Ensure it's not the index.php file or a hidden file (based on configuration)
         $baseName = basename($fullPath);
-        if ($baseName === 'index.php' || ($baseName !== '' && $baseName[0] === '.')) {
+        if ($baseName === 'index.php' || (!$includeHiddenFiles && $baseName !== '' && $baseName[0] === '.')) {
             continue;
         }
         
@@ -785,6 +815,11 @@ if (isset($_GET['download_batch_zip'])) {
             
             // Add single file
             if ($zip->addFile($fullPath, $baseName)) {
+                // Set compression level for this file if supported
+                if (method_exists($zip, 'setCompressionIndex')) {
+                    $fileIndex = $zip->numFiles - 1;
+                    $zip->setCompressionIndex($fileIndex, ZipArchive::CM_DEFLATE, $zipCompressionLevel);
+                }
                 $fileCount++;
             }
         }
@@ -835,6 +870,12 @@ if (isset($_GET['download_batch_zip'])) {
  * Secure download all as zip handler
  */
 if (isset($_GET['download_all_zip'])) {
+    // Check if download all is enabled
+    if (!$enableDownloadAll) {
+        http_response_code(403);
+        exit('Download all functionality is disabled');
+    }
+    
     // Check if ZipArchive is available
     if (!class_exists('ZipArchive')) {
         http_response_code(500);
@@ -870,14 +911,15 @@ if (isset($_GET['download_all_zip'])) {
     }
     
     // Recursive function to add directory contents to zip
-    $addToZip = function($dir, $zipPath, &$count) use (&$addToZip, $zip, $realRoot) {
+    $addToZip = function($dir, $zipPath, &$count) use (&$addToZip, $zip, $realRoot, $zipCompressionLevel, $includeHiddenFiles) {
         $handle = opendir($dir);
         if ($handle === false) {
             return;
         }
         
         while (($entry = readdir($handle)) !== false) {
-            if (in_array($entry, ['.', '..', 'index.php'], true) || $entry[0] === '.') {
+            // Skip hidden files based on configuration
+            if (in_array($entry, ['.', '..', 'index.php'], true) || (!$includeHiddenFiles && $entry[0] === '.')) {
                 continue;
             }
             
@@ -905,6 +947,11 @@ if (isset($_GET['download_all_zip'])) {
                 
                 // Add file to zip
                 if ($zip->addFile($fullPath, $zipEntryPath)) {
+                    // Set compression level for this file if supported
+                    if (method_exists($zip, 'setCompressionIndex')) {
+                        $fileIndex = $zip->numFiles - 1;
+                        $zip->setCompressionIndex($fileIndex, ZipArchive::CM_DEFLATE, $zipCompressionLevel);
+                    }
                     $count++;
                 }
             }
@@ -966,6 +1013,12 @@ if (isset($_GET['download_all_zip'])) {
  * Secure download handler for individual files
  */
 if (isset($_GET['download'])) {
+    // Check if individual download is enabled
+    if (!$enableIndividualDownload) {
+        http_response_code(403);
+        exit('Download functionality is disabled');
+    }
+    
     $rel = (string)$_GET['download'];
     $full = realpath($realRoot . $rel);
     
@@ -2423,7 +2476,8 @@ if ($isValidPath) {
 
                     if ($handle = opendir($basePath)) {
                         while (($entry = readdir($handle)) !== false) {
-                            if (in_array($entry, ['.', '..', 'index.php'], true) || $entry[0] === '.') {
+                            // Skip hidden files based on configuration
+                            if (in_array($entry, ['.', '..', 'index.php'], true) || (!$includeHiddenFiles && $entry[0] === '.')) {
                                 continue;
                             }
 
@@ -2494,9 +2548,9 @@ if ($isValidPath) {
 
                     foreach ($itemsToDisplay as $item) {
                         if ($item['type'] === 'dir') {
-                            renderItem($item['name'], true, $currentPath, 0, $enableRename, $enableDelete, true);
+                            renderItem($item['name'], true, $currentPath, 0, $enableRename, $enableDelete, true, $showFileSize);
                         } else {
-                            renderItem($item['name'], false, $currentPath, $item['size'], $enableRename, $enableDelete, true);
+                            renderItem($item['name'], false, $currentPath, $item['size'], $enableRename, $enableDelete, true, $showFileSize);
                         }
                     }
                 }
@@ -2591,62 +2645,72 @@ if ($isValidPath) {
             <?php
             // Unified stats container with folder/file count and download button
             if ($isValidPath) {
+                // Build stats HTML conditionally based on configuration
                 $statsHtml = '';
-                $statsHtml .= count($dirs) . ' folder' . (count($dirs) !== 1 ? 's' : '') . ', ';
-                $statsHtml .= count($files) . ' file' . (count($files) !== 1 ? 's' : '');
-                if ($totalSize > 0) {
-                    $statsHtml .= ' (' . htmlspecialchars(formatFileSize($totalSize), ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8') . ' total)';
+                if ($showFolderFileCount) {
+                    $statsHtml .= count($dirs) . ' folder' . (count($dirs) !== 1 ? 's' : '') . ', ';
+                    $statsHtml .= count($files) . ' file' . (count($files) !== 1 ? 's' : '');
+                    if ($showTotalSize && $totalSize > 0) {
+                        $statsHtml .= ' (' . htmlspecialchars(formatFileSize($totalSize), ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8') . ' total)';
+                    }
                 }
                 
-                echo '<div class="stats-container">';
-                echo '<div class="folder-file-count">' . $statsHtml . '</div>';
+                // Only show stats container if there's content to show or actions available
+                $showStatsContainer = !empty($statsHtml) || (isset($hasItemsToSelect) && $hasItemsToSelect) || $enableDownloadAll;
                 
-                // Combined actions row
-                echo '<div class="stats-actions-row">';
-                
-                // Multi-select controls (when items are available)
-                if (isset($hasItemsToSelect) && $hasItemsToSelect) {
-                    echo '<div class="multi-select-controls-bottom">';
-                    echo '<label class="select-all-container">';
-                    echo '<input type="checkbox" id="selectAllCheckbox" aria-label="Select all items">';
-                    echo '<span>Select All</span>';
-                    echo '</label>';
-                    echo '<div class="multi-select-actions multi-select-actions-hidden" id="multiSelectActions">';
-                    echo '<span class="selected-count" id="selectedCount">0 selected</span>';
-                    echo '</div>';
-                    echo '</div>';
-                }
-                
-                // Batch action buttons container
-                echo '<div class="batch-actions-container">';
-                
-                // Batch action buttons (hidden by default, shown when items selected)
-                if (isset($hasItemsToSelect) && $hasItemsToSelect) {
-                    echo '<button class="batch-download-btn batch-btn-hidden" id="batchDownloadBtn" title="Download selected as ZIP">';
-                    echo '<i class="fa-solid fa-download"></i> Download Selected';
-                    echo '</button>';
-                    if ($enableDelete) {
-                        echo '<button class="batch-delete-btn batch-btn-hidden" id="batchDeleteBtn" title="Delete selected items">';
-                        echo '<i class="fa-solid fa-trash"></i> Delete Selected';
+                if ($showStatsContainer) {
+                    echo '<div class="stats-container">';
+                    if (!empty($statsHtml)) {
+                        echo '<div class="folder-file-count">' . $statsHtml . '</div>';
+                    }
+                    
+                    // Combined actions row
+                    echo '<div class="stats-actions-row">';
+                    
+                    // Multi-select controls (when items are available and batch download is enabled)
+                    if (isset($hasItemsToSelect) && $hasItemsToSelect && $enableBatchDownload) {
+                        echo '<div class="multi-select-controls-bottom">';
+                        echo '<label class="select-all-container">';
+                        echo '<input type="checkbox" id="selectAllCheckbox" aria-label="Select all items">';
+                        echo '<span>Select All</span>';
+                        echo '</label>';
+                        echo '<div class="multi-select-actions multi-select-actions-hidden" id="multiSelectActions">';
+                        echo '<span class="selected-count" id="selectedCount">0 selected</span>';
+                        echo '</div>';
+                        echo '</div>';
+                    }
+                    
+                    // Batch action buttons container
+                    echo '<div class="batch-actions-container">';
+                    
+                    // Batch action buttons (hidden by default, shown when items selected)
+                    if (isset($hasItemsToSelect) && $hasItemsToSelect && $enableBatchDownload) {
+                        echo '<button class="batch-download-btn batch-btn-hidden" id="batchDownloadBtn" title="Download selected as ZIP">';
+                        echo '<i class="fa-solid fa-download"></i> Download Selected';
                         echo '</button>';
+                        if ($enableDelete) {
+                            echo '<button class="batch-delete-btn batch-btn-hidden" id="batchDeleteBtn" title="Delete selected items">';
+                            echo '<i class="fa-solid fa-trash"></i> Delete Selected';
+                            echo '</button>';
+                        }
                     }
-                }
-                
-                // Show download all button if there's any downloadable content
-                if (hasDownloadableContent($basePath, $realRoot)) {
-                    $downloadAllUrl = '?download_all_zip=1';
-                    if ($currentPath) {
-                        $downloadAllUrl .= '&path=' . rawurlencode($currentPath);
+                    
+                    // Show download all button if enabled and there's any downloadable content
+                    if ($enableDownloadAll && hasDownloadableContent($basePath, $realRoot, $includeHiddenFiles)) {
+                        $downloadAllUrl = '?download_all_zip=1';
+                        if ($currentPath) {
+                            $downloadAllUrl .= '&path=' . rawurlencode($currentPath);
+                        }
+                        echo '<a href="' . htmlspecialchars($downloadAllUrl, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8') . '" class="download-all-btn" target="_blank" rel="noopener noreferrer">';
+                        echo '<i class="fa-solid fa-download"></i>';
+                        echo 'Download All as ZIP';
+                        echo '</a>';
                     }
-                    echo '<a href="' . htmlspecialchars($downloadAllUrl, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8') . '" class="download-all-btn" target="_blank" rel="noopener noreferrer">';
-                    echo '<i class="fa-solid fa-download"></i>';
-                    echo 'Download All as ZIP';
-                    echo '</a>';
+                    
+                    echo '</div>'; // end batch-actions-container
+                    echo '</div>'; // end stats-actions-row
+                    echo '</div>'; // end stats-container
                 }
-                
-                echo '</div>'; // end batch-actions-container
-                echo '</div>'; // end stats-actions-row
-                echo '</div>'; // end stats-container
             }
             ?>
         </div>
