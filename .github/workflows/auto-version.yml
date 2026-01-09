@@ -59,6 +59,39 @@ jobs:
           echo "version=$NEW_VERSION" >> $GITHUB_OUTPUT
           echo "date=$CURRENT_DATE" >> $GITHUB_OUTPUT
       
+      - name: Generate changelog
+        id: changelog
+        run: |
+          # Get the previous version tag
+          PREVIOUS_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "")
+          
+          if [ -z "$PREVIOUS_TAG" ]; then
+            echo "No previous tag found. This is the first release."
+            CHANGELOG="Initial release"
+          else
+            echo "Previous tag: $PREVIOUS_TAG"
+            
+            # Get commits since the last tag, excluding version bump commits and merge commits
+            COMMITS=$(git log "${PREVIOUS_TAG}..HEAD" --no-merges --pretty=format:"- %s" \
+              | grep -v "chore: bump version" \
+              | grep -v "Initial plan" \
+              | grep -v "\[skip-version\]" \
+              | grep -v "\[no-version\]")
+            
+            if [ -z "$COMMITS" ]; then
+              CHANGELOG="Minor updates and improvements"
+            else
+              CHANGELOG="$COMMITS"
+            fi
+          fi
+          
+          # Save changelog to a file to preserve formatting
+          echo "$CHANGELOG" > "$RUNNER_TEMP/changelog.txt"
+          
+          # Output for later steps (just for logging)
+          echo "Generated changelog:"
+          echo "$CHANGELOG"
+      
       - name: Commit version update
         run: |
           git add index.php
@@ -74,24 +107,32 @@ jobs:
           git push origin "v${{ steps.increment.outputs.version }}"
       
       - name: Create GitHub Release
-        uses: actions/create-release@v1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          tag_name: v${{ steps.increment.outputs.version }}
-          release_name: Version ${{ steps.increment.outputs.version }}
-          body: |
-            ## Version ${{ steps.increment.outputs.version }}
-            
-            Released on ${{ steps.increment.outputs.date }}
-            
-            This version was automatically created when code was merged into the main branch.
-            
-            ### Installation
-            Download the `index.php` file and place it in your web directory. It's a single self-contained file with no dependencies (except Font Awesome CDN for icons).
-            
-            ### Full Changelog
-            See commit history for detailed changes: https://github.com/${{ github.repository }}/commits/main
-          draft: false
-          prerelease: false
+        run: |
+          # Read the changelog from file
+          CHANGELOG=$(cat "$RUNNER_TEMP/changelog.txt")
+          
+          # Create the release body with version and date substitution
+          cat > "$RUNNER_TEMP/release_body.md" <<EOF
+          ## Version ${{ steps.increment.outputs.version }}
+          
+          Released on ${{ steps.increment.outputs.date }}
+          
+          This version was automatically created when code was merged into the main branch.
+          
+          ### Changes
+          ${CHANGELOG}
+          
+          ### Installation
+          Download the \`index.php\` file and place it in your web directory. It's a single self-contained file with no dependencies (except Font Awesome CDN for icons).
+          
+          ### Full Changelog
+          See commit history for detailed changes: https://github.com/${{ github.repository }}/commits/main
+          EOF
+          
+          # Create the release using GitHub CLI
+          gh release create "v${{ steps.increment.outputs.version }}" \
+            --title "Version ${{ steps.increment.outputs.version }}" \
+            --notes-file "$RUNNER_TEMP/release_body.md"
 
