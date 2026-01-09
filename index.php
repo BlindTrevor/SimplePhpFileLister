@@ -174,7 +174,8 @@ function renderItem(string $entry, bool $isDir, string $currentPath, int $fileSi
         $iconClass = 'fa-solid fa-folder';
         $colorClass = 'icon-folder';
         $linkAttributes = 'class="dir-link"';
-        $sizeHtml = '';
+        // Conditionally show folder size based on configuration
+        $sizeHtml = ($showFileSize && $fileSize > 0) ? '<span class="file-size">' . htmlspecialchars(formatFileSize($fileSize), ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8') . '</span>' : '';
         $dataAttributes = '';
     } else {
         // Use secure download handler for files (or # if downloads disabled)
@@ -263,6 +264,58 @@ function renderItem(string $entry, bool $isDir, string $currentPath, int $fileSi
         $renameButton,
         $deleteButton
     );
+}
+
+/**
+ * Calculate total size of a directory recursively
+ * @param string $dir Directory path
+ * @param string $realRoot Real root path for security validation
+ * @param bool $includeHiddenFiles Whether to include hidden files
+ * @return int Total size in bytes
+ */
+function calculateDirectorySize(string $dir, string $realRoot, bool $includeHiddenFiles = false): int {
+    $totalSize = 0;
+    
+    $handle = opendir($dir);
+    if ($handle === false) {
+        return 0;
+    }
+    
+    while (($entry = readdir($handle)) !== false) {
+        // Skip hidden files based on configuration
+        if (in_array($entry, ['.', '..', 'index.php'], true) || (!$includeHiddenFiles && $entry[0] === '.')) {
+            continue;
+        }
+        
+        $fullPath = $dir . DIRECTORY_SEPARATOR . $entry;
+        $realPath = realpath($fullPath);
+        
+        // Skip invalid paths, symlinks
+        if (is_link($fullPath) || $realPath === false || 
+            strpos($realPath . DIRECTORY_SEPARATOR, $realRoot) !== 0) {
+            continue;
+        }
+        
+        if (is_dir($fullPath)) {
+            // Recurse into directory
+            $totalSize += calculateDirectorySize($fullPath, $realRoot, $includeHiddenFiles);
+        } else {
+            // Skip dangerous extensions
+            $ext = strtolower(pathinfo($entry, PATHINFO_EXTENSION));
+            if (in_array($ext, BLOCKED_EXTENSIONS, true)) {
+                continue;
+            }
+            
+            // Add file size
+            $fileSize = @filesize($fullPath);
+            if ($fileSize !== false) {
+                $totalSize += $fileSize;
+            }
+        }
+    }
+    closedir($handle);
+    
+    return $totalSize;
 }
 
 /**
@@ -2554,7 +2607,10 @@ if ($isValidPath) {
                             }
 
                             if (is_dir($fullPath)) {
-                                $dirs[] = $entry;
+                                // Calculate directory size
+                                $dirSize = calculateDirectorySize($fullPath, $realRoot, $includeHiddenFiles);
+                                $dirs[] = ['name' => $entry, 'size' => $dirSize];
+                                $totalSize += $dirSize;
                             } else {
                                 // Block dangerous extensions from being listed
                                 $ext = strtolower(pathinfo($entry, PATHINFO_EXTENSION));
@@ -2575,13 +2631,16 @@ if ($isValidPath) {
                         closedir($handle);
                     }
 
-                    natcasesort($dirs);
+                    // Sort directories by name (now $dirs is an array of ['name' => string, 'size' => int])
+                    usort($dirs, function($a, $b) {
+                        return strnatcasecmp($a['name'], $b['name']);
+                    });
                     usort($files, function($a, $b) {
                         return strnatcasecmp($a['name'], $b['name']);
                     });
 
                     // Pagination logic: combine dirs and files for pagination
-                    // Note: $dirs is an array of directory name strings
+                    // Note: $dirs is an array of ['name' => string, 'size' => int] arrays
                     // Note: $files is an array of ['name' => string, 'size' => int] arrays
                     $totalItems = count($dirs) + count($files);
                     
@@ -2599,10 +2658,10 @@ if ($isValidPath) {
                     $offset = ($currentPage - 1) * $itemsPerPage;
                     
                     // Merge dirs and files into a single array for pagination
-                    // Convert dirs (strings) to standardized format: ['type' => 'dir', 'name' => string, 'size' => 0]
+                    // Convert dirs and files to standardized format: ['type' => 'dir'/'file', 'name' => string, 'size' => int]
                     $allItems = [];
                     foreach ($dirs as $dir) {
-                        $allItems[] = ['type' => 'dir', 'name' => $dir, 'size' => 0];
+                        $allItems[] = ['type' => 'dir', 'name' => $dir['name'], 'size' => $dir['size']];
                     }
                     foreach ($files as $file) {
                         $allItems[] = ['type' => 'file', 'name' => $file['name'], 'size' => $file['size']];
@@ -2613,7 +2672,7 @@ if ($isValidPath) {
 
                     foreach ($itemsToDisplay as $item) {
                         if ($item['type'] === 'dir') {
-                            renderItem($item['name'], true, $currentPath, 0, $enableRename, $enableDelete, ($enableBatchDownload || $enableDelete), $showFileSize, $enableIndividualDownload);
+                            renderItem($item['name'], true, $currentPath, $item['size'], $enableRename, $enableDelete, ($enableBatchDownload || $enableDelete), $showFileSize, $enableIndividualDownload);
                         } else {
                             renderItem($item['name'], false, $currentPath, $item['size'], $enableRename, $enableDelete, ($enableBatchDownload || $enableDelete), $showFileSize, $enableIndividualDownload);
                         }
