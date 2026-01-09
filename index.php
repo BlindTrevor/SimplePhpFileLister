@@ -1648,7 +1648,6 @@ if ($isValidPath) {
             align-items: center;
             gap: 0;
             flex-wrap: wrap;
-            margin-left: auto;
         }
         
         /* Style all elements in batch group (selected count and buttons) when visible */
