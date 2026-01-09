@@ -3412,12 +3412,15 @@ if ($isValidPath) {
                     const storedSelection = sessionStorage.getItem(storageKey);
                     if (storedSelection) {
                         const storedPaths = JSON.parse(storedSelection);
-                        // Only restore selections that still exist in current directory
-                        storedPaths.forEach(path => {
-                            if (allItemsMap.has(path)) {
-                                selectedItems.add(path);
-                            }
-                        });
+                        // Validate that parsed data is an array
+                        if (Array.isArray(storedPaths)) {
+                            // Only restore selections that still exist in current directory
+                            storedPaths.forEach(path => {
+                                if (allItemsMap.has(path)) {
+                                    selectedItems.add(path);
+                                }
+                            });
+                        }
                     }
                 } catch (e) {
                     console.error('Failed to load selected items from storage:', e);
