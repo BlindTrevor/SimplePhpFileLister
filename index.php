@@ -1454,6 +1454,14 @@ if ($isValidPath) {
             transform: translateY(0);
         }
         
+        .batch-btn-hidden {
+            display: none !important;
+        }
+        
+        .multi-select-actions-hidden {
+            display: none !important;
+        }
+        
         .item-checkbox {
             width: 20px;
             height: 20px;
@@ -2524,7 +2532,7 @@ if ($isValidPath) {
                     echo '<input type="checkbox" id="selectAllCheckbox" aria-label="Select all items">';
                     echo '<span>Select All</span>';
                     echo '</label>';
-                    echo '<div class="multi-select-actions" id="multiSelectActions" style="display: none;">';
+                    echo '<div class="multi-select-actions multi-select-actions-hidden" id="multiSelectActions">';
                     echo '<span class="selected-count" id="selectedCount">0 selected</span>';
                     echo '</div>';
                     echo '</div>';
@@ -2535,11 +2543,11 @@ if ($isValidPath) {
                 
                 // Batch action buttons (hidden by default, shown when items selected)
                 if (isset($hasItemsToSelect) && $hasItemsToSelect) {
-                    echo '<button class="batch-download-btn" id="batchDownloadBtn" style="display: none;" title="Download selected as ZIP">';
+                    echo '<button class="batch-download-btn batch-btn-hidden" id="batchDownloadBtn" title="Download selected as ZIP">';
                     echo '<i class="fa-solid fa-download"></i> Download Selected';
                     echo '</button>';
                     if ($enableDelete) {
-                        echo '<button class="batch-delete-btn" id="batchDeleteBtn" style="display: none;" title="Delete selected items">';
+                        echo '<button class="batch-delete-btn batch-btn-hidden" id="batchDeleteBtn" title="Delete selected items">';
                         echo '<i class="fa-solid fa-trash"></i> Delete Selected';
                         echo '</button>';
                     }
@@ -3072,16 +3080,16 @@ if ($isValidPath) {
                     const count = selectedItems.size;
                     
                     if (count > 0) {
-                        multiSelectActions.style.display = 'flex';
+                        multiSelectActions.classList.remove('multi-select-actions-hidden');
                         selectedCountEl.textContent = count + ' selected';
-                        // Show batch action buttons
-                        if (batchDownloadBtn) batchDownloadBtn.style.display = 'inline-flex';
-                        if (batchDeleteBtn) batchDeleteBtn.style.display = 'inline-flex';
+                        // Show batch action buttons by removing hidden class
+                        if (batchDownloadBtn) batchDownloadBtn.classList.remove('batch-btn-hidden');
+                        if (batchDeleteBtn) batchDeleteBtn.classList.remove('batch-btn-hidden');
                     } else {
-                        multiSelectActions.style.display = 'none';
-                        // Hide batch action buttons
-                        if (batchDownloadBtn) batchDownloadBtn.style.display = 'none';
-                        if (batchDeleteBtn) batchDeleteBtn.style.display = 'none';
+                        multiSelectActions.classList.add('multi-select-actions-hidden');
+                        // Hide batch action buttons by adding hidden class
+                        if (batchDownloadBtn) batchDownloadBtn.classList.add('batch-btn-hidden');
+                        if (batchDeleteBtn) batchDeleteBtn.classList.add('batch-btn-hidden');
                     }
                     
                     // Update select all checkbox state
