@@ -1817,7 +1817,7 @@ if ($isValidPath) {
             align-items: center; 
             gap: 6px; 
             padding: 8px 14px; 
-            background: linear-gradient(135deg, var(--accent) 0%, var(--accent-hover) 100%);
+            background: linear-gradient(135deg, #27ae60 0%, #229954 100%);
             color: white; 
             border: none; 
             border-radius: 8px; 
@@ -1827,11 +1827,11 @@ if ($isValidPath) {
             cursor: pointer; 
             transition: all 0.25s ease; 
             white-space: nowrap;
-            box-shadow: 0 2px 8px rgba(102, 126, 234, 0.3);
+            box-shadow: 0 2px 8px rgba(39, 174, 96, 0.3);
         }
         
         .download-all-btn:hover { 
-            background: linear-gradient(135deg, var(--accent-hover) 0%, var(--accent) 100%);
+            background: linear-gradient(135deg, #229954 0%, #27ae60 100%);
             filter: brightness(1.1);
         }
         
