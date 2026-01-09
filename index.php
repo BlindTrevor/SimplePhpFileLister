@@ -37,6 +37,9 @@ $showTotalSize = true; // Show/hide total size in statistics
 $includeHiddenFiles = false; // Include hidden files (starting with .) in listings
 $zipCompressionLevel = 6; // ZIP compression level (0-9, where 0=no compression, 9=maximum compression)
 
+// Validate ZIP compression level to ensure it's within valid range
+$zipCompressionLevel = max(0, min(9, (int)$zipCompressionLevel));
+
 // Security Configuration
 $realRoot = rtrim(realpath('.'), DIRECTORY_SEPARATOR) . DIRECTORY_SEPARATOR;
 
