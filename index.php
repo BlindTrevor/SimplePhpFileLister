@@ -1446,21 +1446,21 @@ if ($isValidPath) {
         .multi-select-controls-bottom {
             display: flex;
             align-items: center;
-            gap: 16px;
+            gap: 10px;
             flex-wrap: wrap;
         }
         
         .select-all-container {
             display: inline-flex;
             align-items: center;
-            gap: 10px;
+            gap: 8px;
             cursor: pointer;
-            font-size: clamp(0.875rem, 2vw, 0.95rem);
+            font-size: clamp(0.8rem, 2vw, 0.85rem);
             font-weight: 600;
             color: var(--text);
             user-select: none;
-            padding: 10px 16px;
-            border-radius: 10px;
+            padding: 7px 12px;
+            border-radius: 8px;
             transition: all 0.2s ease;
             background: white;
             border: 2px solid rgba(102, 126, 234, 0.2);
@@ -1472,8 +1472,8 @@ if ($isValidPath) {
         }
         
         .select-all-container input[type="checkbox"] {
-            width: 20px;
-            height: 20px;
+            width: 18px;
+            height: 18px;
             cursor: pointer;
             accent-color: var(--accent);
             border-radius: 4px;
@@ -1482,17 +1482,17 @@ if ($isValidPath) {
         .multi-select-actions {
             display: inline-flex;
             align-items: center;
-            gap: 12px;
+            gap: 8px;
             flex-wrap: wrap;
         }
         
         .selected-count {
-            font-size: clamp(0.875rem, 2vw, 0.95rem);
+            font-size: clamp(0.8rem, 2vw, 0.85rem);
             color: white;
             font-weight: 700;
-            padding: 10px 16px;
+            padding: 7px 12px;
             background: linear-gradient(135deg, var(--accent) 0%, var(--accent-hover) 100%);
-            border-radius: 10px;
+            border-radius: 8px;
             box-shadow: 0 2px 8px rgba(102, 126, 234, 0.25);
             letter-spacing: 0.02em;
         }
@@ -1500,25 +1500,33 @@ if ($isValidPath) {
         .batch-actions-container {
             display: flex;
             align-items: center;
-            gap: 12px;
+            gap: 0;
             flex-wrap: wrap;
+            border-radius: 8px;
+            overflow: hidden;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
         }
         
         .batch-download-btn,
         .batch-delete-btn {
             display: inline-flex;
             align-items: center;
-            gap: 8px;
-            padding: 11px 20px;
+            gap: 6px;
+            padding: 8px 14px;
             border: none;
-            border-radius: 10px;
-            font-size: clamp(0.875rem, 2vw, 0.95rem);
+            border-radius: 0;
+            font-size: clamp(0.8rem, 2vw, 0.85rem);
             font-weight: 700;
             cursor: pointer;
             transition: all 0.25s ease;
-            box-shadow: 0 3px 10px rgba(0, 0, 0, 0.12);
             white-space: nowrap;
             letter-spacing: 0.01em;
+            border-right: 1px solid rgba(255, 255, 255, 0.2);
+        }
+        
+        .batch-download-btn:last-child,
+        .batch-delete-btn:last-child {
+            border-right: none;
         }
         
         .batch-download-btn {
@@ -1528,13 +1536,11 @@ if ($isValidPath) {
         
         .batch-download-btn:hover {
             background: linear-gradient(135deg, var(--accent-hover) 0%, var(--accent) 100%);
-            transform: translateY(-2px);
-            box-shadow: 0 5px 16px rgba(102, 126, 234, 0.35);
+            filter: brightness(1.1);
         }
         
         .batch-download-btn:active {
-            transform: translateY(0);
-            box-shadow: 0 2px 8px rgba(102, 126, 234, 0.3);
+            filter: brightness(0.95);
         }
         
         .batch-delete-btn {
@@ -1544,13 +1550,11 @@ if ($isValidPath) {
         
         .batch-delete-btn:hover {
             background: linear-gradient(135deg, #c0392b 0%, #e74c3c 100%);
-            transform: translateY(-2px);
-            box-shadow: 0 5px 16px rgba(231, 76, 60, 0.35);
+            filter: brightness(1.1);
         }
         
         .batch-delete-btn:active {
-            transform: translateY(0);
-            box-shadow: 0 2px 8px rgba(231, 76, 60, 0.3);
+            filter: brightness(0.95);
         }
         
         .batch-btn-hidden {
@@ -1609,21 +1613,21 @@ if ($isValidPath) {
            STATISTICS & INFO DISPLAY
            ================================================================ */
         .stats-container {
-            margin-top: 28px;
-            padding: 20px 24px;
+            margin-top: 24px;
+            padding: 14px 18px;
             background: linear-gradient(135deg, #ffffff 0%, #f8f9fa 100%);
-            border-radius: 12px;
+            border-radius: 10px;
             border: 1px solid rgba(0, 0, 0, 0.08);
             display: grid;
             grid-template-columns: 1fr auto;
             align-items: center;
-            gap: 24px;
+            gap: 16px;
             box-shadow: 0 2px 12px rgba(0, 0, 0, 0.06);
         }
         
         .folder-file-count {
             color: var(--text);
-            font-size: clamp(0.875rem, 2vw, 0.95rem);
+            font-size: clamp(0.8rem, 2vw, 0.85rem);
             font-weight: 600;
             letter-spacing: 0.01em;
             grid-column: 1;
@@ -1634,9 +1638,9 @@ if ($isValidPath) {
             display: flex;
             justify-content: space-between;
             align-items: center;
-            gap: 20px;
+            gap: 12px;
             flex-wrap: wrap;
-            padding-top: 16px;
+            padding-top: 12px;
             border-top: 1px solid rgba(0, 0, 0, 0.06);
         }
         
@@ -1739,33 +1743,32 @@ if ($isValidPath) {
         .download-all-btn { 
             display: inline-flex; 
             align-items: center; 
-            gap: 10px; 
-            padding: 14px 24px; 
+            gap: 6px; 
+            padding: 8px 14px; 
             background: linear-gradient(135deg, var(--accent) 0%, var(--accent-hover) 100%);
             color: white; 
             border: none; 
-            border-radius: 10px; 
-            font-size: clamp(0.875rem, 2vw, 1rem);
-            font-weight: 600; 
+            border-radius: 8px; 
+            font-size: clamp(0.8rem, 2vw, 0.85rem);
+            font-weight: 700; 
             text-decoration: none; 
             cursor: pointer; 
-            transition: all 0.3s ease; 
-            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
+            transition: all 0.25s ease; 
             white-space: nowrap;
+            box-shadow: 0 2px 8px rgba(102, 126, 234, 0.3);
         }
         
         .download-all-btn:hover { 
             background: linear-gradient(135deg, var(--accent-hover) 0%, var(--accent) 100%);
-            transform: translateY(-2px);
-            box-shadow: 0 6px 20px rgba(102, 126, 234, 0.4);
+            filter: brightness(1.1);
         }
         
         .download-all-btn:active {
-            transform: translateY(0);
+            filter: brightness(0.95);
         }
         
         .download-all-btn i { 
-            font-size: 1.1rem; 
+            font-size: 0.9rem; 
         }
         
         /* ================================================================
