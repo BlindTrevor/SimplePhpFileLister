@@ -12,7 +12,7 @@ Perfect for sharing downloads, documents, or quick internal file access.
 
 ## Version Information
 
-The current version of Simple PHP File Lister can be found in the `version.php` file or displayed in the footer of the application interface.
+The current version of Simple PHP File Lister can be found in the `index.php` file (APP_VERSION constant) or displayed in the footer of the application interface.
 
 ### Automatic Version Updates
 This project uses automated versioning through GitHub Actions. When code is merged into the `main` branch, the version number is automatically incremented and a new release is created.
