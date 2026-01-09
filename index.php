@@ -17,36 +17,42 @@ define('APP_VERSION', '1.0.13');
 // ============================================================================
 // CONFIGURATION
 // ============================================================================
+// All user-configurable settings are centralized in this section.
+// Modify these values to customize the behavior and appearance of your file lister.
 
-// Pagination Settings
+// --- Display Customization ---
+$title = "Simple PHP File Lister";                    // Page title
+$subtitle = "The Easy Way To List Files In A Directory"; // Subtitle shown below title
+$footer = "Made with ❤️ by Blind Trevor";              // Footer text
+
+// --- Pagination Settings ---
 $paginationThreshold = 25; // Number of items per page before pagination appears
 
-// Display Customization
-$title = "Simple PHP File Lister";
-$subtitle = "The Easy Way To List Files In A Directory";
-$footer = "Made with ❤️ by Blind Trevor";
+// --- Feature Toggles ---
+$enableRename = false;             // Enable/disable rename functionality
+$enableDelete = false;             // Enable/disable delete functionality
+$enableDownloadAll = true;         // Enable/disable "Download All as ZIP" button
+$enableBatchDownload = true;       // Enable/disable batch download of selected items as ZIP
+$enableIndividualDownload = true;  // Enable/disable individual file downloads
 
-// Feature Configuration
-$enableRename = false; // Set to false to disable rename functionality
-$enableDelete = false; // Set to false to disable delete functionality
+// --- Display Options ---
+$showFileSize = true;           // Show/hide file sizes in file listings
+$showFolderFileCount = true;    // Show/hide folder/file count statistics
+$showTotalSize = true;          // Show/hide total size in statistics
 
-// Download & Export Configuration
-$enableDownloadAll = true; // Enable/disable "Download All as ZIP" button
-$enableBatchDownload = true; // Enable/disable batch download of selected items as ZIP
-$enableIndividualDownload = true; // Enable/disable individual file downloads
+// --- Theme Settings ---
+$defaultTheme = 'purple';       // Default theme: 'purple', 'blue', 'green', 'dark', 'light'
+$allowThemeChange = true;       // Allow users to change the theme via settings icon
 
-// Display Configuration
-$showFileSize = true; // Show/hide file sizes in file listings
-$showFolderFileCount = true; // Show/hide folder/file count statistics
-$showTotalSize = true; // Show/hide total size in statistics
+// --- Advanced Options ---
+$includeHiddenFiles = false;    // Include hidden files (starting with .) in listings
+$zipCompressionLevel = 6;       // ZIP compression level (0-9, where 0=no compression, 9=maximum compression)
 
-// Advanced Options
-$includeHiddenFiles = false; // Include hidden files (starting with .) in listings
-$zipCompressionLevel = 6; // ZIP compression level (0-9, where 0=no compression, 9=maximum compression)
-
-// Theme Configuration
-$defaultTheme = 'purple'; // Default theme: 'purple', 'blue', 'green', 'dark', 'light'
-$allowThemeChange = true; // Allow users to change the theme via settings icon
+// ============================================================================
+// CONFIGURATION VALIDATION
+// ============================================================================
+// This section validates and sanitizes configuration values.
+// Do not modify unless you understand the security implications.
 
 // Validate default theme to prevent injection
 $validThemes = ['purple', 'blue', 'green', 'dark', 'light'];
