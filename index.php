@@ -287,7 +287,7 @@ function calculateDirectorySize(string $dir, string $realRoot, bool $includeHidd
             continue;
         }
         
-        $fullPath = $dir . '/' . $entry;
+        $fullPath = $dir . DIRECTORY_SEPARATOR . $entry;
         $realPath = realpath($fullPath);
         
         // Skip invalid paths, symlinks
