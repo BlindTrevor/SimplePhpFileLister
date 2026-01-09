@@ -1249,6 +1249,7 @@ if ($isValidPath) {
             --stats-border: rgba(0, 0, 0, 0.08);
             --stats-divider: rgba(0, 0, 0, 0.06);
             --stats-shadow: rgba(0, 0, 0, 0.06);
+            --info-btn-bg: linear-gradient(135deg, #34495e 0%, #2c3e50 100%);
         }
         
         /* Blue Theme */
@@ -1269,6 +1270,7 @@ if ($isValidPath) {
             --stats-border: rgba(0, 0, 0, 0.08);
             --stats-divider: rgba(0, 0, 0, 0.06);
             --stats-shadow: rgba(0, 0, 0, 0.06);
+            --info-btn-bg: linear-gradient(135deg, #34495e 0%, #2c3e50 100%);
         }
         
         /* Green Theme */
@@ -1289,6 +1291,7 @@ if ($isValidPath) {
             --stats-border: rgba(0, 0, 0, 0.08);
             --stats-divider: rgba(0, 0, 0, 0.06);
             --stats-shadow: rgba(0, 0, 0, 0.06);
+            --info-btn-bg: linear-gradient(135deg, #34495e 0%, #2c3e50 100%);
         }
         
         /* Dark Theme */
@@ -1309,6 +1312,7 @@ if ($isValidPath) {
             --stats-border: rgba(255, 255, 255, 0.1);
             --stats-divider: rgba(255, 255, 255, 0.1);
             --stats-shadow: rgba(0, 0, 0, 0.3);
+            --info-btn-bg: linear-gradient(135deg, #4a5568 0%, #2d3748 100%);
         }
         
         /* Light Theme */
@@ -1329,6 +1333,7 @@ if ($isValidPath) {
             --stats-border: rgba(0, 0, 0, 0.08);
             --stats-divider: rgba(0, 0, 0, 0.06);
             --stats-shadow: rgba(0, 0, 0, 0.06);
+            --info-btn-bg: linear-gradient(135deg, #718096 0%, #4a5568 100%);
         }
         
         /* ================================================================
@@ -1623,22 +1628,19 @@ if ($isValidPath) {
             border-radius: 4px;
         }
         
-        .multi-select-actions {
+        .selected-count {
             display: inline-flex;
             align-items: center;
-            gap: 8px;
-            flex-wrap: wrap;
-        }
-        
-        .selected-count {
+            gap: 6px;
             font-size: clamp(0.8rem, 2vw, 0.85rem);
             color: white;
             font-weight: 700;
-            padding: 7px 12px;
-            background: linear-gradient(135deg, var(--accent) 0%, var(--accent-hover) 100%);
-            border-radius: 8px;
-            box-shadow: 0 2px 8px rgba(102, 126, 234, 0.25);
-            letter-spacing: 0.02em;
+            padding: 8px 14px;
+            background: var(--info-btn-bg);
+            border-radius: 0;
+            box-shadow: none;
+            letter-spacing: 0.01em;
+            white-space: nowrap;
         }
         
         .batch-actions-container {
@@ -1646,28 +1648,32 @@ if ($isValidPath) {
             align-items: center;
             gap: 0;
             flex-wrap: wrap;
-            margin-left: auto;
         }
         
-        /* Style batch buttons as a group when visible */
+        /* Style all elements in batch group (selected count and buttons) when visible */
+        .batch-actions-container > .selected-count:not(.batch-btn-hidden),
         .batch-actions-container > .batch-download-btn:not(.batch-btn-hidden),
         .batch-actions-container > .batch-delete-btn:not(.batch-btn-hidden) {
             border-radius: 0;
             box-shadow: none;
         }
         
+        /* First visible element gets left rounded corners */
+        .batch-actions-container > .selected-count:not(.batch-btn-hidden):first-child,
         .batch-actions-container > .batch-download-btn:not(.batch-btn-hidden):first-child,
         .batch-actions-container > .batch-delete-btn:not(.batch-btn-hidden):first-child {
             border-top-left-radius: 8px;
             border-bottom-left-radius: 8px;
         }
         
-        .batch-actions-container > :is(.batch-download-btn, .batch-delete-btn):not(.batch-btn-hidden):last-of-type {
+        /* Last visible element gets right rounded corners */
+        .batch-actions-container > :is(.selected-count, .batch-download-btn, .batch-delete-btn):not(.batch-btn-hidden):last-of-type {
             border-top-right-radius: 8px;
             border-bottom-right-radius: 8px;
         }
         
-        /* Add visual separator between visible batch buttons */
+        /* Add visual separator between visible elements in button group */
+        .batch-actions-container > .selected-count:not(.batch-btn-hidden):not(:last-of-type),
         .batch-actions-container > .batch-download-btn:not(.batch-btn-hidden):not(:last-of-type),
         .batch-actions-container > .batch-delete-btn:not(.batch-btn-hidden):not(:last-of-type) {
             border-right: 1px solid rgba(255, 255, 255, 0.2);
@@ -1724,10 +1730,6 @@ if ($isValidPath) {
         }
         
         .batch-btn-hidden {
-            display: none !important;
-        }
-        
-        .multi-select-actions-hidden {
             display: none !important;
         }
         
@@ -2086,15 +2088,12 @@ if ($isValidPath) {
                 justify-content: center;
             }
             
-            .multi-select-actions {
-                justify-content: center;
-            }
-            
             .batch-actions-container {
                 width: 100%;
                 flex-direction: column;
             }
             
+            .selected-count,
             .batch-download-btn,
             .batch-delete-btn,
             .download-all-btn {
@@ -2139,6 +2138,7 @@ if ($isValidPath) {
                 flex-direction: column;
             }
             
+            .selected-count,
             .batch-download-btn,
             .batch-delete-btn {
                 width: 100%;
@@ -3120,18 +3120,16 @@ if ($isValidPath) {
                     }
                     echo '</div>'; // end stats-top-row
                     
-                    // Second row: selected count and action buttons
+                    // Second row: action buttons (with selection count integrated into button group)
                     echo '<div class="stats-actions-row">';
                     
-                    // Selected count display (when items are available and batch download or delete is enabled)
-                    if (isset($hasItemsToSelect) && $hasItemsToSelect && ($enableBatchDownload || $enableDelete)) {
-                        echo '<div class="multi-select-actions multi-select-actions-hidden" id="multiSelectActions">';
-                        echo '<span class="selected-count" id="selectedCount">0 selected</span>';
-                        echo '</div>';
-                    }
-                    
-                    // Batch action buttons container
+                    // Batch action buttons container (including selection count as first element)
                     echo '<div class="batch-actions-container">';
+                    
+                    // Selection count display as first element in button group (when items are available and batch download or delete is enabled)
+                    if (isset($hasItemsToSelect) && $hasItemsToSelect && ($enableBatchDownload || $enableDelete)) {
+                        echo '<span class="selected-count batch-btn-hidden" id="selectedCount">0 selected</span>';
+                    }
                     
                     // Batch download button (hidden by default, shown when items selected)
                     if (isset($hasItemsToSelect) && $hasItemsToSelect && $enableBatchDownload) {
@@ -3717,7 +3715,6 @@ if ($isValidPath) {
             // Multi-select functionality
             (function() {
                 const selectAllCheckbox = document.getElementById('selectAllCheckbox');
-                const multiSelectActions = document.getElementById('multiSelectActions');
                 const selectedCountEl = document.getElementById('selectedCount');
                 const batchDownloadBtn = document.getElementById('batchDownloadBtn');
                 const batchDeleteBtn = document.getElementById('batchDeleteBtn');
@@ -3826,8 +3823,6 @@ if ($isValidPath) {
                     });
                     
                     if (count > 0) {
-                        multiSelectActions.classList.remove('multi-select-actions-hidden');
-                        
                         // Update text with count and total size
                         let displayText = count + ' selected';
                         if (totalSize > 0) {
@@ -3835,12 +3830,13 @@ if ($isValidPath) {
                         }
                         selectedCountEl.textContent = displayText;
                         
-                        // Show batch action buttons by removing hidden class
+                        // Show all elements in batch button group by removing hidden class
+                        if (selectedCountEl) selectedCountEl.classList.remove('batch-btn-hidden');
                         if (batchDownloadBtn) batchDownloadBtn.classList.remove('batch-btn-hidden');
                         if (batchDeleteBtn) batchDeleteBtn.classList.remove('batch-btn-hidden');
                     } else {
-                        multiSelectActions.classList.add('multi-select-actions-hidden');
-                        // Hide batch action buttons by adding hidden class
+                        // Hide all elements in batch button group by adding hidden class
+                        if (selectedCountEl) selectedCountEl.classList.add('batch-btn-hidden');
                         if (batchDownloadBtn) batchDownloadBtn.classList.add('batch-btn-hidden');
                         if (batchDeleteBtn) batchDeleteBtn.classList.add('batch-btn-hidden');
                     }
