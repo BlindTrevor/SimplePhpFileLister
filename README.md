@@ -136,6 +136,37 @@ You can easily tailor the lister by editing the `index.php` file:
   ```
   When enabled, a delete button (trash icon) appears when hovering over files and folders, allowing you to delete them after confirmation. **Warning: Deleted files cannot be recovered.**
 
+- **Download & Export Configuration**  
+  Control download functionality with these configuration variables:
+  ```php
+  $enableDownloadAll = true;      // Enable/disable "Download All as ZIP" button
+  $enableBatchDownload = true;    // Enable/disable batch download of selected items as ZIP
+  $enableIndividualDownload = true; // Enable/disable individual file downloads
+  ```
+  - When `$enableDownloadAll` is `false`, the "Download All as ZIP" button is hidden and the endpoint returns 403 Forbidden if accessed.
+  - When `$enableBatchDownload` is `false`, multi-select controls are hidden and batch download endpoint returns 403 Forbidden if accessed.
+  - When `$enableIndividualDownload` is `false`, file download links are still visible but clicking them returns 403 Forbidden.
+
+- **Display Configuration**  
+  Control what information is displayed in the interface:
+  ```php
+  $showFileSize = true;           // Show/hide file sizes in file listings
+  $showFolderFileCount = true;    // Show/hide folder/file count statistics
+  $showTotalSize = true;          // Show/hide total size in statistics
+  ```
+  - When `$showFileSize` is `false`, file sizes are not displayed next to file names in the listing.
+  - When `$showFolderFileCount` is `false`, the folder and file count is not displayed in the statistics container.
+  - When `$showTotalSize` is `false`, the total size is not displayed in the statistics (even if `$showFolderFileCount` is `true`).
+
+- **Advanced Options**  
+  Configure advanced behaviors:
+  ```php
+  $includeHiddenFiles = false;    // Include hidden files (starting with .) in listings
+  $zipCompressionLevel = 6;       // ZIP compression level (0-9, where 0=no compression, 9=maximum)
+  ```
+  - When `$includeHiddenFiles` is `true`, files and folders starting with `.` (except `.` and `..`) are included in listings and ZIP downloads. **Warning: This may expose sensitive files.**
+  - `$zipCompressionLevel` controls compression for ZIP downloads. Level 0 = no compression (fastest), 9 = maximum compression (smallest size), 6 = balanced (default).
+
 - **Title, subtitle & footer**  
   Change the `$title`, `$subtitle`, and `$footer` variables at the top of the file.
 
