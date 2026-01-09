@@ -493,7 +493,7 @@ if (isset($_POST['delete'])) {
     
     // Ensure it's not the index.php file or a hidden file
     $baseName = basename($fullPath);
-    if ($baseName === 'index.php' || $baseName[0] === '.') {
+    if ($baseName === 'index.php' || ($baseName !== '' && $baseName[0] === '.')) {
         http_response_code(403);
         echo json_encode(['success' => false, 'error' => 'Cannot delete this item']);
         exit;
@@ -510,6 +510,12 @@ if (isset($_POST['delete'])) {
             while (($entry = readdir($handle)) !== false) {
                 if ($entry === '.' || $entry === '..') {
                     continue;
+                }
+                
+                // Skip index.php and hidden files within subdirectories
+                if ($entry === 'index.php' || ($entry !== '' && $entry[0] === '.')) {
+                    closedir($handle);
+                    return false;
                 }
                 
                 $entryPath = $path . DIRECTORY_SEPARATOR . $entry;
