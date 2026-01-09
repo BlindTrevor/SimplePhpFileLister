@@ -21,6 +21,7 @@ $footer = "Made with ❤️ by Blind Trevor";
 
 // Feature Configuration
 $enableRename = true; // Set to false to disable rename functionality
+$enableDelete = true; // Set to false to disable delete functionality
 
 // Security Configuration
 $realRoot = rtrim(realpath('.'), DIRECTORY_SEPARATOR) . DIRECTORY_SEPARATOR;
@@ -138,8 +139,9 @@ function getFileIcon(string $path): array {
  * @param string $currentPath Current path context
  * @param int $fileSize File size in bytes (for files only)
  * @param bool $enableRename Whether rename functionality is enabled
+ * @param bool $enableDelete Whether delete functionality is enabled
  */
-function renderItem(string $entry, bool $isDir, string $currentPath, int $fileSize = 0, bool $enableRename = false): void {
+function renderItem(string $entry, bool $isDir, string $currentPath, int $fileSize = 0, bool $enableRename = false, bool $enableDelete = false): void {
     if ($isDir) {
         $href = '?path=' . rawurlencode($currentPath ? $currentPath . '/' . $entry : $entry);
         $iconClass = 'fa-solid fa-folder';
@@ -186,9 +188,22 @@ function renderItem(string $entry, bool $isDir, string $currentPath, int $fileSi
             $label
         );
     }
+    
+    // Add delete button if enabled
+    $deleteButton = '';
+    if ($enableDelete) {
+        $filePath = $currentPath ? $currentPath . '/' . $entry : $entry;
+        $deleteButton = sprintf(
+            '<button class="delete-btn" data-file-path="%s" data-file-name="%s" data-is-dir="%s" title="Delete" aria-label="Delete %s"><i class="fa-solid fa-trash"></i></button>',
+            htmlspecialchars($filePath, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8'),
+            $label,
+            $isDir ? 'true' : 'false',
+            $label
+        );
+    }
 
     printf(
-        '<li><a href="%s" %s%s><span class="file-icon %s"><i class="%s"></i></span><span class="file-name">%s</span>%s</a>%s</li>' . PHP_EOL,
+        '<li><a href="%s" %s%s><span class="file-icon %s"><i class="%s"></i></span><span class="file-name">%s</span>%s</a>%s%s</li>' . PHP_EOL,
         htmlspecialchars($href, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8'),
         $linkAttributes,
         $dataAttributes,
@@ -196,7 +211,8 @@ function renderItem(string $entry, bool $isDir, string $currentPath, int $fileSi
         htmlspecialchars($iconClass, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8'),
         $label,
         $sizeHtml,
-        $renameButton
+        $renameButton,
+        $deleteButton
     );
 }
 
@@ -439,6 +455,89 @@ if (isset($_POST['rename'])) {
     } else {
         http_response_code(500);
         echo json_encode(['success' => false, 'error' => 'Failed to rename item']);
+    }
+    exit;
+}
+
+/**
+ * Secure delete handler
+ */
+if (isset($_POST['delete'])) {
+    header('Content-Type: application/json');
+    
+    // Check if delete is enabled
+    if (!$enableDelete) {
+        http_response_code(403);
+        echo json_encode(['success' => false, 'error' => 'Delete functionality is disabled']);
+        exit;
+    }
+    
+    $filePath = isset($_POST['file_path']) ? (string)$_POST['file_path'] : '';
+    
+    // Validate input
+    if (empty($filePath)) {
+        http_response_code(400);
+        echo json_encode(['success' => false, 'error' => 'Invalid parameters']);
+        exit;
+    }
+    
+    // Resolve path
+    $fullPath = realpath($realRoot . $filePath);
+    
+    // Validate path exists and is within root
+    if ($fullPath === false || strpos($fullPath . DIRECTORY_SEPARATOR, $realRoot) !== 0) {
+        http_response_code(404);
+        echo json_encode(['success' => false, 'error' => 'File or folder not found']);
+        exit;
+    }
+    
+    // Ensure it's not the index.php file or a hidden file
+    $baseName = basename($fullPath);
+    if ($baseName === 'index.php' || ($baseName !== '' && $baseName[0] === '.')) {
+        http_response_code(403);
+        echo json_encode(['success' => false, 'error' => 'Cannot delete this item']);
+        exit;
+    }
+    
+    // Recursive delete function for directories
+    $deleteRecursive = function($path) use (&$deleteRecursive) {
+        if (is_dir($path)) {
+            $handle = opendir($path);
+            if ($handle === false) {
+                return false;
+            }
+            
+            while (($entry = readdir($handle)) !== false) {
+                if ($entry === '.' || $entry === '..') {
+                    continue;
+                }
+                
+                // Skip index.php and hidden files within subdirectories
+                if ($entry === 'index.php' || ($entry !== '' && $entry[0] === '.')) {
+                    closedir($handle);
+                    return false;
+                }
+                
+                $entryPath = $path . DIRECTORY_SEPARATOR . $entry;
+                if (!$deleteRecursive($entryPath)) {
+                    closedir($handle);
+                    return false;
+                }
+            }
+            closedir($handle);
+            
+            return @rmdir($path);
+        } else {
+            return @unlink($path);
+        }
+    };
+    
+    // Perform the delete
+    if ($deleteRecursive($fullPath)) {
+        echo json_encode(['success' => true]);
+    } else {
+        http_response_code(500);
+        echo json_encode(['success' => false, 'error' => 'Failed to delete item']);
     }
     exit;
 }
@@ -880,7 +979,7 @@ if ($isValidPath) {
         
         .rename-btn {
             position: absolute;
-            right: 12px;
+            right: 56px;
             top: 50%;
             transform: translateY(-50%);
             background: var(--accent);
@@ -909,6 +1008,40 @@ if ($isValidPath) {
         }
         
         .rename-btn:active {
+            transform: translateY(-50%) scale(0.95);
+        }
+        
+        .delete-btn {
+            position: absolute;
+            right: 12px;
+            top: 50%;
+            transform: translateY(-50%);
+            background: #e74c3c;
+            color: white;
+            border: none;
+            border-radius: 6px;
+            width: 36px;
+            height: 36px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            opacity: 0;
+            transition: all 0.3s ease;
+            font-size: 0.9rem;
+            z-index: 10;
+        }
+        
+        .file-list li:hover .delete-btn {
+            opacity: 1;
+        }
+        
+        .delete-btn:hover {
+            background: #c0392b;
+            transform: translateY(-50%) scale(1.1);
+        }
+        
+        .delete-btn:active {
             transform: translateY(-50%) scale(0.95);
         }
         
@@ -1147,13 +1280,22 @@ if ($isValidPath) {
             
             .rename-btn {
                 opacity: 1;
+                right: 48px;
+                width: 32px;
+                height: 32px;
+                font-size: 0.85rem;
+            }
+            
+            .delete-btn {
+                opacity: 1;
                 right: 8px;
                 width: 32px;
                 height: 32px;
                 font-size: 0.85rem;
             }
             
-            .rename-modal-content {
+            .rename-modal-content,
+            .delete-modal-content {
                 padding: 24px 20px;
             }
         }
@@ -1422,6 +1564,112 @@ if ($isValidPath) {
         }
         
         /* ================================================================
+           DELETE MODAL
+           ================================================================ */
+        .delete-modal {
+            position: fixed;
+            inset: 0;
+            background: rgba(0, 0, 0, 0.5);
+            backdrop-filter: blur(4px);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            z-index: 10001;
+            padding: 20px;
+        }
+        
+        .delete-modal.active {
+            display: flex;
+        }
+        
+        .delete-modal-content {
+            background: white;
+            border-radius: 12px;
+            padding: 28px;
+            max-width: 500px;
+            width: 100%;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            animation: modalSlideIn 0.3s ease;
+        }
+        
+        .delete-modal-title {
+            font-size: 1.5rem;
+            font-weight: 700;
+            margin-bottom: 8px;
+            color: #e74c3c;
+        }
+        
+        .delete-modal-subtitle {
+            font-size: 0.9rem;
+            color: var(--muted);
+            margin-bottom: 16px;
+            word-break: break-word;
+        }
+        
+        .delete-modal-warning {
+            background: #fff3cd;
+            color: #856404;
+            padding: 12px 16px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            font-size: 0.9rem;
+            border: 1px solid #ffeaa7;
+        }
+        
+        .delete-modal-error {
+            background: #fee;
+            color: #c00;
+            padding: 12px 16px;
+            border-radius: 8px;
+            margin-bottom: 16px;
+            font-size: 0.9rem;
+            display: none;
+        }
+        
+        .delete-modal-error.active {
+            display: block;
+        }
+        
+        .delete-modal-buttons {
+            display: flex;
+            gap: 12px;
+            justify-content: flex-end;
+        }
+        
+        .delete-modal-btn {
+            padding: 12px 24px;
+            border: none;
+            border-radius: 8px;
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+        
+        .delete-modal-btn-cancel {
+            background: var(--border);
+            color: var(--text);
+        }
+        
+        .delete-modal-btn-cancel:hover {
+            background: #cbd5e0;
+        }
+        
+        .delete-modal-btn-confirm {
+            background: #e74c3c;
+            color: white;
+        }
+        
+        .delete-modal-btn-confirm:hover {
+            background: #c0392b;
+        }
+        
+        .delete-modal-btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+        
+        /* ================================================================
            PRINT STYLES
            ================================================================ */
         @media print {
@@ -1685,9 +1933,9 @@ if ($isValidPath) {
 
                     foreach ($itemsToDisplay as $item) {
                         if ($item['type'] === 'dir') {
-                            renderItem($item['name'], true, $currentPath, 0, $enableRename);
+                            renderItem($item['name'], true, $currentPath, 0, $enableRename, $enableDelete);
                         } else {
-                            renderItem($item['name'], false, $currentPath, $item['size'], $enableRename);
+                            renderItem($item['name'], false, $currentPath, $item['size'], $enableRename, $enableDelete);
                         }
                     }
                 }
@@ -1830,6 +2078,22 @@ if ($isValidPath) {
             <div class="rename-modal-buttons">
                 <button class="rename-modal-btn rename-modal-btn-cancel" id="renameModalCancel">Cancel</button>
                 <button class="rename-modal-btn rename-modal-btn-confirm" id="renameModalConfirm">Rename</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Delete Modal -->
+    <div class="delete-modal" id="deleteModal" role="dialog" aria-labelledby="deleteModalTitle" aria-modal="true">
+        <div class="delete-modal-content">
+            <h2 class="delete-modal-title" id="deleteModalTitle">Confirm Delete</h2>
+            <p class="delete-modal-subtitle" id="deleteModalSubtitle"></p>
+            <div class="delete-modal-warning">
+                <strong>⚠️ Warning:</strong> This action cannot be undone. The item will be permanently deleted.
+            </div>
+            <div class="delete-modal-error" id="deleteModalError"></div>
+            <div class="delete-modal-buttons">
+                <button class="delete-modal-btn delete-modal-btn-cancel" id="deleteModalCancel">Cancel</button>
+                <button class="delete-modal-btn delete-modal-btn-confirm" id="deleteModalConfirm">Delete</button>
             </div>
         </div>
     </div>
@@ -2281,6 +2545,133 @@ if ($isValidPath) {
                 // Close modal when clicking outside
                 modal.addEventListener('click', function(e) {
                     if (e.target === modal) {
+                        closeModal();
+                    }
+                });
+            })();
+            
+            // Delete functionality
+            (function() {
+                const modal = document.getElementById('deleteModal');
+                const subtitle = document.getElementById('deleteModalSubtitle');
+                const error = document.getElementById('deleteModalError');
+                const cancelBtn = document.getElementById('deleteModalCancel');
+                const confirmBtn = document.getElementById('deleteModalConfirm');
+                
+                if (!modal) return;
+                
+                let currentFilePath = '';
+                let currentFileName = '';
+                let isDirectory = false;
+                
+                function showError(message) {
+                    error.textContent = message;
+                    error.classList.add('active');
+                }
+                
+                function hideError() {
+                    error.classList.remove('active');
+                }
+                
+                function openModal(filePath, fileName, isDir) {
+                    currentFilePath = filePath;
+                    currentFileName = fileName;
+                    isDirectory = isDir;
+                    
+                    const itemType = isDir ? 'folder' : 'file';
+                    subtitle.textContent = 'Are you sure you want to delete this ' + itemType + '? ' + fileName;
+                    hideError();
+                    
+                    modal.classList.add('active');
+                    modal.setAttribute('aria-hidden', 'false');
+                    
+                    // Focus confirm button
+                    setTimeout(() => {
+                        confirmBtn.focus();
+                    }, 50);
+                }
+                
+                function closeModal() {
+                    modal.classList.remove('active');
+                    modal.setAttribute('aria-hidden', 'true');
+                    currentFilePath = '';
+                    currentFileName = '';
+                    isDirectory = false;
+                }
+                
+                function performDelete() {
+                    // Disable buttons during operation
+                    confirmBtn.disabled = true;
+                    cancelBtn.disabled = true;
+                    hideError();
+                    
+                    // Send delete request
+                    fetch('', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/x-www-form-urlencoded',
+                        },
+                        body: 'delete=1&file_path=' + encodeURIComponent(currentFilePath)
+                    })
+                    .then(response => {
+                        // Check if response is ok before parsing JSON
+                        if (!response.ok) {
+                            return response.json().then(data => {
+                                throw new Error(data.error || 'Failed to delete');
+                            }).catch(() => {
+                                throw new Error('Failed to delete');
+                            });
+                        }
+                        return response.json();
+                    })
+                    .then(data => {
+                        if (data.success) {
+                            // Reload page to show updated list
+                            window.location.reload();
+                        } else {
+                            showError(data.error || 'Failed to delete');
+                            confirmBtn.disabled = false;
+                            cancelBtn.disabled = false;
+                        }
+                    })
+                    .catch(err => {
+                        showError(err.message || 'An error occurred. Please try again.');
+                        confirmBtn.disabled = false;
+                        cancelBtn.disabled = false;
+                        console.error('Delete error:', err);
+                    });
+                }
+                
+                // Event listeners
+                document.addEventListener('click', function(e) {
+                    const deleteBtn = e.target.closest('.delete-btn');
+                    if (deleteBtn) {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        
+                        const filePath = deleteBtn.dataset.filePath;
+                        const fileName = deleteBtn.dataset.fileName;
+                        const isDir = deleteBtn.dataset.isDir === 'true';
+                        
+                        openModal(filePath, fileName, isDir);
+                    }
+                });
+                
+                cancelBtn.addEventListener('click', closeModal);
+                
+                confirmBtn.addEventListener('click', performDelete);
+                
+                // Close modal when clicking outside
+                modal.addEventListener('click', function(e) {
+                    if (e.target === modal) {
+                        closeModal();
+                    }
+                });
+                
+                // Keyboard support
+                modal.addEventListener('keydown', function(e) {
+                    if (e.key === 'Escape') {
+                        e.preventDefault();
                         closeModal();
                     }
                 });

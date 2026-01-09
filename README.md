@@ -21,6 +21,7 @@ Perfect for sharing downloads, documents, or quick internal file access.
 - 🖼 **File-type icons & color coding** powered by Font Awesome
 - 👁️ **Hover previews** — see thumbnails of images, videos, audio, and PDFs before downloading
 - ✏️ **Rename files and folders** — easily rename items directly from the web interface (optional, configurable)
+- 🗑️ **Delete files and folders** — remove items with confirmation dialog (optional, configurable)
 - 📥 **Secure downloads** — individual file downloads with proper content-type headers
 - 📦 **Download All as ZIP** — bundle entire directories into a single ZIP file
 - 📊 **File statistics** — displays folder/file counts and total size
@@ -127,6 +128,13 @@ You can easily tailor the lister by editing the `index.php` file:
   ```
   When enabled, a rename button (pencil icon) appears when hovering over files and folders, allowing you to rename them directly from the interface.
 
+- **Delete functionality**  
+  Enable or disable the delete feature by changing the `$enableDelete` variable at the top of the file:
+  ```php
+  $enableDelete = true;  // Set to false to disable delete functionality
+  ```
+  When enabled, a delete button (trash icon) appears when hovering over files and folders, allowing you to delete them after confirmation. **Warning: Deleted files cannot be recovered.**
+
 - **Title, subtitle & footer**  
   Change the `$title`, `$subtitle`, and `$footer` variables at the top of the file.
 
@@ -196,6 +204,65 @@ The rename dialog displays helpful error messages for common issues:
 
 ---
 
+## Delete Feature
+
+The delete feature allows you to permanently delete files and folders directly from the web interface.
+
+### How to Use
+
+1. Hover over any file or folder in the list to reveal the delete button (trash icon)
+2. Click the delete button to open the confirmation dialog
+3. Review the warning message about permanent deletion
+4. Click "Delete" to confirm, or "Cancel" to abort
+
+### Security & Validation
+
+The delete feature includes robust security measures:
+
+- **Path traversal prevention** — Validates all paths to prevent unauthorized access
+- **System file protection** — Cannot delete `index.php` or hidden files (starting with `.`)
+- **Recursive deletion** — Automatically handles folder deletion with all contents
+- **Confirmation required** — Always prompts for confirmation before deleting
+- **Input validation** — All paths are validated before any deletion occurs
+
+### Configuration
+
+The delete feature can be enabled or disabled via the `$enableDelete` configuration variable:
+
+```php
+$enableDelete = true;  // Set to false to disable delete functionality
+```
+
+When disabled:
+- Delete buttons are hidden from the UI
+- Backend delete endpoint returns 403 Forbidden if accessed
+
+### Important Warnings
+
+⚠️ **IRREVERSIBLE ACTION**: Deleted files and folders cannot be recovered. They are permanently removed from the filesystem.
+
+⚠️ **NO TRASH/RECYCLE BIN**: Unlike operating systems with a trash bin, deletions are immediate and permanent.
+
+⚠️ **FOLDER DELETION**: When deleting a folder, all its contents (files and subfolders) are also permanently deleted.
+
+### Best Practices
+
+1. **Enable only when needed** — Keep delete functionality disabled unless actively required
+2. **Use server backups** — Ensure regular backups are in place before enabling delete
+3. **Limit access** — Use web server authentication (`.htaccess`, HTTP Basic Auth) to restrict access
+4. **Test carefully** — Test in a safe environment before using in production
+5. **Review permissions** — Ensure filesystem permissions match your security requirements
+
+### Error Handling
+
+The delete dialog displays helpful error messages:
+- "File or folder not found" — when the target doesn't exist
+- "Cannot delete this item" — when trying to delete protected files
+- "Delete functionality is disabled" — when the feature is turned off
+- "Failed to delete item" — when the filesystem operation fails
+
+---
+
 ## Notes
 
 - Files and directories are sorted naturally (case-insensitive) for better organization
@@ -203,10 +270,11 @@ The rename dialog displays helpful error messages for common issues:
 - Pagination preserves the current directory path when navigating between pages
 - No authentication is built-in — use web server authentication (`.htaccess`, HTTP Basic Auth) if needed
 - Hover previews only work on desktop devices with mouse support (disabled on touch-only devices)
-- Rename buttons appear on hover on desktop; always visible on mobile/touch devices
+- Rename and delete buttons appear on hover on desktop; always visible on mobile/touch devices
 - ZIP download feature requires the ZipArchive PHP extension (enabled by default on most PHP installations)
 - Preview handler is optimized for performance — it's placed at the top of the script and exits immediately
 - Hidden files (starting with `.`) and dangerous executables are automatically excluded from listings
+- **Delete operations are permanent** — deleted files cannot be recovered, so use this feature carefully
 
 ---
 
