@@ -13,7 +13,6 @@
 // ============================================================================
 // Version is automatically updated by GitHub Actions on merge to main branch
 define('APP_VERSION', '1.0.4');
-define('APP_VERSION_DATE', '2026-01-09');
 
 // ============================================================================
 // CONFIGURATION
@@ -2797,21 +2796,8 @@ if ($isValidPath) {
         <?php endif; ?>
 
         <footer>
-            <a href="https://github.com/BlindTrevor/SimplePhpFileLister/" target="_blank">
-                <img src="https://img.shields.io/badge/Created_by_Blind_Trevor-Simple_PHP_File_Lister-magenta" alt="GitHub"/>
-            </a>
-        </footer>
-        <footer>
-			<span>
-                Version <?php echo htmlspecialchars(APP_VERSION, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8'); ?>
-                <?php if (defined('APP_VERSION_DATE')): ?>
-                    (<?php echo htmlspecialchars(APP_VERSION_DATE, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8'); ?>)
-                <?php endif; ?>
-				-
-            </span>
-            Need a different version? Check the 
             <a href="https://github.com/BlindTrevor/SimplePhpFileLister/releases" target="_blank">
-                releases page
+                <img src="https://img.shields.io/badge/Created_by_Blind_Trevor-Simple_PHP_File_Lister_<?php echo htmlspecialchars(APP_VERSION, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');?>-magenta" alt="GitHub"/>
             </a>
         </footer>
     </div>

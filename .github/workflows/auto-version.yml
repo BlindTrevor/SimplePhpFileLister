@@ -53,7 +53,6 @@ jobs:
           
           # Update index.php with new version and date
           sed -i "s/define('APP_VERSION', '[^']*')/define('APP_VERSION', '$NEW_VERSION')/" index.php
-          sed -i "s/define('APP_VERSION_DATE', '[^']*')/define('APP_VERSION_DATE', '$CURRENT_DATE')/" index.php
           sed -i "s/@version [0-9.]*/@version $NEW_VERSION/" index.php
           
           # Output new version for later steps

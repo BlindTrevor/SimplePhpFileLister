@@ -25,7 +25,6 @@ This project uses automated versioning through GitHub Actions. When code is merg
 ### Version File
 The version information is embedded in `index.php` and includes:
 - `APP_VERSION` - Current version number (e.g., "1.0.0")
-- `APP_VERSION_DATE` - Date of the version release
 
 ---
 
