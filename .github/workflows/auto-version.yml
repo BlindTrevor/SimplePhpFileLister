@@ -1,0 +1,98 @@
+name: Auto-increment Version
+
+# This workflow automatically increments the version number when code is merged into main branch
+# The version number is stored directly in index.php and follows semantic versioning (MAJOR.MINOR.PATCH)
+# Only the PATCH version is automatically incremented. MAJOR and MINOR must be updated manually.
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  update-version:
+    runs-on: ubuntu-latest
+    
+    # Explicit permissions for GITHUB_TOKEN (principle of least privilege)
+    permissions:
+      contents: write  # Required to push commits and tags
+      
+    # Skip this workflow if the commit message contains [skip-version] or [no-version]
+    # This prevents infinite loops and allows manual control when needed
+    if: "!contains(github.event.head_commit.message, '[skip-version]') && !contains(github.event.head_commit.message, '[no-version]')"
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+      
+      - name: Configure Git
+        run: |
+          git config --local user.email "github-actions[bot]@users.noreply.github.com"
+          git config --local user.name "github-actions[bot]"
+      
+      - name: Increment version
+        id: increment
+        run: |
+          # Read current version from index.php
+          CURRENT_VERSION=$(grep -oP "define\('APP_VERSION',\s*'\K[^']+(?=')" index.php)
+          echo "Current version: $CURRENT_VERSION"
+          
+          # Split version into parts (MAJOR.MINOR.PATCH)
+          IFS='.' read -r MAJOR MINOR PATCH <<< "$CURRENT_VERSION"
+          
+          # Increment PATCH version
+          NEW_PATCH=$((PATCH + 1))
+          NEW_VERSION="${MAJOR}.${MINOR}.${NEW_PATCH}"
+          echo "New version: $NEW_VERSION"
+          
+          # Get current date
+          CURRENT_DATE=$(date +%Y-%m-%d)
+          
+          # Update index.php with new version and date
+          sed -i "s/define('APP_VERSION', '[^']*')/define('APP_VERSION', '$NEW_VERSION')/" index.php
+          sed -i "s/define('APP_VERSION_DATE', '[^']*')/define('APP_VERSION_DATE', '$CURRENT_DATE')/" index.php
+          sed -i "s/@version [0-9.]*/@version $NEW_VERSION/" index.php
+          
+          # Output new version for later steps
+          echo "version=$NEW_VERSION" >> $GITHUB_OUTPUT
+          echo "date=$CURRENT_DATE" >> $GITHUB_OUTPUT
+      
+      - name: Commit version update
+        run: |
+          git add index.php
+          git commit -m "chore: bump version to ${{ steps.increment.outputs.version }} [skip-version]"
+      
+      - name: Push changes
+        run: |
+          git push origin main
+      
+      - name: Create Git tag
+        run: |
+          git tag -a "v${{ steps.increment.outputs.version }}" -m "Release version ${{ steps.increment.outputs.version }}"
+          git push origin "v${{ steps.increment.outputs.version }}"
+      
+      - name: Create GitHub Release
+        uses: actions/create-release@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tag_name: v${{ steps.increment.outputs.version }}
+          release_name: Version ${{ steps.increment.outputs.version }}
+          body: |
+            ## Version ${{ steps.increment.outputs.version }}
+            
+            Released on ${{ steps.increment.outputs.date }}
+            
+            This version was automatically created when code was merged into the main branch.
+            
+            ### Installation
+            Download the `index.php` file and place it in your web directory. It's a single self-contained file with no dependencies (except Font Awesome CDN for icons).
+            
+            ### Full Changelog
+            See commit history for detailed changes: https://github.com/${{ github.repository }}/commits/main
+          draft: false
+          prerelease: false
+

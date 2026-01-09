@@ -10,6 +10,25 @@ Perfect for sharing downloads, documents, or quick internal file access.
 
 ---
 
+## Version Information
+
+The current version of Simple PHP File Lister can be found in the `index.php` file (APP_VERSION constant) or displayed in the footer of the application interface.
+
+### Automatic Version Updates
+This project uses automated versioning through GitHub Actions. When code is merged into the `main` branch, the version number is automatically incremented and a new release is created.
+
+- **Version format**: `MAJOR.MINOR.PATCH` (semantic versioning)
+- **Automatic increment**: PATCH version is auto-incremented on each main branch merge
+- **Manual updates**: MAJOR and MINOR versions should be updated manually for significant changes
+- **Releases**: Automatically created with each version bump on the [releases page](https://github.com/BlindTrevor/SimplePhpFileLister/releases)
+
+### Version File
+The version information is embedded in `index.php` and includes:
+- `APP_VERSION` - Current version number (e.g., "1.0.0")
+- `APP_VERSION_DATE` - Date of the version release
+
+---
+
 ## Features
 
 - ✅ **Zero configuration** — works immediately
@@ -89,11 +108,30 @@ SimplePhpFileLister is designed with security as a top priority. Here's why you 
 
 ## Installation
 
-1. Copy the `index.php` file into the directory you want to list.
-2. Upload the directory to your PHP-enabled web server.
-3. Visit the directory in your browser.
+1. Download the latest version:
+   - Visit the [releases page](https://github.com/BlindTrevor/SimplePhpFileLister/releases)
+   - Download the latest `index.php` file
+   - Alternatively, download the source code ZIP from the latest release and extract `index.php`
 
-That’s it - the file list will render automatically.
+2. Copy the `index.php` file into the directory you want to list.
+
+3. Upload the directory to your PHP-enabled web server.
+
+4. Visit the directory in your browser.
+
+That's it - the file list will render automatically with version information displayed in the footer. **Everything is self-contained in a single PHP file!**
+
+### Updating to a New Version
+
+To update to a newer version:
+1. Download the new `index.php` file from the [releases page](https://github.com/BlindTrevor/SimplePhpFileLister/releases)
+2. Replace your existing `index.php` with the new one
+3. Your configuration settings will need to be re-applied (see Customization section)
+
+**Tip**: Before updating, document your custom settings (title, subtitle, feature flags, etc.) so you can easily re-apply them to the new version.
+
+---
+---
 
 ---
 
@@ -379,3 +417,46 @@ Free to use, modify, and redistribute.
 
 **Simple PHP File Lister**  
 © Andrew Samuel 2026
+## Version Management (For Contributors)
+
+This project uses automated semantic versioning to track releases.
+
+### How It Works
+
+1. **Version Storage**: The version number is stored directly in `index.php` as constants:
+   - `APP_VERSION` (e.g., "1.0.0")
+   - `APP_VERSION_DATE` (e.g., "2026-01-09")
+
+2. **Automatic Increment**: When code is merged into the `main` branch:
+   - GitHub Actions automatically increments the PATCH version (e.g., 1.0.0 → 1.0.1)
+   - The date is updated to the current date
+   - Changes are committed back to the repository
+   - A Git tag is created (e.g., `v1.0.1`)
+   - A GitHub Release is automatically published
+
+3. **Manual Updates**: For MAJOR or MINOR version changes:
+   - Edit the `APP_VERSION` constant in `index.php` manually
+   - Update the version in the PHPDoc comment at the top (`@version`)
+   - Commit with a descriptive message explaining the version bump
+   - The automated system will continue incrementing from the new base
+
+### Semantic Versioning
+
+- **MAJOR** (X.0.0): Breaking changes or major feature overhauls
+- **MINOR** (x.Y.0): New features or significant improvements (backward compatible)
+- **PATCH** (x.y.Z): Bug fixes and minor improvements (automatically incremented)
+
+### Skipping Auto-Version
+
+To prevent automatic version increment for a specific merge, include `[skip-version]` or `[no-version]` in your commit message.
+
+Example:
+```
+docs: update README with clarifications [skip-version]
+```
+
+### Version Display
+
+The version is displayed in the footer of the application interface, helping users identify which version they're running for support and debugging purposes.
+
+---
