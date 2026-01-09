@@ -1249,6 +1249,7 @@ if ($isValidPath) {
             --stats-border: rgba(0, 0, 0, 0.08);
             --stats-divider: rgba(0, 0, 0, 0.06);
             --stats-shadow: rgba(0, 0, 0, 0.06);
+            --info-btn-bg: linear-gradient(135deg, #34495e 0%, #2c3e50 100%);
         }
         
         /* Blue Theme */
@@ -1269,6 +1270,7 @@ if ($isValidPath) {
             --stats-border: rgba(0, 0, 0, 0.08);
             --stats-divider: rgba(0, 0, 0, 0.06);
             --stats-shadow: rgba(0, 0, 0, 0.06);
+            --info-btn-bg: linear-gradient(135deg, #34495e 0%, #2c3e50 100%);
         }
         
         /* Green Theme */
@@ -1289,6 +1291,7 @@ if ($isValidPath) {
             --stats-border: rgba(0, 0, 0, 0.08);
             --stats-divider: rgba(0, 0, 0, 0.06);
             --stats-shadow: rgba(0, 0, 0, 0.06);
+            --info-btn-bg: linear-gradient(135deg, #34495e 0%, #2c3e50 100%);
         }
         
         /* Dark Theme */
@@ -1309,6 +1312,7 @@ if ($isValidPath) {
             --stats-border: rgba(255, 255, 255, 0.1);
             --stats-divider: rgba(255, 255, 255, 0.1);
             --stats-shadow: rgba(0, 0, 0, 0.3);
+            --info-btn-bg: linear-gradient(135deg, #4a5568 0%, #2d3748 100%);
         }
         
         /* Light Theme */
@@ -1329,6 +1333,7 @@ if ($isValidPath) {
             --stats-border: rgba(0, 0, 0, 0.08);
             --stats-divider: rgba(0, 0, 0, 0.06);
             --stats-shadow: rgba(0, 0, 0, 0.06);
+            --info-btn-bg: linear-gradient(135deg, #718096 0%, #4a5568 100%);
         }
         
         /* ================================================================
@@ -1631,7 +1636,7 @@ if ($isValidPath) {
             color: white;
             font-weight: 700;
             padding: 8px 14px;
-            background: linear-gradient(135deg, #34495e 0%, #2c3e50 100%);
+            background: var(--info-btn-bg);
             border-radius: 0;
             box-shadow: none;
             letter-spacing: 0.01em;
