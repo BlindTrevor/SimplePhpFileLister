@@ -1654,6 +1654,7 @@ if ($isValidPath) {
         footer a {
             display: inline-block;
             transition: transform 0.2s ease;
+            color: rgba(255, 255, 255, 0.95);
         }
         
         footer a:hover {
@@ -2769,18 +2770,18 @@ if ($isValidPath) {
             <a href="https://github.com/BlindTrevor/SimplePhpFileLister/" target="_blank">
                 <img src="https://img.shields.io/badge/Created_by_Blind_Trevor-Simple_PHP_File_Lister-magenta" alt="GitHub"/>
             </a>
-            <span style="margin-left: 10px; color: var(--muted); font-size: 0.875rem;">
+        </footer>
+        <footer>
+			<span>
                 Version <?php echo htmlspecialchars(APP_VERSION, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8'); ?>
                 <?php if (defined('APP_VERSION_DATE')): ?>
                     (<?php echo htmlspecialchars(APP_VERSION_DATE, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8'); ?>)
                 <?php endif; ?>
+				-
             </span>
-        </footer>
-        <footer style="margin-top: 5px; font-size: 0.8rem; color: var(--muted);">
             Need a different version? Check the 
-            <a href="https://github.com/BlindTrevor/SimplePhpFileLister/releases" target="_blank" style="color: var(--accent);">
+            <a href="https://github.com/BlindTrevor/SimplePhpFileLister/releases" target="_blank">
                 releases page
-            </a>
             </a>
         </footer>
     </div>
