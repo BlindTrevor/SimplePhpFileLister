@@ -1357,7 +1357,11 @@ if ($isValidPath) {
         
         .rename-btn {
             position: absolute;
-            right: 56px;
+            <?php if ($enableDelete): ?>
+            right: 56px; /* Leave space for delete button */
+            <?php else: ?>
+            right: 12px; /* No delete button, position closer to edge */
+            <?php endif; ?>
             top: 50%;
             transform: translateY(-50%);
             background: var(--accent);
@@ -1836,7 +1840,11 @@ if ($isValidPath) {
             
             .rename-btn {
                 opacity: 1;
-                right: 48px;
+                <?php if ($enableDelete): ?>
+                right: 48px; /* Leave space for delete button */
+                <?php else: ?>
+                right: 8px; /* No delete button, position closer to edge */
+                <?php endif; ?>
                 width: 32px;
                 height: 32px;
                 font-size: 0.85rem;
