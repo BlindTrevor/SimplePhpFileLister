@@ -1243,6 +1243,12 @@ if ($isValidPath) {
             --border: #e2e8f0; 
             --shadow: 0 10px 40px rgba(0, 0, 0, 0.1);
             --shadow-hover: 0 15px 50px rgba(0, 0, 0, 0.15);
+            --footer-text: rgba(255, 255, 255, 0.95);
+            --footer-shadow: rgba(0, 0, 0, 0.3);
+            --stats-bg: linear-gradient(135deg, #ffffff 0%, #f8f9fa 100%);
+            --stats-border: rgba(0, 0, 0, 0.08);
+            --stats-divider: rgba(0, 0, 0, 0.06);
+            --stats-shadow: rgba(0, 0, 0, 0.06);
         }
         
         /* Blue Theme */
@@ -1257,6 +1263,12 @@ if ($isValidPath) {
             --border: #e2e8f0;
             --shadow: 0 10px 40px rgba(0, 0, 0, 0.1);
             --shadow-hover: 0 15px 50px rgba(0, 0, 0, 0.15);
+            --footer-text: rgba(255, 255, 255, 0.95);
+            --footer-shadow: rgba(0, 0, 0, 0.3);
+            --stats-bg: linear-gradient(135deg, #ffffff 0%, #f8f9fa 100%);
+            --stats-border: rgba(0, 0, 0, 0.08);
+            --stats-divider: rgba(0, 0, 0, 0.06);
+            --stats-shadow: rgba(0, 0, 0, 0.06);
         }
         
         /* Green Theme */
@@ -1271,6 +1283,12 @@ if ($isValidPath) {
             --border: #e2e8f0;
             --shadow: 0 10px 40px rgba(0, 0, 0, 0.1);
             --shadow-hover: 0 15px 50px rgba(0, 0, 0, 0.15);
+            --footer-text: rgba(255, 255, 255, 0.95);
+            --footer-shadow: rgba(0, 0, 0, 0.3);
+            --stats-bg: linear-gradient(135deg, #ffffff 0%, #f8f9fa 100%);
+            --stats-border: rgba(0, 0, 0, 0.08);
+            --stats-divider: rgba(0, 0, 0, 0.06);
+            --stats-shadow: rgba(0, 0, 0, 0.06);
         }
         
         /* Dark Theme */
@@ -1285,6 +1303,12 @@ if ($isValidPath) {
             --border: #4a5568;
             --shadow: 0 10px 40px rgba(0, 0, 0, 0.3);
             --shadow-hover: 0 15px 50px rgba(0, 0, 0, 0.4);
+            --footer-text: rgba(255, 255, 255, 0.95);
+            --footer-shadow: rgba(0, 0, 0, 0.3);
+            --stats-bg: #1a202c;
+            --stats-border: rgba(255, 255, 255, 0.1);
+            --stats-divider: rgba(255, 255, 255, 0.1);
+            --stats-shadow: rgba(0, 0, 0, 0.3);
         }
         
         /* Light Theme */
@@ -1299,6 +1323,12 @@ if ($isValidPath) {
             --border: #cbd5e0;
             --shadow: 0 10px 40px rgba(0, 0, 0, 0.08);
             --shadow-hover: 0 15px 50px rgba(0, 0, 0, 0.12);
+            --footer-text: #2d3748;
+            --footer-shadow: rgba(255, 255, 255, 0.8);
+            --stats-bg: linear-gradient(135deg, #ffffff 0%, #f8f9fa 100%);
+            --stats-border: rgba(0, 0, 0, 0.08);
+            --stats-divider: rgba(0, 0, 0, 0.06);
+            --stats-shadow: rgba(0, 0, 0, 0.06);
         }
         
         /* ================================================================
@@ -1751,13 +1781,13 @@ if ($isValidPath) {
         .stats-container {
             margin-top: 24px;
             padding: 14px 18px;
-            background: linear-gradient(135deg, #ffffff 0%, #f8f9fa 100%);
+            background: var(--stats-bg);
             border-radius: 10px;
-            border: 1px solid rgba(0, 0, 0, 0.08);
+            border: 1px solid var(--stats-border);
             display: flex;
             flex-direction: column;
             gap: 12px;
-            box-shadow: 0 2px 12px rgba(0, 0, 0, 0.06);
+            box-shadow: 0 2px 12px var(--stats-shadow);
         }
         
         .stats-top-row {
@@ -1782,7 +1812,7 @@ if ($isValidPath) {
             gap: 12px;
             flex-wrap: wrap;
             padding-top: 12px;
-            border-top: 1px solid rgba(0, 0, 0, 0.06);
+            border-top: 1px solid var(--stats-divider);
         }
         
         /* ================================================================
@@ -1792,15 +1822,15 @@ if ($isValidPath) {
             margin-top: 20px; 
             text-align: center; 
             font-size: clamp(0.75rem, 2vw, 0.875rem);
-            color: rgba(255, 255, 255, 0.95);
+            color: var(--footer-text);
             font-weight: 400;
-            text-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+            text-shadow: 0 1px 3px var(--footer-shadow);
         }
         
         footer a {
             display: inline-block;
             transition: transform 0.2s ease;
-            color: rgba(255, 255, 255, 0.95);
+            color: var(--footer-text);
         }
         
         footer a:hover {
