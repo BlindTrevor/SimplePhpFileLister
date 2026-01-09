@@ -140,8 +140,9 @@ function getFileIcon(string $path): array {
  * @param int $fileSize File size in bytes (for files only)
  * @param bool $enableRename Whether rename functionality is enabled
  * @param bool $enableDelete Whether delete functionality is enabled
+ * @param bool $showCheckbox Whether to show checkbox for multi-select
  */
-function renderItem(string $entry, bool $isDir, string $currentPath, int $fileSize = 0, bool $enableRename = false, bool $enableDelete = false): void {
+function renderItem(string $entry, bool $isDir, string $currentPath, int $fileSize = 0, bool $enableRename = false, bool $enableDelete = false, bool $showCheckbox = false): void {
     if ($isDir) {
         $href = '?path=' . rawurlencode($currentPath ? $currentPath . '/' . $entry : $entry);
         $iconClass = 'fa-solid fa-folder';
@@ -175,6 +176,19 @@ function renderItem(string $entry, bool $isDir, string $currentPath, int $fileSi
     }
 
     $label = htmlspecialchars($entry, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
+    $filePath = $currentPath ? $currentPath . '/' . $entry : $entry;
+    
+    // Add checkbox for multi-select if enabled
+    $checkbox = '';
+    if ($showCheckbox) {
+        $checkbox = sprintf(
+            '<input type="checkbox" class="item-checkbox" data-item-path="%s" data-item-name="%s" data-is-dir="%s" aria-label="Select %s">',
+            htmlspecialchars($filePath, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8'),
+            $label,
+            $isDir ? 'true' : 'false',
+            $label
+        );
+    }
     
     // Add rename button if enabled
     $renameButton = '';
@@ -203,7 +217,8 @@ function renderItem(string $entry, bool $isDir, string $currentPath, int $fileSi
     }
 
     printf(
-        '<li><a href="%s" %s%s><span class="file-icon %s"><i class="%s"></i></span><span class="file-name">%s</span>%s</a>%s%s</li>' . PHP_EOL,
+        '<li>%s<a href="%s" %s%s><span class="file-icon %s"><i class="%s"></i></span><span class="file-name">%s</span>%s</a>%s%s</li>' . PHP_EOL,
+        $checkbox,
         htmlspecialchars($href, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8'),
         $linkAttributes,
         $dataAttributes,
@@ -539,6 +554,280 @@ if (isset($_POST['delete'])) {
         http_response_code(500);
         echo json_encode(['success' => false, 'error' => 'Failed to delete item']);
     }
+    exit;
+}
+
+/**
+ * Secure batch delete handler
+ */
+if (isset($_POST['delete_batch'])) {
+    header('Content-Type: application/json');
+    
+    // Check if delete is enabled
+    if (!$enableDelete) {
+        http_response_code(403);
+        echo json_encode(['success' => false, 'error' => 'Delete functionality is disabled']);
+        exit;
+    }
+    
+    $itemsJson = isset($_POST['items']) ? (string)$_POST['items'] : '';
+    
+    // Validate input
+    if (empty($itemsJson)) {
+        http_response_code(400);
+        echo json_encode(['success' => false, 'error' => 'Invalid parameters']);
+        exit;
+    }
+    
+    // Decode items array
+    $items = json_decode($itemsJson, true);
+    if (!is_array($items) || empty($items)) {
+        http_response_code(400);
+        echo json_encode(['success' => false, 'error' => 'Invalid items list']);
+        exit;
+    }
+    
+    // Recursive delete function for directories
+    $deleteRecursive = function($path) use (&$deleteRecursive) {
+        if (is_dir($path)) {
+            $handle = opendir($path);
+            if ($handle === false) {
+                return false;
+            }
+            
+            while (($entry = readdir($handle)) !== false) {
+                if ($entry === '.' || $entry === '..') {
+                    continue;
+                }
+                
+                // Skip index.php and hidden files within subdirectories
+                if ($entry === 'index.php' || ($entry !== '' && $entry[0] === '.')) {
+                    closedir($handle);
+                    return false;
+                }
+                
+                $entryPath = $path . DIRECTORY_SEPARATOR . $entry;
+                if (!$deleteRecursive($entryPath)) {
+                    closedir($handle);
+                    return false;
+                }
+            }
+            closedir($handle);
+            
+            return @rmdir($path);
+        } else {
+            return @unlink($path);
+        }
+    };
+    
+    $deletedCount = 0;
+    $failedItems = [];
+    
+    // Process each item
+    foreach ($items as $itemPath) {
+        if (!is_string($itemPath) || empty($itemPath)) {
+            continue;
+        }
+        
+        // Resolve path
+        $fullPath = realpath($realRoot . $itemPath);
+        
+        // Validate path exists and is within root
+        if ($fullPath === false || strpos($fullPath . DIRECTORY_SEPARATOR, $realRoot) !== 0) {
+            $failedItems[] = basename($itemPath) . ' (not found)';
+            continue;
+        }
+        
+        // Ensure it's not the index.php file or a hidden file
+        $baseName = basename($fullPath);
+        if ($baseName === 'index.php' || ($baseName !== '' && $baseName[0] === '.')) {
+            $failedItems[] = $baseName . ' (protected)';
+            continue;
+        }
+        
+        // Perform the delete
+        if ($deleteRecursive($fullPath)) {
+            $deletedCount++;
+        } else {
+            $failedItems[] = $baseName . ' (delete failed)';
+        }
+    }
+    
+    if ($deletedCount > 0 && empty($failedItems)) {
+        echo json_encode(['success' => true, 'deleted' => $deletedCount]);
+    } elseif ($deletedCount > 0 && !empty($failedItems)) {
+        echo json_encode(['success' => true, 'deleted' => $deletedCount, 'failed' => $failedItems, 'message' => 'Some items could not be deleted']);
+    } else {
+        http_response_code(500);
+        echo json_encode(['success' => false, 'error' => 'Failed to delete items', 'failed' => $failedItems]);
+    }
+    exit;
+}
+
+/**
+ * Secure batch download as zip handler
+ */
+if (isset($_GET['download_batch_zip'])) {
+    // Check if ZipArchive is available
+    if (!class_exists('ZipArchive')) {
+        http_response_code(500);
+        exit('ZIP support is not available');
+    }
+    
+    $itemsJson = isset($_GET['items']) ? (string)$_GET['items'] : '';
+    
+    // Validate input
+    if (empty($itemsJson)) {
+        http_response_code(400);
+        exit('Invalid parameters');
+    }
+    
+    // Decode items array
+    $items = json_decode($itemsJson, true);
+    if (!is_array($items) || empty($items)) {
+        http_response_code(400);
+        exit('Invalid items list');
+    }
+    
+    // Create a temporary zip file with random name
+    $tempZip = tempnam(sys_get_temp_dir(), 'spfl_batch_' . bin2hex(random_bytes(8)) . '_');
+    
+    // Ensure cleanup even if script terminates unexpectedly
+    register_shutdown_function(function() use ($tempZip) {
+        if (file_exists($tempZip)) {
+            @unlink($tempZip);
+        }
+    });
+    
+    $zip = new ZipArchive();
+    
+    if ($zip->open($tempZip, ZipArchive::CREATE | ZipArchive::OVERWRITE) !== true) {
+        @unlink($tempZip);
+        http_response_code(500);
+        exit('Failed to create ZIP file');
+    }
+    
+    // Recursive function to add directory contents to zip
+    $addToZip = function($dir, $zipPath, &$count) use (&$addToZip, $zip, $realRoot) {
+        $handle = opendir($dir);
+        if ($handle === false) {
+            return;
+        }
+        
+        while (($entry = readdir($handle)) !== false) {
+            if (in_array($entry, ['.', '..', 'index.php'], true) || $entry[0] === '.') {
+                continue;
+            }
+            
+            $fullPath = $dir . '/' . $entry;
+            $realPath = realpath($fullPath);
+            
+            // Skip invalid paths, symlinks
+            if (is_link($fullPath) || $realPath === false || 
+                strpos($realPath . DIRECTORY_SEPARATOR, $realRoot) !== 0) {
+                continue;
+            }
+            
+            $zipEntryPath = $zipPath ? $zipPath . '/' . $entry : $entry;
+            
+            if (is_dir($fullPath)) {
+                // Add directory to zip and recurse
+                $zip->addEmptyDir($zipEntryPath);
+                $addToZip($fullPath, $zipEntryPath, $count);
+            } else {
+                // Block dangerous extensions
+                $ext = strtolower(pathinfo($entry, PATHINFO_EXTENSION));
+                if (in_array($ext, BLOCKED_EXTENSIONS, true)) {
+                    continue;
+                }
+                
+                // Add file to zip
+                if ($zip->addFile($fullPath, $zipEntryPath)) {
+                    $count++;
+                }
+            }
+        }
+        closedir($handle);
+    };
+    
+    $fileCount = 0;
+    
+    // Process each selected item
+    foreach ($items as $itemPath) {
+        if (!is_string($itemPath) || empty($itemPath)) {
+            continue;
+        }
+        
+        // Resolve path
+        $fullPath = realpath($realRoot . $itemPath);
+        
+        // Validate path exists and is within root
+        if ($fullPath === false || strpos($fullPath . DIRECTORY_SEPARATOR, $realRoot) !== 0) {
+            continue;
+        }
+        
+        // Ensure it's not the index.php file or a hidden file
+        $baseName = basename($fullPath);
+        if ($baseName === 'index.php' || ($baseName !== '' && $baseName[0] === '.')) {
+            continue;
+        }
+        
+        if (is_dir($fullPath)) {
+            // Add directory and its contents
+            $zip->addEmptyDir($baseName);
+            $addToZip($fullPath, $baseName, $fileCount);
+        } else {
+            // Block dangerous extensions
+            $ext = strtolower(pathinfo($baseName, PATHINFO_EXTENSION));
+            if (in_array($ext, BLOCKED_EXTENSIONS, true)) {
+                continue;
+            }
+            
+            // Add single file
+            if ($zip->addFile($fullPath, $baseName)) {
+                $fileCount++;
+            }
+        }
+    }
+    
+    $zip->close();
+    
+    // If no files were added, clean up and exit
+    if ($fileCount === 0) {
+        @unlink($tempZip);
+        http_response_code(404);
+        exit('No files available to download');
+    }
+    
+    // Generate filename for the zip
+    $zipFilename = 'selected_files.zip';
+    
+    // Open file for reading before sending headers
+    $fp = fopen($tempZip, 'rb');
+    if ($fp === false) {
+        @unlink($tempZip);
+        http_response_code(500);
+        exit('Failed to read ZIP file');
+    }
+    
+    // Send the zip file
+    $safeFilename = preg_replace('/[\x00-\x1F\x7F"\\\\]|[\r\n]/', '', $zipFilename);
+    $encodedFilename = rawurlencode($zipFilename);
+    
+    header('Content-Type: application/zip');
+    header("Content-Disposition: attachment; filename=\"{$safeFilename}\"; filename*=UTF-8''{$encodedFilename}");
+    header('X-Content-Type-Options: nosniff');
+    header('Content-Length: ' . filesize($tempZip));
+    
+    // Disable output buffering for efficient streaming of large files
+    while (ob_get_level() > 0) {
+        ob_end_clean();
+    }
+    
+    // Stream file content and cleanup
+    fpassthru($fp);
+    fclose($fp);
+    @unlink($tempZip);
     exit;
 }
 
@@ -1061,25 +1350,203 @@ if ($isValidPath) {
         }
         
         /* ================================================================
+           MULTI-SELECT CONTROLS
+           ================================================================ */
+        .multi-select-controls-bottom {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+            flex-wrap: wrap;
+        }
+        
+        .select-all-container {
+            display: inline-flex;
+            align-items: center;
+            gap: 10px;
+            cursor: pointer;
+            font-size: clamp(0.875rem, 2vw, 0.95rem);
+            font-weight: 600;
+            color: var(--text);
+            user-select: none;
+            padding: 10px 16px;
+            border-radius: 10px;
+            transition: all 0.2s ease;
+            background: white;
+            border: 2px solid rgba(102, 126, 234, 0.2);
+        }
+        
+        .select-all-container:hover {
+            background-color: rgba(102, 126, 234, 0.08);
+            border-color: var(--accent);
+        }
+        
+        .select-all-container input[type="checkbox"] {
+            width: 20px;
+            height: 20px;
+            cursor: pointer;
+            accent-color: var(--accent);
+            border-radius: 4px;
+        }
+        
+        .multi-select-actions {
+            display: inline-flex;
+            align-items: center;
+            gap: 12px;
+            flex-wrap: wrap;
+        }
+        
+        .selected-count {
+            font-size: clamp(0.875rem, 2vw, 0.95rem);
+            color: white;
+            font-weight: 700;
+            padding: 10px 16px;
+            background: linear-gradient(135deg, var(--accent) 0%, var(--accent-hover) 100%);
+            border-radius: 10px;
+            box-shadow: 0 2px 8px rgba(102, 126, 234, 0.25);
+            letter-spacing: 0.02em;
+        }
+        
+        .batch-actions-container {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            flex-wrap: wrap;
+        }
+        
+        .batch-download-btn,
+        .batch-delete-btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 11px 20px;
+            border: none;
+            border-radius: 10px;
+            font-size: clamp(0.875rem, 2vw, 0.95rem);
+            font-weight: 700;
+            cursor: pointer;
+            transition: all 0.25s ease;
+            box-shadow: 0 3px 10px rgba(0, 0, 0, 0.12);
+            white-space: nowrap;
+            letter-spacing: 0.01em;
+        }
+        
+        .batch-download-btn {
+            background: linear-gradient(135deg, var(--accent) 0%, var(--accent-hover) 100%);
+            color: white;
+        }
+        
+        .batch-download-btn:hover {
+            background: linear-gradient(135deg, var(--accent-hover) 0%, var(--accent) 100%);
+            transform: translateY(-2px);
+            box-shadow: 0 5px 16px rgba(102, 126, 234, 0.35);
+        }
+        
+        .batch-download-btn:active {
+            transform: translateY(0);
+            box-shadow: 0 2px 8px rgba(102, 126, 234, 0.3);
+        }
+        
+        .batch-delete-btn {
+            background: linear-gradient(135deg, #e74c3c 0%, #c0392b 100%);
+            color: white;
+        }
+        
+        .batch-delete-btn:hover {
+            background: linear-gradient(135deg, #c0392b 0%, #e74c3c 100%);
+            transform: translateY(-2px);
+            box-shadow: 0 5px 16px rgba(231, 76, 60, 0.35);
+        }
+        
+        .batch-delete-btn:active {
+            transform: translateY(0);
+            box-shadow: 0 2px 8px rgba(231, 76, 60, 0.3);
+        }
+        
+        .batch-btn-hidden {
+            display: none !important;
+        }
+        
+        .multi-select-actions-hidden {
+            display: none !important;
+        }
+        
+        .item-checkbox {
+            width: 20px;
+            height: 20px;
+            cursor: pointer;
+            margin-right: 12px;
+            margin-left: 12px;
+            flex-shrink: 0;
+            accent-color: var(--accent);
+            border-radius: 4px;
+            transition: transform 0.15s ease, box-shadow 0.15s ease;
+        }
+        
+        .item-checkbox:hover {
+            transform: scale(1.1);
+            box-shadow: 0 0 0 4px rgba(102, 126, 234, 0.1);
+        }
+        
+        .item-checkbox:checked {
+            transform: scale(1.05);
+        }
+        
+        .item-checkbox:active {
+            transform: scale(0.95);
+        }
+        
+        .file-list li {
+            display: flex;
+            align-items: center;
+            transition: all 0.2s ease;
+        }
+        
+        .file-list li.selected {
+            background: linear-gradient(135deg, rgba(102, 126, 234, 0.08) 0%, rgba(85, 104, 211, 0.12) 100%);
+            border-left: 4px solid var(--accent);
+        }
+        
+        .file-list li.selected a {
+            padding-left: 12px;
+        }
+        
+        .file-list li a {
+            flex: 1;
+        }
+        
+        /* ================================================================
            STATISTICS & INFO DISPLAY
            ================================================================ */
         .stats-container {
-            margin-top: 24px;
-            padding: 16px 20px;
-            background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
-            border-radius: 10px;
+            margin-top: 28px;
+            padding: 20px 24px;
+            background: linear-gradient(135deg, #ffffff 0%, #f8f9fa 100%);
+            border-radius: 12px;
+            border: 1px solid rgba(0, 0, 0, 0.08);
+            display: grid;
+            grid-template-columns: 1fr auto;
+            align-items: center;
+            gap: 24px;
+            box-shadow: 0 2px 12px rgba(0, 0, 0, 0.06);
+        }
+        
+        .folder-file-count {
+            color: var(--text);
+            font-size: clamp(0.875rem, 2vw, 0.95rem);
+            font-weight: 600;
+            letter-spacing: 0.01em;
+            grid-column: 1;
+        }
+        
+        .stats-actions-row {
+            grid-column: 1 / -1;
             display: flex;
             justify-content: space-between;
             align-items: center;
             gap: 20px;
-            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
-        }
-        
-        .folder-file-count {
-            color: var(--muted);
-            font-size: clamp(0.813rem, 2vw, 0.9rem);
-            font-weight: 500;
-            flex: 1;
+            flex-wrap: wrap;
+            padding-top: 16px;
+            border-top: 1px solid rgba(0, 0, 0, 0.06);
         }
         
         /* ================================================================
@@ -1320,6 +1787,52 @@ if ($isValidPath) {
             .delete-modal-content {
                 padding: 24px 20px;
             }
+            
+            .stats-container {
+                grid-template-columns: 1fr;
+                gap: 16px;
+                padding: 18px 20px;
+            }
+            
+            .folder-file-count {
+                grid-column: 1;
+            }
+            
+            .stats-actions-row {
+                grid-column: 1;
+                flex-direction: column;
+                align-items: stretch;
+                gap: 12px;
+                padding-top: 12px;
+            }
+            
+            .multi-select-controls-bottom {
+                width: 100%;
+                flex-direction: column;
+                align-items: stretch;
+                gap: 10px;
+            }
+            
+            .select-all-container {
+                justify-content: center;
+            }
+            
+            .multi-select-actions {
+                justify-content: center;
+            }
+            
+            .batch-actions-container {
+                width: 100%;
+                flex-direction: column;
+            }
+            
+            .batch-download-btn,
+            .batch-delete-btn,
+            .download-all-btn {
+                width: 100%;
+                justify-content: center;
+                padding: 12px 16px;
+            }
         }
         
         /* Mobile phones (landscape) and small tablets */
@@ -1339,6 +1852,28 @@ if ($isValidPath) {
             .download-all-btn {
                 width: 100%;
                 justify-content: center;
+            }
+            
+            .stats-actions-row {
+                flex-direction: column;
+                align-items: stretch;
+                gap: 12px;
+            }
+            
+            .multi-select-controls-bottom {
+                width: 100%;
+            }
+            
+            .batch-actions-container {
+                width: 100%;
+                flex-direction: column;
+            }
+            
+            .batch-download-btn,
+            .batch-delete-btn {
+                width: 100%;
+                justify-content: center;
+                padding: 11px 16px;
             }
         }
         
@@ -1930,6 +2465,10 @@ if ($isValidPath) {
                     // Note: $dirs is an array of directory name strings
                     // Note: $files is an array of ['name' => string, 'size' => int] arrays
                     $totalItems = count($dirs) + count($files);
+                    
+                    // Store if we have items for later use in stats container
+                    $hasItemsToSelect = $totalItems > 0;
+                    
                     // Only show pagination if items exceed the threshold (e.g., 26+ items when threshold is 25)
                     $totalPages = ($totalItems > $paginationThreshold) ? (int)ceil($totalItems / $paginationThreshold) : 1;
                     
@@ -1955,9 +2494,9 @@ if ($isValidPath) {
 
                     foreach ($itemsToDisplay as $item) {
                         if ($item['type'] === 'dir') {
-                            renderItem($item['name'], true, $currentPath, 0, $enableRename, $enableDelete);
+                            renderItem($item['name'], true, $currentPath, 0, $enableRename, $enableDelete, true);
                         } else {
-                            renderItem($item['name'], false, $currentPath, $item['size'], $enableRename, $enableDelete);
+                            renderItem($item['name'], false, $currentPath, $item['size'], $enableRename, $enableDelete, true);
                         }
                     }
                 }
@@ -2062,7 +2601,38 @@ if ($isValidPath) {
                 echo '<div class="stats-container">';
                 echo '<div class="folder-file-count">' . $statsHtml . '</div>';
                 
-                // Show download button if there's any downloadable content
+                // Combined actions row
+                echo '<div class="stats-actions-row">';
+                
+                // Multi-select controls (when items are available)
+                if (isset($hasItemsToSelect) && $hasItemsToSelect) {
+                    echo '<div class="multi-select-controls-bottom">';
+                    echo '<label class="select-all-container">';
+                    echo '<input type="checkbox" id="selectAllCheckbox" aria-label="Select all items">';
+                    echo '<span>Select All</span>';
+                    echo '</label>';
+                    echo '<div class="multi-select-actions multi-select-actions-hidden" id="multiSelectActions">';
+                    echo '<span class="selected-count" id="selectedCount">0 selected</span>';
+                    echo '</div>';
+                    echo '</div>';
+                }
+                
+                // Batch action buttons container
+                echo '<div class="batch-actions-container">';
+                
+                // Batch action buttons (hidden by default, shown when items selected)
+                if (isset($hasItemsToSelect) && $hasItemsToSelect) {
+                    echo '<button class="batch-download-btn batch-btn-hidden" id="batchDownloadBtn" title="Download selected as ZIP">';
+                    echo '<i class="fa-solid fa-download"></i> Download Selected';
+                    echo '</button>';
+                    if ($enableDelete) {
+                        echo '<button class="batch-delete-btn batch-btn-hidden" id="batchDeleteBtn" title="Delete selected items">';
+                        echo '<i class="fa-solid fa-trash"></i> Delete Selected';
+                        echo '</button>';
+                    }
+                }
+                
+                // Show download all button if there's any downloadable content
                 if (hasDownloadableContent($basePath, $realRoot)) {
                     $downloadAllUrl = '?download_all_zip=1';
                     if ($currentPath) {
@@ -2074,7 +2644,9 @@ if ($isValidPath) {
                     echo '</a>';
                 }
                 
-                echo '</div>';
+                echo '</div>'; // end batch-actions-container
+                echo '</div>'; // end stats-actions-row
+                echo '</div>'; // end stats-container
             }
             ?>
         </div>
@@ -2570,6 +3142,173 @@ if ($isValidPath) {
                         closeModal();
                     }
                 });
+            })();
+            
+            // Multi-select functionality
+            (function() {
+                const selectAllCheckbox = document.getElementById('selectAllCheckbox');
+                const multiSelectActions = document.getElementById('multiSelectActions');
+                const selectedCountEl = document.getElementById('selectedCount');
+                const batchDownloadBtn = document.getElementById('batchDownloadBtn');
+                const batchDeleteBtn = document.getElementById('batchDeleteBtn');
+                
+                if (!selectAllCheckbox) return;
+                
+                let selectedItems = new Set();
+                
+                function updateUI() {
+                    const count = selectedItems.size;
+                    
+                    if (count > 0) {
+                        multiSelectActions.classList.remove('multi-select-actions-hidden');
+                        selectedCountEl.textContent = count + ' selected';
+                        // Show batch action buttons by removing hidden class
+                        if (batchDownloadBtn) batchDownloadBtn.classList.remove('batch-btn-hidden');
+                        if (batchDeleteBtn) batchDeleteBtn.classList.remove('batch-btn-hidden');
+                    } else {
+                        multiSelectActions.classList.add('multi-select-actions-hidden');
+                        // Hide batch action buttons by adding hidden class
+                        if (batchDownloadBtn) batchDownloadBtn.classList.add('batch-btn-hidden');
+                        if (batchDeleteBtn) batchDeleteBtn.classList.add('batch-btn-hidden');
+                    }
+                    
+                    // Update select all checkbox state
+                    const allCheckboxes = document.querySelectorAll('.item-checkbox');
+                    const checkedCount = Array.from(allCheckboxes).filter(cb => cb.checked).length;
+                    selectAllCheckbox.checked = checkedCount > 0 && checkedCount === allCheckboxes.length;
+                    selectAllCheckbox.indeterminate = checkedCount > 0 && checkedCount < allCheckboxes.length;
+                }
+                
+                function getSelectedPaths() {
+                    return Array.from(selectedItems);
+                }
+                
+                // Select all/deselect all
+                selectAllCheckbox.addEventListener('change', function() {
+                    const checkboxes = document.querySelectorAll('.item-checkbox');
+                    const shouldCheck = this.checked;
+                    
+                    selectedItems.clear();
+                    checkboxes.forEach(checkbox => {
+                        checkbox.checked = shouldCheck;
+                        const listItem = checkbox.closest('li');
+                        if (listItem) {
+                            if (shouldCheck) {
+                                listItem.classList.add('selected');
+                                selectedItems.add(checkbox.dataset.itemPath);
+                            } else {
+                                listItem.classList.remove('selected');
+                            }
+                        }
+                    });
+                    
+                    updateUI();
+                });
+                
+                // Individual checkbox change
+                document.addEventListener('change', function(e) {
+                    if (e.target.classList.contains('item-checkbox')) {
+                        const path = e.target.dataset.itemPath;
+                        const listItem = e.target.closest('li');
+                        
+                        if (e.target.checked) {
+                            selectedItems.add(path);
+                            if (listItem) listItem.classList.add('selected');
+                        } else {
+                            selectedItems.delete(path);
+                            if (listItem) listItem.classList.remove('selected');
+                        }
+                        
+                        updateUI();
+                    }
+                });
+                
+                // Batch download
+                if (batchDownloadBtn) {
+                    batchDownloadBtn.addEventListener('click', function() {
+                        const paths = getSelectedPaths();
+                        
+                        if (paths.length === 0) {
+                            alert('Please select at least one item');
+                            return;
+                        }
+                        
+                        // Create download URL with items parameter
+                        const itemsJson = JSON.stringify(paths);
+                        const url = '?download_batch_zip=1&items=' + encodeURIComponent(itemsJson);
+                        
+                        // Open in new tab to trigger download
+                        window.open(url, '_blank');
+                    });
+                }
+                
+                // Batch delete
+                if (batchDeleteBtn) {
+                    batchDeleteBtn.addEventListener('click', function() {
+                        const paths = getSelectedPaths();
+                        
+                        if (paths.length === 0) {
+                            alert('Please select at least one item');
+                            return;
+                        }
+                        
+                        const itemCount = paths.length;
+                        const confirmMessage = 'Are you sure you want to delete ' + itemCount + ' item' + (itemCount > 1 ? 's' : '') + '?\\n\\nThis action cannot be undone.';
+                        
+                        if (!confirm(confirmMessage)) {
+                            return;
+                        }
+                        
+                        // Disable button during operation
+                        batchDeleteBtn.disabled = true;
+                        batchDeleteBtn.textContent = 'Deleting...';
+                        
+                        // Send delete request
+                        const itemsJson = JSON.stringify(paths);
+                        fetch('', {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/x-www-form-urlencoded',
+                            },
+                            body: 'delete_batch=1&items=' + encodeURIComponent(itemsJson)
+                        })
+                        .then(response => {
+                            if (!response.ok) {
+                                return response.json().then(data => {
+                                    throw new Error(data.error || 'Failed to delete items');
+                                }).catch(() => {
+                                    throw new Error('Failed to delete items');
+                                });
+                            }
+                            return response.json();
+                        })
+                        .then(data => {
+                            if (data.success) {
+                                // Show success message if some items failed
+                                if (data.failed && data.failed.length > 0) {
+                                    alert(data.message + '\\n\\nFailed items:\\n' + data.failed.join('\\n'));
+                                }
+                                
+                                // Reload page to show updated list
+                                window.location.reload();
+                            } else {
+                                let errorMsg = data.error || 'Failed to delete items';
+                                if (data.failed && data.failed.length > 0) {
+                                    errorMsg += '\\n\\nFailed items:\\n' + data.failed.join('\\n');
+                                }
+                                alert(errorMsg);
+                                batchDeleteBtn.disabled = false;
+                                batchDeleteBtn.innerHTML = '<i class="fa-solid fa-trash"></i> Delete Selected';
+                            }
+                        })
+                        .catch(err => {
+                            alert(err.message || 'An error occurred. Please try again.');
+                            batchDeleteBtn.disabled = false;
+                            batchDeleteBtn.innerHTML = '<i class="fa-solid fa-trash"></i> Delete Selected';
+                            console.error('Batch delete error:', err);
+                        });
+                    });
+                }
             })();
             
             // Delete functionality
