@@ -1443,24 +1443,18 @@ if ($isValidPath) {
         /* ================================================================
            MULTI-SELECT CONTROLS
            ================================================================ */
-        .multi-select-controls-bottom {
-            display: flex;
-            align-items: center;
-            gap: 16px;
-            flex-wrap: wrap;
-        }
         
         .select-all-container {
             display: inline-flex;
             align-items: center;
-            gap: 10px;
+            gap: 8px;
             cursor: pointer;
-            font-size: clamp(0.875rem, 2vw, 0.95rem);
+            font-size: clamp(0.8rem, 2vw, 0.85rem);
             font-weight: 600;
             color: var(--text);
             user-select: none;
-            padding: 10px 16px;
-            border-radius: 10px;
+            padding: 7px 12px;
+            border-radius: 8px;
             transition: all 0.2s ease;
             background: white;
             border: 2px solid rgba(102, 126, 234, 0.2);
@@ -1472,8 +1466,8 @@ if ($isValidPath) {
         }
         
         .select-all-container input[type="checkbox"] {
-            width: 20px;
-            height: 20px;
+            width: 18px;
+            height: 18px;
             cursor: pointer;
             accent-color: var(--accent);
             border-radius: 4px;
@@ -1482,17 +1476,17 @@ if ($isValidPath) {
         .multi-select-actions {
             display: inline-flex;
             align-items: center;
-            gap: 12px;
+            gap: 8px;
             flex-wrap: wrap;
         }
         
         .selected-count {
-            font-size: clamp(0.875rem, 2vw, 0.95rem);
+            font-size: clamp(0.8rem, 2vw, 0.85rem);
             color: white;
             font-weight: 700;
-            padding: 10px 16px;
+            padding: 7px 12px;
             background: linear-gradient(135deg, var(--accent) 0%, var(--accent-hover) 100%);
-            border-radius: 10px;
+            border-radius: 8px;
             box-shadow: 0 2px 8px rgba(102, 126, 234, 0.25);
             letter-spacing: 0.02em;
         }
@@ -1500,25 +1494,54 @@ if ($isValidPath) {
         .batch-actions-container {
             display: flex;
             align-items: center;
-            gap: 12px;
+            gap: 0;
             flex-wrap: wrap;
+        }
+        
+        /* Style batch buttons as a group when visible */
+        .batch-actions-container > .batch-download-btn:not(.batch-btn-hidden),
+        .batch-actions-container > .batch-delete-btn:not(.batch-btn-hidden) {
+            border-radius: 0;
+            box-shadow: none;
+        }
+        
+        .batch-actions-container > .batch-download-btn:not(.batch-btn-hidden):first-child,
+        .batch-actions-container > .batch-delete-btn:not(.batch-btn-hidden):first-child {
+            border-top-left-radius: 8px;
+            border-bottom-left-radius: 8px;
+        }
+        
+        .batch-actions-container > :is(.batch-download-btn, .batch-delete-btn):not(.batch-btn-hidden):last-of-type {
+            border-top-right-radius: 8px;
+            border-bottom-right-radius: 8px;
+        }
+        
+        /* Add visual separator between visible batch buttons */
+        .batch-actions-container > .batch-download-btn:not(.batch-btn-hidden):not(:last-of-type),
+        .batch-actions-container > .batch-delete-btn:not(.batch-btn-hidden):not(:last-of-type) {
+            border-right: 1px solid rgba(255, 255, 255, 0.2);
+        }
+        
+        /* Add gap before download-all button when batch buttons are visible */
+        .batch-actions-container > .download-all-btn {
+            margin-left: 8px;
         }
         
         .batch-download-btn,
         .batch-delete-btn {
             display: inline-flex;
             align-items: center;
-            gap: 8px;
-            padding: 11px 20px;
+            gap: 6px;
+            padding: 8px 14px;
             border: none;
-            border-radius: 10px;
-            font-size: clamp(0.875rem, 2vw, 0.95rem);
+            border-radius: 8px;
+            font-size: clamp(0.8rem, 2vw, 0.85rem);
             font-weight: 700;
             cursor: pointer;
             transition: all 0.25s ease;
-            box-shadow: 0 3px 10px rgba(0, 0, 0, 0.12);
             white-space: nowrap;
             letter-spacing: 0.01em;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
         }
         
         .batch-download-btn {
@@ -1528,13 +1551,11 @@ if ($isValidPath) {
         
         .batch-download-btn:hover {
             background: linear-gradient(135deg, var(--accent-hover) 0%, var(--accent) 100%);
-            transform: translateY(-2px);
-            box-shadow: 0 5px 16px rgba(102, 126, 234, 0.35);
+            filter: brightness(1.1);
         }
         
         .batch-download-btn:active {
-            transform: translateY(0);
-            box-shadow: 0 2px 8px rgba(102, 126, 234, 0.3);
+            filter: brightness(0.95);
         }
         
         .batch-delete-btn {
@@ -1544,13 +1565,11 @@ if ($isValidPath) {
         
         .batch-delete-btn:hover {
             background: linear-gradient(135deg, #c0392b 0%, #e74c3c 100%);
-            transform: translateY(-2px);
-            box-shadow: 0 5px 16px rgba(231, 76, 60, 0.35);
+            filter: brightness(1.1);
         }
         
         .batch-delete-btn:active {
-            transform: translateY(0);
-            box-shadow: 0 2px 8px rgba(231, 76, 60, 0.3);
+            filter: brightness(0.95);
         }
         
         .batch-btn-hidden {
@@ -1609,34 +1628,39 @@ if ($isValidPath) {
            STATISTICS & INFO DISPLAY
            ================================================================ */
         .stats-container {
-            margin-top: 28px;
-            padding: 20px 24px;
+            margin-top: 24px;
+            padding: 14px 18px;
             background: linear-gradient(135deg, #ffffff 0%, #f8f9fa 100%);
-            border-radius: 12px;
+            border-radius: 10px;
             border: 1px solid rgba(0, 0, 0, 0.08);
-            display: grid;
-            grid-template-columns: 1fr auto;
-            align-items: center;
-            gap: 24px;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
             box-shadow: 0 2px 12px rgba(0, 0, 0, 0.06);
+        }
+        
+        .stats-top-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 16px;
+            flex-wrap: wrap;
         }
         
         .folder-file-count {
             color: var(--text);
-            font-size: clamp(0.875rem, 2vw, 0.95rem);
+            font-size: clamp(0.8rem, 2vw, 0.85rem);
             font-weight: 600;
             letter-spacing: 0.01em;
-            grid-column: 1;
         }
         
         .stats-actions-row {
-            grid-column: 1 / -1;
             display: flex;
             justify-content: space-between;
             align-items: center;
-            gap: 20px;
+            gap: 12px;
             flex-wrap: wrap;
-            padding-top: 16px;
+            padding-top: 12px;
             border-top: 1px solid rgba(0, 0, 0, 0.06);
         }
         
@@ -1739,33 +1763,32 @@ if ($isValidPath) {
         .download-all-btn { 
             display: inline-flex; 
             align-items: center; 
-            gap: 10px; 
-            padding: 14px 24px; 
+            gap: 6px; 
+            padding: 8px 14px; 
             background: linear-gradient(135deg, var(--accent) 0%, var(--accent-hover) 100%);
             color: white; 
             border: none; 
-            border-radius: 10px; 
-            font-size: clamp(0.875rem, 2vw, 1rem);
-            font-weight: 600; 
+            border-radius: 8px; 
+            font-size: clamp(0.8rem, 2vw, 0.85rem);
+            font-weight: 700; 
             text-decoration: none; 
             cursor: pointer; 
-            transition: all 0.3s ease; 
-            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
+            transition: all 0.25s ease; 
             white-space: nowrap;
+            box-shadow: 0 2px 8px rgba(102, 126, 234, 0.3);
         }
         
         .download-all-btn:hover { 
             background: linear-gradient(135deg, var(--accent-hover) 0%, var(--accent) 100%);
-            transform: translateY(-2px);
-            box-shadow: 0 6px 20px rgba(102, 126, 234, 0.4);
+            filter: brightness(1.1);
         }
         
         .download-all-btn:active {
-            transform: translateY(0);
+            filter: brightness(0.95);
         }
         
         .download-all-btn i { 
-            font-size: 1.1rem; 
+            font-size: 0.9rem; 
         }
         
         /* ================================================================
@@ -1902,8 +1925,7 @@ if ($isValidPath) {
                 padding-top: 12px;
             }
             
-            .multi-select-controls-bottom {
-                width: 100%;
+            .stats-top-row {
                 flex-direction: column;
                 align-items: stretch;
                 gap: 10px;
@@ -1956,8 +1978,9 @@ if ($isValidPath) {
                 gap: 12px;
             }
             
-            .multi-select-controls-bottom {
-                width: 100%;
+            .stats-top-row {
+                flex-direction: column;
+                align-items: stretch;
             }
             
             .batch-actions-container {
@@ -2706,23 +2729,29 @@ if ($isValidPath) {
                 
                 if ($showStatsContainer) {
                     echo '<div class="stats-container">';
+                    
+                    // First row: folder/file count and Select All checkbox
+                    echo '<div class="stats-top-row">';
                     if (!empty($statsHtml)) {
                         echo '<div class="folder-file-count">' . $statsHtml . '</div>';
                     }
                     
-                    // Combined actions row
-                    echo '<div class="stats-actions-row">';
-                    
-                    // Multi-select controls (when items are available and batch download or delete is enabled)
+                    // Multi-select checkbox (when items are available and batch download or delete is enabled)
                     if (isset($hasItemsToSelect) && $hasItemsToSelect && ($enableBatchDownload || $enableDelete)) {
-                        echo '<div class="multi-select-controls-bottom">';
                         echo '<label class="select-all-container">';
                         echo '<input type="checkbox" id="selectAllCheckbox" aria-label="Select all items">';
                         echo '<span>Select All</span>';
                         echo '</label>';
+                    }
+                    echo '</div>'; // end stats-top-row
+                    
+                    // Second row: selected count and action buttons
+                    echo '<div class="stats-actions-row">';
+                    
+                    // Selected count display (when items are available and batch download or delete is enabled)
+                    if (isset($hasItemsToSelect) && $hasItemsToSelect && ($enableBatchDownload || $enableDelete)) {
                         echo '<div class="multi-select-actions multi-select-actions-hidden" id="multiSelectActions">';
                         echo '<span class="selected-count" id="selectedCount">0 selected</span>';
-                        echo '</div>';
                         echo '</div>';
                     }
                     
