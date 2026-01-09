@@ -15,6 +15,7 @@ Perfect for sharing downloads, documents, or quick internal file access.
 - ✅ **Zero configuration** — works immediately
 - 📁 **Automatically lists files and subdirectories** with breadcrumb navigation
 - 📄 **Pagination** — configurable threshold for large directories (default: 25 items per page)
+- ☑️ **Multi-select with batch actions** — select multiple files/folders and download as ZIP or delete them all at once
 - 🔒 **Security-hardened** — protects against path traversal, code execution, and other vulnerabilities
 - 🚫 **Smart exclusions** — hides hidden files (starting with `.`), system files, and dangerous executables
 - 🎨 **Modern, responsive design** — works beautifully on desktop, tablet, and mobile
@@ -263,11 +264,72 @@ The delete dialog displays helpful error messages:
 
 ---
 
+## Multi-Select Feature
+
+The multi-select feature allows you to perform batch operations on multiple files and folders at once.
+
+### How to Use
+
+1. **Select items** — Click the checkboxes next to files or folders you want to select
+2. **Select All** — Use the "Select All" checkbox to quickly select all items in the current directory
+3. **View selection** — The selected count is displayed in the action bar (e.g., "2 selected")
+4. **Batch actions** — Choose from the available batch operations:
+   - **Download as ZIP** — Download all selected items as a single ZIP file
+   - **Delete Selected** — Delete all selected items at once (only visible if deletion is enabled)
+
+### Features
+
+- **Individual selection** — Select specific files and folders using checkboxes
+- **Select All/Deselect All** — Toggle selection of all items with a single click
+- **Visual feedback** — Selected items are clearly indicated with checked boxes
+- **Selection count** — Always know how many items are currently selected
+- **Mixed state** — The "Select All" checkbox shows an indeterminate state when some (but not all) items are selected
+- **Responsive design** — Works seamlessly on desktop, tablet, and mobile devices
+
+### Batch Download
+
+When you click "Download as ZIP":
+- All selected files and folders are packaged into a single ZIP file
+- The ZIP file is named `selected_files.zip`
+- Folders are included with their complete directory structure
+- Download opens in a new tab to avoid interrupting your browsing
+- Blocked file extensions are automatically excluded for security
+
+### Batch Delete
+
+When you click "Delete Selected" (if deletion is enabled):
+- A confirmation dialog appears showing the number of items to be deleted
+- All selected files and folders are permanently deleted after confirmation
+- Folders are deleted recursively with all their contents
+- Protected files (index.php, hidden files) are skipped automatically
+- Error messages indicate which items couldn't be deleted, if any
+- Page reloads automatically after successful deletion
+
+### Security
+
+Batch operations maintain the same security standards as individual operations:
+- **Path traversal protection** — All paths are validated before processing
+- **Permission checks** — System files and protected items are automatically skipped
+- **Extension blocking** — Dangerous file types are never included in ZIP downloads
+- **Input validation** — All selections are validated on the server side
+- **Safe deletion** — Recursive deletion includes safety checks at every level
+
+### Notes
+
+- The multi-select controls only appear when there are items to select
+- Batch operations work across pagination — only visible items can be selected
+- Selecting items does not interfere with single-item operations (rename, delete, download)
+- The action bar appears/disappears automatically based on selection state
+- On mobile devices, buttons stack vertically for better usability
+
+---
+
 ## Notes
 
 - Files and directories are sorted naturally (case-insensitive) for better organization
 - Pagination automatically appears when the number of items exceeds the configured threshold (default: 25)
 - Pagination preserves the current directory path when navigating between pages
+- Multi-select controls automatically appear when there are files or folders to select
 - No authentication is built-in — use web server authentication (`.htaccess`, HTTP Basic Auth) if needed
 - Hover previews only work on desktop devices with mouse support (disabled on touch-only devices)
 - Rename and delete buttons appear on hover on desktop; always visible on mobile/touch devices
