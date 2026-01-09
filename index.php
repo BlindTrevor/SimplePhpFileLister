@@ -925,13 +925,13 @@ if ($isValidPath) {
             min-height: 60px;
         }
         
-        /* Add right padding when action buttons are present to prevent overlap with file size */
+        /* Add right padding on hover when action buttons appear to prevent overlap with file size */
         <?php if ($enableRename && $enableDelete): ?>
-        .file-list li:not(:first-child) a {
+        .file-list li:not(:first-child):hover a {
             padding-right: 104px; /* Space for both rename (36px) + delete (36px) + gaps */
         }
         <?php elseif ($enableRename || $enableDelete): ?>
-        .file-list li:not(:first-child) a {
+        .file-list li:not(:first-child):hover a {
             padding-right: 60px; /* Space for one button (36px) + gap */
         }
         <?php endif; ?>
