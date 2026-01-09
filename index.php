@@ -1360,21 +1360,24 @@ if ($isValidPath) {
         }
         
         .select-all-container {
-            display: flex;
+            display: inline-flex;
             align-items: center;
             gap: 10px;
             cursor: pointer;
-            font-size: clamp(0.875rem, 2vw, 1rem);
-            font-weight: 500;
+            font-size: clamp(0.875rem, 2vw, 0.95rem);
+            font-weight: 600;
             color: var(--text);
             user-select: none;
-            padding: 8px 12px;
-            border-radius: 8px;
-            transition: background-color 0.2s ease;
+            padding: 10px 16px;
+            border-radius: 10px;
+            transition: all 0.2s ease;
+            background: white;
+            border: 2px solid rgba(102, 126, 234, 0.2);
         }
         
         .select-all-container:hover {
-            background-color: rgba(102, 126, 234, 0.1);
+            background-color: rgba(102, 126, 234, 0.08);
+            border-color: var(--accent);
         }
         
         .select-all-container input[type="checkbox"] {
@@ -1386,7 +1389,7 @@ if ($isValidPath) {
         }
         
         .multi-select-actions {
-            display: flex;
+            display: inline-flex;
             align-items: center;
             gap: 12px;
             flex-wrap: wrap;
@@ -1394,11 +1397,13 @@ if ($isValidPath) {
         
         .selected-count {
             font-size: clamp(0.875rem, 2vw, 0.95rem);
-            color: var(--accent);
-            font-weight: 600;
-            padding: 8px 12px;
-            background: rgba(102, 126, 234, 0.1);
-            border-radius: 8px;
+            color: white;
+            font-weight: 700;
+            padding: 10px 16px;
+            background: linear-gradient(135deg, var(--accent) 0%, var(--accent-hover) 100%);
+            border-radius: 10px;
+            box-shadow: 0 2px 8px rgba(102, 126, 234, 0.25);
+            letter-spacing: 0.02em;
         }
         
         .batch-actions-container {
@@ -1413,15 +1418,16 @@ if ($isValidPath) {
             display: inline-flex;
             align-items: center;
             gap: 8px;
-            padding: 10px 18px;
+            padding: 11px 20px;
             border: none;
-            border-radius: 8px;
-            font-size: clamp(0.813rem, 2vw, 0.9rem);
-            font-weight: 600;
+            border-radius: 10px;
+            font-size: clamp(0.875rem, 2vw, 0.95rem);
+            font-weight: 700;
             cursor: pointer;
-            transition: all 0.3s ease;
-            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+            transition: all 0.25s ease;
+            box-shadow: 0 3px 10px rgba(0, 0, 0, 0.12);
             white-space: nowrap;
+            letter-spacing: 0.01em;
         }
         
         .batch-download-btn {
@@ -1432,26 +1438,28 @@ if ($isValidPath) {
         .batch-download-btn:hover {
             background: linear-gradient(135deg, var(--accent-hover) 0%, var(--accent) 100%);
             transform: translateY(-2px);
-            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
+            box-shadow: 0 5px 16px rgba(102, 126, 234, 0.35);
         }
         
         .batch-download-btn:active {
             transform: translateY(0);
+            box-shadow: 0 2px 8px rgba(102, 126, 234, 0.3);
         }
         
         .batch-delete-btn {
-            background: #e74c3c;
+            background: linear-gradient(135deg, #e74c3c 0%, #c0392b 100%);
             color: white;
         }
         
         .batch-delete-btn:hover {
-            background: #c0392b;
+            background: linear-gradient(135deg, #c0392b 0%, #e74c3c 100%);
             transform: translateY(-2px);
-            box-shadow: 0 4px 12px rgba(231, 76, 60, 0.3);
+            box-shadow: 0 5px 16px rgba(231, 76, 60, 0.35);
         }
         
         .batch-delete-btn:active {
             transform: translateY(0);
+            box-shadow: 0 2px 8px rgba(231, 76, 60, 0.3);
         }
         
         .batch-btn-hidden {
@@ -1485,24 +1493,35 @@ if ($isValidPath) {
            STATISTICS & INFO DISPLAY
            ================================================================ */
         .stats-container {
-            margin-top: 24px;
-            padding: 16px 20px;
-            background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
-            border-radius: 10px;
+            margin-top: 28px;
+            padding: 20px 24px;
+            background: linear-gradient(135deg, #ffffff 0%, #f8f9fa 100%);
+            border-radius: 12px;
+            border: 1px solid rgba(0, 0, 0, 0.08);
+            display: grid;
+            grid-template-columns: 1fr auto;
+            align-items: center;
+            gap: 24px;
+            box-shadow: 0 2px 12px rgba(0, 0, 0, 0.06);
+        }
+        
+        .folder-file-count {
+            color: var(--text);
+            font-size: clamp(0.875rem, 2vw, 0.95rem);
+            font-weight: 600;
+            letter-spacing: 0.01em;
+            grid-column: 1;
+        }
+        
+        .stats-actions-row {
+            grid-column: 1 / -1;
             display: flex;
             justify-content: space-between;
             align-items: center;
             gap: 20px;
-            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
             flex-wrap: wrap;
-        }
-        
-        .folder-file-count {
-            color: var(--muted);
-            font-size: clamp(0.813rem, 2vw, 0.9rem);
-            font-weight: 500;
-            flex: 1 1 auto;
-            min-width: 200px;
+            padding-top: 16px;
+            border-top: 1px solid rgba(0, 0, 0, 0.06);
         }
         
         /* ================================================================
@@ -1745,14 +1764,36 @@ if ($isValidPath) {
             }
             
             .stats-container {
+                grid-template-columns: 1fr;
+                gap: 16px;
+                padding: 18px 20px;
+            }
+            
+            .folder-file-count {
+                grid-column: 1;
+            }
+            
+            .stats-actions-row {
+                grid-column: 1;
                 flex-direction: column;
                 align-items: stretch;
-                gap: 16px;
+                gap: 12px;
+                padding-top: 12px;
             }
             
             .multi-select-controls-bottom {
                 width: 100%;
-                justify-content: space-between;
+                flex-direction: column;
+                align-items: stretch;
+                gap: 10px;
+            }
+            
+            .select-all-container {
+                justify-content: center;
+            }
+            
+            .multi-select-actions {
+                justify-content: center;
             }
             
             .batch-actions-container {
@@ -1786,6 +1827,16 @@ if ($isValidPath) {
             .download-all-btn {
                 width: 100%;
                 justify-content: center;
+            }
+            
+            .stats-actions-row {
+                flex-direction: column;
+                align-items: stretch;
+                gap: 12px;
+            }
+            
+            .multi-select-controls-bottom {
+                width: 100%;
             }
             
             .batch-actions-container {
@@ -2525,6 +2576,9 @@ if ($isValidPath) {
                 echo '<div class="stats-container">';
                 echo '<div class="folder-file-count">' . $statsHtml . '</div>';
                 
+                // Combined actions row
+                echo '<div class="stats-actions-row">';
+                
                 // Multi-select controls (when items are available)
                 if (isset($hasItemsToSelect) && $hasItemsToSelect) {
                     echo '<div class="multi-select-controls-bottom">';
@@ -2566,6 +2620,7 @@ if ($isValidPath) {
                 }
                 
                 echo '</div>'; // end batch-actions-container
+                echo '</div>'; // end stats-actions-row
                 echo '</div>'; // end stats-container
             }
             ?>
