@@ -1502,9 +1502,35 @@ if ($isValidPath) {
             align-items: center;
             gap: 0;
             flex-wrap: wrap;
-            border-radius: 8px;
-            overflow: hidden;
-            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+        }
+        
+        /* Style batch buttons as a group when visible */
+        .batch-actions-container > .batch-download-btn:not(.batch-btn-hidden),
+        .batch-actions-container > .batch-delete-btn:not(.batch-btn-hidden) {
+            border-radius: 0;
+            box-shadow: none;
+        }
+        
+        .batch-actions-container > .batch-download-btn:not(.batch-btn-hidden):first-child,
+        .batch-actions-container > .batch-delete-btn:not(.batch-btn-hidden):first-child {
+            border-top-left-radius: 8px;
+            border-bottom-left-radius: 8px;
+        }
+        
+        .batch-actions-container > :is(.batch-download-btn, .batch-delete-btn):not(.batch-btn-hidden):last-of-type {
+            border-top-right-radius: 8px;
+            border-bottom-right-radius: 8px;
+        }
+        
+        /* Add visual separator between visible batch buttons */
+        .batch-actions-container > .batch-download-btn:not(.batch-btn-hidden):not(:last-of-type),
+        .batch-actions-container > .batch-delete-btn:not(.batch-btn-hidden):not(:last-of-type) {
+            border-right: 1px solid rgba(255, 255, 255, 0.2);
+        }
+        
+        /* Add gap before download-all button when batch buttons are visible */
+        .batch-actions-container > .download-all-btn {
+            margin-left: 8px;
         }
         
         .batch-download-btn,
@@ -1514,19 +1540,14 @@ if ($isValidPath) {
             gap: 6px;
             padding: 8px 14px;
             border: none;
-            border-radius: 0;
+            border-radius: 8px;
             font-size: clamp(0.8rem, 2vw, 0.85rem);
             font-weight: 700;
             cursor: pointer;
             transition: all 0.25s ease;
             white-space: nowrap;
             letter-spacing: 0.01em;
-            border-right: 1px solid rgba(255, 255, 255, 0.2);
-        }
-        
-        .batch-download-btn:last-child,
-        .batch-delete-btn:last-child {
-            border-right: none;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
         }
         
         .batch-download-btn {
