@@ -152,23 +152,40 @@ To update to a newer version:
 
 ## Customization
 
-You can easily tailor the lister by editing the `index.php` file:
+All configuration settings are centralized in the **CONFIGURATION** section at the top of the `index.php` file (lines 18-50). This makes it easy to customize the behavior and appearance of your file lister without hunting through the code.
+
+### Configuration Sections
+
+The configuration is organized into clear groups:
+
+1. **Display Customization** — Page title, subtitle, and footer text
+2. **Pagination Settings** — Control when pagination appears
+3. **Feature Toggles** — Enable/disable rename, delete, and download features
+4. **Display Options** — Control what information is shown
+5. **Theme Settings** — Set default theme and theme change permissions
+6. **Advanced Options** — Hidden files and ZIP compression settings
+
+### How to Customize
+
+Simply open `index.php` in a text editor and locate the **CONFIGURATION** section near the top. Each setting includes clear comments explaining its purpose and valid values.
+
+### Configuration Options
 
 - **Pagination threshold**  
-  Change the `$paginationThreshold` variable at the top of the file to control when pagination appears. Default is 25 items (files + folders combined). Set to a higher number to show more items per page, or lower to paginate sooner.
+  Change the `$paginationThreshold` variable to control when pagination appears. Default is 25 items (files + folders combined). Set to a higher number to show more items per page, or lower to paginate sooner.
   ```php
   $paginationThreshold = 25; // Show 25 items per page
   ```
 
 - **Rename functionality**  
-  Enable or disable the rename feature by changing the `$enableRename` variable at the top of the file:
+  Enable or disable the rename feature by changing the `$enableRename` variable in the CONFIGURATION section:
   ```php
   $enableRename = true;  // Set to false to disable rename functionality
   ```
   When enabled, a rename button (pencil icon) appears when hovering over files and folders, allowing you to rename them directly from the interface.
 
 - **Delete functionality**  
-  Enable or disable the delete feature by changing the `$enableDelete` variable at the top of the file:
+  Enable or disable the delete feature by changing the `$enableDelete` variable in the CONFIGURATION section:
   ```php
   $enableDelete = true;  // Set to false to disable delete functionality
   ```
@@ -220,7 +237,7 @@ You can easily tailor the lister by editing the `index.php` file:
   - `$allowThemeChange` controls whether users can change themes using the floating settings button. When set to `false`, the theme settings button is hidden and users cannot change themes. When set to `true`, a floating settings icon appears in the bottom-right corner allowing users to select their preferred theme. Theme preferences are saved in the browser's localStorage and persist across visits.
 
 - **Title, subtitle & footer**  
-  Change the `$title`, `$subtitle`, and `$footer` variables at the top of the file.
+  Change the `$title`, `$subtitle`, and `$footer` variables in the CONFIGURATION section.
 
 - **Styling**  
   Modify the CSS variables in the `<style>` block (in the `:root` selector) to adjust colors, spacing, or fonts:
@@ -231,13 +248,13 @@ You can easily tailor the lister by editing the `index.php` file:
   - `--muted` — Secondary text color
 
 - **Blocked file extensions**  
-  Edit the `BLOCKED_EXTENSIONS` constant (near the top of the file, after the preview handler) to add or remove file types that should be hidden and blocked from download.
+  Edit the `BLOCKED_EXTENSIONS` constant (located after the CONFIGURATION section) to add or remove file types that should be hidden and blocked from download.
 
 - **Preview file types**  
   Modify the `getPreviewableFileTypes()` function and the MIME type arrays in both the fast-path preview handler and the `getPreviewMimeType()` function to support additional preview formats.
 
 - **Root directory**  
-  By default, files are listed from the directory where `index.php` resides. To change this, modify the `$realRoot` variable near the top of the file:
+  By default, files are listed from the directory where `index.php` resides. To change this, modify the `$realRoot` variable in the Security Configuration section (after CONFIGURATION):
   ```php
   $realRoot = rtrim(realpath('.'), DIRECTORY_SEPARATOR) . DIRECTORY_SEPARATOR;
   ```
