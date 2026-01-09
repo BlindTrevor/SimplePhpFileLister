@@ -216,10 +216,11 @@ function renderItem(string $entry, bool $isDir, string $currentPath, int $fileSi
     $checkbox = '';
     if ($showCheckbox) {
         $checkbox = sprintf(
-            '<input type="checkbox" class="item-checkbox" data-item-path="%s" data-item-name="%s" data-is-dir="%s" aria-label="Select %s">',
+            '<input type="checkbox" class="item-checkbox" data-item-path="%s" data-item-name="%s" data-is-dir="%s" data-item-size="%d" aria-label="Select %s">',
             htmlspecialchars($filePath, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8'),
             $label,
             $isDir ? 'true' : 'false',
+            (int)$fileSize,
             $label
         );
     }
@@ -3280,12 +3281,52 @@ if ($isValidPath) {
                 
                 let selectedItems = new Set();
                 
+                /**
+                 * Format file size in human-readable format
+                 * @param {number} bytes - File size in bytes
+                 * @return {string} Formatted file size
+                 */
+                function formatFileSize(bytes) {
+                    if (bytes === 0) {
+                        return '0 B';
+                    }
+                    const units = ['B', 'KB', 'MB', 'GB', 'TB'];
+                    const i = Math.floor(Math.log(bytes) / Math.log(1024));
+                    const actualI = Math.min(i, units.length - 1);
+                    const size = bytes / Math.pow(1024, actualI);
+                    
+                    if (actualI === 0) {
+                        return Math.floor(size) + ' B';
+                    }
+                    return size.toFixed(2) + ' ' + units[actualI];
+                }
+                
                 function updateUI() {
                     const count = selectedItems.size;
                     
+                    // Query all checkboxes once and calculate totals in single pass
+                    const allCheckboxes = document.querySelectorAll('.item-checkbox');
+                    let totalSize = 0;
+                    let checkedCount = 0;
+                    
+                    allCheckboxes.forEach(checkbox => {
+                        if (checkbox.checked) {
+                            checkedCount++;
+                            const itemSize = parseInt(checkbox.dataset.itemSize || '0', 10);
+                            totalSize += itemSize;
+                        }
+                    });
+                    
                     if (count > 0) {
                         multiSelectActions.classList.remove('multi-select-actions-hidden');
-                        selectedCountEl.textContent = count + ' selected';
+                        
+                        // Update text with count and total size
+                        let displayText = count + ' selected';
+                        if (totalSize > 0) {
+                            displayText += ' (' + formatFileSize(totalSize) + ')';
+                        }
+                        selectedCountEl.textContent = displayText;
+                        
                         // Show batch action buttons by removing hidden class
                         if (batchDownloadBtn) batchDownloadBtn.classList.remove('batch-btn-hidden');
                         if (batchDeleteBtn) batchDeleteBtn.classList.remove('batch-btn-hidden');
@@ -3297,8 +3338,6 @@ if ($isValidPath) {
                     }
                     
                     // Update select all checkbox state
-                    const allCheckboxes = document.querySelectorAll('.item-checkbox');
-                    const checkedCount = Array.from(allCheckboxes).filter(cb => cb.checked).length;
                     selectAllCheckbox.checked = checkedCount > 0 && checkedCount === allCheckboxes.length;
                     selectAllCheckbox.indeterminate = checkedCount > 0 && checkedCount < allCheckboxes.length;
                 }

@@ -341,7 +341,7 @@ The multi-select feature allows you to perform batch operations on multiple file
 
 1. **Select items** — Click the checkboxes next to files or folders you want to select
 2. **Select All** — Use the "Select All" checkbox to quickly select all items in the current directory
-3. **View selection** — The selected count is displayed in the action bar (e.g., "2 selected")
+3. **View selection** — The selected count and total file size are displayed in the action bar (e.g., "2 selected (1.5 MB)")
 4. **Batch actions** — Choose from the available batch operations:
    - **Download as ZIP** — Download all selected items as a single ZIP file
    - **Delete Selected** — Delete all selected items at once (only visible if deletion is enabled)
@@ -351,7 +351,7 @@ The multi-select feature allows you to perform batch operations on multiple file
 - **Individual selection** — Select specific files and folders using checkboxes
 - **Select All/Deselect All** — Toggle selection of all items with a single click
 - **Visual feedback** — Selected items are clearly indicated with checked boxes
-- **Selection count** — Always know how many items are currently selected
+- **Selection count with total size** — Always know how many items are selected and their combined size
 - **Mixed state** — The "Select All" checkbox shows an indeterminate state when some (but not all) items are selected
 - **Responsive design** — Works seamlessly on desktop, tablet, and mobile devices
 
