@@ -1471,13 +1471,55 @@ if ($isValidPath) {
         }
         
         .item-checkbox {
-            width: 20px;
-            height: 20px;
+            width: 22px;
+            height: 22px;
             cursor: pointer;
-            margin-right: 12px;
+            margin-right: 14px;
             flex-shrink: 0;
             accent-color: var(--accent);
-            border-radius: 4px;
+            border-radius: 6px;
+            transition: all 0.2s ease;
+            position: relative;
+            -webkit-appearance: none;
+            -moz-appearance: none;
+            appearance: none;
+            border: 2.5px solid #d1d5db;
+            background: white;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+        }
+        
+        .item-checkbox:hover {
+            border-color: var(--accent);
+            box-shadow: 0 2px 6px rgba(102, 126, 234, 0.2);
+            transform: scale(1.05);
+        }
+        
+        .item-checkbox:checked {
+            background: linear-gradient(135deg, var(--accent) 0%, var(--accent-hover) 100%);
+            border-color: var(--accent);
+            box-shadow: 0 2px 8px rgba(102, 126, 234, 0.35);
+        }
+        
+        .item-checkbox:checked::after {
+            content: '';
+            position: absolute;
+            left: 6px;
+            top: 2px;
+            width: 6px;
+            height: 11px;
+            border: solid white;
+            border-width: 0 2.5px 2.5px 0;
+            transform: rotate(45deg);
+        }
+        
+        .item-checkbox:focus {
+            outline: none;
+            border-color: var(--accent);
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.15);
+        }
+        
+        .item-checkbox:active {
+            transform: scale(0.95);
         }
         
         .file-list li {
