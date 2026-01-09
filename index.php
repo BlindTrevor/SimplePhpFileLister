@@ -1476,46 +1476,47 @@ if ($isValidPath) {
             cursor: pointer;
             margin-right: 14px;
             flex-shrink: 0;
-            accent-color: var(--accent);
             border-radius: 6px;
-            transition: all 0.2s ease;
+            transition: all 0.25s ease;
             position: relative;
             -webkit-appearance: none;
             -moz-appearance: none;
             appearance: none;
-            border: 2.5px solid #d1d5db;
+            border: 2px solid #cbd5e1;
             background: white;
-            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
         }
         
         .item-checkbox:hover {
             border-color: var(--accent);
-            box-shadow: 0 2px 6px rgba(102, 126, 234, 0.2);
-            transform: scale(1.05);
+            box-shadow: 0 2px 6px rgba(102, 126, 234, 0.25);
+            transform: scale(1.08);
         }
         
         .item-checkbox:checked {
             background: linear-gradient(135deg, var(--accent) 0%, var(--accent-hover) 100%);
             border-color: var(--accent);
-            box-shadow: 0 2px 8px rgba(102, 126, 234, 0.35);
+            box-shadow: 0 3px 10px rgba(102, 126, 234, 0.4);
+            transform: scale(1.02);
         }
         
-        .item-checkbox:checked::after {
+        .item-checkbox:checked::before {
             content: '';
             position: absolute;
-            left: 6px;
-            top: 2px;
-            width: 6px;
-            height: 11px;
+            left: 7px;
+            top: 3px;
+            width: 5px;
+            height: 10px;
             border: solid white;
-            border-width: 0 2.5px 2.5px 0;
+            border-width: 0 3px 3px 0;
             transform: rotate(45deg);
+            display: block;
         }
         
         .item-checkbox:focus {
             outline: none;
             border-color: var(--accent);
-            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.15);
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.2);
         }
         
         .item-checkbox:active {
