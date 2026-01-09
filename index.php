@@ -2656,7 +2656,7 @@ if ($isValidPath) {
                 }
                 
                 // Only show stats container if there's content to show or actions available
-                $showStatsContainer = !empty($statsHtml) || (isset($hasItemsToSelect) && $hasItemsToSelect) || $enableDownloadAll;
+                $showStatsContainer = !empty($statsHtml) || (isset($hasItemsToSelect) && $hasItemsToSelect && ($enableBatchDownload || $enableDelete)) || $enableDownloadAll;
                 
                 if ($showStatsContainer) {
                     echo '<div class="stats-container">';
@@ -2667,8 +2667,8 @@ if ($isValidPath) {
                     // Combined actions row
                     echo '<div class="stats-actions-row">';
                     
-                    // Multi-select controls (when items are available and batch download is enabled)
-                    if (isset($hasItemsToSelect) && $hasItemsToSelect && $enableBatchDownload) {
+                    // Multi-select controls (when items are available and batch download or delete is enabled)
+                    if (isset($hasItemsToSelect) && $hasItemsToSelect && ($enableBatchDownload || $enableDelete)) {
                         echo '<div class="multi-select-controls-bottom">';
                         echo '<label class="select-all-container">';
                         echo '<input type="checkbox" id="selectAllCheckbox" aria-label="Select all items">';
@@ -2683,16 +2683,18 @@ if ($isValidPath) {
                     // Batch action buttons container
                     echo '<div class="batch-actions-container">';
                     
-                    // Batch action buttons (hidden by default, shown when items selected)
+                    // Batch download button (hidden by default, shown when items selected)
                     if (isset($hasItemsToSelect) && $hasItemsToSelect && $enableBatchDownload) {
                         echo '<button class="batch-download-btn batch-btn-hidden" id="batchDownloadBtn" title="Download selected as ZIP">';
                         echo '<i class="fa-solid fa-download"></i> Download Selected';
                         echo '</button>';
-                        if ($enableDelete) {
-                            echo '<button class="batch-delete-btn batch-btn-hidden" id="batchDeleteBtn" title="Delete selected items">';
-                            echo '<i class="fa-solid fa-trash"></i> Delete Selected';
-                            echo '</button>';
-                        }
+                    }
+                    
+                    // Batch delete button (hidden by default, shown when items selected)
+                    if (isset($hasItemsToSelect) && $hasItemsToSelect && $enableDelete) {
+                        echo '<button class="batch-delete-btn batch-btn-hidden" id="batchDeleteBtn" title="Delete selected items">';
+                        echo '<i class="fa-solid fa-trash"></i> Delete Selected';
+                        echo '</button>';
                     }
                     
                     // Show download all button if enabled and there's any downloadable content
