@@ -20,8 +20,8 @@ $subtitle = "The Easy Way To List Files In A Directory";
 $footer = "Made with ❤️ by Blind Trevor";
 
 // Feature Configuration
-$enableRename = true; // Set to false to disable rename functionality
-$enableDelete = true; // Set to false to disable delete functionality
+$enableRename = false; // Set to false to disable rename functionality
+$enableDelete = false; // Set to false to disable delete functionality
 
 // Security Configuration
 $realRoot = rtrim(realpath('.'), DIRECTORY_SEPARATOR) . DIRECTORY_SEPARATOR;
