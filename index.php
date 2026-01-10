@@ -1524,14 +1524,14 @@ if ($isValidPath) {
         }
         
         .file-list li + li { 
-            margin-top: 12px; 
+            margin-top: 8px; 
         }
         
         .file-list a { 
             display: flex; 
             align-items: center; 
-            gap: 14px; 
-            padding: 16px 18px; 
+            gap: 10px; 
+            padding: 10px 14px; 
             border: 2px solid var(--border); 
             border-radius: 12px; 
             text-decoration: none; 
@@ -1540,7 +1540,7 @@ if ($isValidPath) {
             transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
             position: relative;
             overflow: hidden;
-            min-height: 60px;
+            min-height: 48px;
         }
         
         /* Add right padding on hover when action buttons appear to prevent overlap with file size */
@@ -2078,8 +2078,8 @@ if ($isValidPath) {
             }
             
             .file-list a {
-                padding: 14px 12px;
-                gap: 10px;
+                padding: 12px 10px;
+                gap: 8px;
                 flex-wrap: wrap;
             }
             
@@ -2217,7 +2217,7 @@ if ($isValidPath) {
             }
             
             .file-list a {
-                padding: 15px 16px;
+                padding: 12px 14px;
             }
             
             .download-all-btn {
@@ -2284,8 +2284,8 @@ if ($isValidPath) {
         /* Touch device optimizations */
         @media (hover: none) and (pointer: coarse) {
             .file-list a {
-                min-height: 64px;
-                padding: 18px 16px;
+                min-height: 52px;
+                padding: 14px 12px;
             }
             
             .download-all-btn {
