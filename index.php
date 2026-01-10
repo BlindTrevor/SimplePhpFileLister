@@ -1406,22 +1406,37 @@ if ($isValidPath) {
         }
         
         .subtitle { 
-            margin-bottom: 28px; 
+            margin-bottom: 0; 
             color: var(--muted); 
             font-size: clamp(0.875rem, 2vw, 1rem);
             font-weight: 400;
+        }
+        
+        .header-container {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            gap: 20px;
+            margin-bottom: 28px;
+            flex-wrap: wrap;
+        }
+        
+        .header-left {
+            flex: 1;
+            min-width: 0;
+        }
+        
+        .header-right {
+            display: flex;
+            align-items: flex-start;
+            flex-shrink: 0;
         }
         
         /* ================================================================
            NAVIGATION & BREADCRUMBS
            ================================================================ */
         .breadcrumbs-container {
-            display: flex;
-            align-items: center;
-            gap: 16px;
             margin-bottom: 24px;
-            flex-wrap: wrap;
-            justify-content: flex-end;
         }
         
         .breadcrumbs { 
@@ -1435,9 +1450,6 @@ if ($isValidPath) {
             font-size: clamp(0.813rem, 2vw, 0.9rem);
             flex-wrap: wrap;
             box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
-            flex: 1;
-            min-width: 0;
-            margin-right: auto;
         }
         
         .breadcrumbs a { 
@@ -2035,18 +2047,18 @@ if ($isValidPath) {
             
             .subtitle {
                 font-size: 0.875rem;
+                margin-bottom: 0;
+            }
+            
+            .header-container {
+                flex-direction: column;
+                align-items: stretch;
+                gap: 16px;
                 margin-bottom: 20px;
             }
             
-            .breadcrumbs {
-                padding: 12px 14px;
-                gap: 6px;
-                font-size: 0.813rem;
-            }
-            
-            .breadcrumbs-container {
-                flex-direction: column;
-                gap: 12px;
+            .header-right {
+                width: 100%;
             }
             
             .pagination-amount-selector {
@@ -2057,6 +2069,12 @@ if ($isValidPath) {
             .pagination-amount-selector select {
                 flex: 1;
                 max-width: 100px;
+            }
+            
+            .breadcrumbs {
+                padding: 12px 14px;
+                gap: 6px;
+                font-size: 0.813rem;
             }
             
             .file-list a {
@@ -2948,11 +2966,29 @@ if ($isValidPath) {
 <body>
     <div class="container">
         <div class="card">
-            <h1><?php echo htmlspecialchars($title); ?></h1>
-            <?php if (!empty($subtitle)): ?><div class="subtitle"><?php echo htmlspecialchars($subtitle); ?></div><?php endif; ?>
-            <?php if (!empty($breadcrumbs) || $enablePaginationAmountSelector): ?>
+            <div class="header-container">
+                <div class="header-left">
+                    <h1><?php echo htmlspecialchars($title); ?></h1>
+                    <?php if (!empty($subtitle)): ?><div class="subtitle"><?php echo htmlspecialchars($subtitle); ?></div><?php endif; ?>
+                </div>
+                <?php if ($enablePaginationAmountSelector): ?>
+                <div class="header-right">
+                    <div class="pagination-amount-selector">
+                        <label for="paginationAmount">Items per page:</label>
+                        <select id="paginationAmount" aria-label="Items per page">
+                            <option value="5" <?php echo $paginationAmount === '5' ? 'selected' : ''; ?>>5</option>
+                            <option value="10" <?php echo $paginationAmount === '10' ? 'selected' : ''; ?>>10</option>
+                            <option value="20" <?php echo $paginationAmount === '20' ? 'selected' : ''; ?>>20</option>
+                            <option value="30" <?php echo $paginationAmount === '30' ? 'selected' : ''; ?>>30</option>
+                            <option value="50" <?php echo $paginationAmount === '50' ? 'selected' : ''; ?>>50</option>
+                            <option value="all" <?php echo $paginationAmount === 'all' ? 'selected' : ''; ?>>All</option>
+                        </select>
+                    </div>
+                </div>
+                <?php endif; ?>
+            </div>
+            <?php if (!empty($breadcrumbs)): ?>
             <div class="breadcrumbs-container">
-                <?php if (!empty($breadcrumbs)): ?>
                 <div class="breadcrumbs">
                     <a href="<?php echo strtok($_SERVER['REQUEST_URI'], '?'); ?>">Home</a>
                     <?php foreach ($breadcrumbs as $breadcrumb): ?>
@@ -2962,20 +2998,6 @@ if ($isValidPath) {
                         </a>
                     <?php endforeach; ?>
                 </div>
-                <?php endif; ?>
-                <?php if ($enablePaginationAmountSelector): ?>
-                <div class="pagination-amount-selector">
-                    <label for="paginationAmount">Items per page:</label>
-                    <select id="paginationAmount" aria-label="Items per page">
-                        <option value="5" <?php echo $paginationAmount === '5' ? 'selected' : ''; ?>>5</option>
-                        <option value="10" <?php echo $paginationAmount === '10' ? 'selected' : ''; ?>>10</option>
-                        <option value="20" <?php echo $paginationAmount === '20' ? 'selected' : ''; ?>>20</option>
-                        <option value="30" <?php echo $paginationAmount === '30' ? 'selected' : ''; ?>>30</option>
-                        <option value="50" <?php echo $paginationAmount === '50' ? 'selected' : ''; ?>>50</option>
-                        <option value="all" <?php echo $paginationAmount === 'all' ? 'selected' : ''; ?>>All</option>
-                    </select>
-                </div>
-                <?php endif; ?>
             </div>
             <?php endif; ?>
 
