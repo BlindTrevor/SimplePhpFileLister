@@ -27,6 +27,8 @@ $footer = "Made with ❤️ by Blind Trevor";              // Footer text
 
 // --- Pagination Settings ---
 $paginationThreshold = 25; // Number of items per page before pagination appears
+$enablePaginationAmountSelector = true; // Enable/disable pagination amount selector dropdown
+$defaultPaginationAmount = 30; // Default items per page (5, 10, 20, 30, 50, or 'all')
 
 // --- Feature Toggles ---
 $enableRename = false;             // Enable/disable rename functionality
@@ -1205,6 +1207,16 @@ $isValidPath = $realBase !== false && strpos($realBase . DIRECTORY_SEPARATOR, $r
 // Pagination: Get current page from query string, default to 1
 $currentPage = isset($_GET['page']) ? max(1, (int)$_GET['page']) : 1;
 
+// Pagination amount: Get from query string or use default
+$paginationAmount = isset($_GET['per_page']) ? $_GET['per_page'] : (string)$defaultPaginationAmount;
+// Validate pagination amount against allowed values
+$allowedAmounts = ['5', '10', '20', '30', '50', 'all'];
+if (!in_array($paginationAmount, $allowedAmounts, true)) {
+    $paginationAmount = (string)$defaultPaginationAmount;
+}
+// Convert to integer for calculations (except 'all')
+$itemsPerPageActual = ($paginationAmount === 'all') ? PHP_INT_MAX : (int)$paginationAmount;
+
 // Create breadcrumbs array
 $breadcrumbs = [];
 if ($isValidPath) {
@@ -1394,20 +1406,43 @@ if ($isValidPath) {
         }
         
         .subtitle { 
-            margin-bottom: 28px; 
+            margin-bottom: 0; 
             color: var(--muted); 
             font-size: clamp(0.875rem, 2vw, 1rem);
             font-weight: 400;
         }
         
+        .header-container {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            gap: 20px;
+            margin-bottom: 28px;
+            flex-wrap: wrap;
+        }
+        
+        .header-left {
+            flex: 1;
+            min-width: 0;
+        }
+        
+        .header-right {
+            display: flex;
+            align-items: flex-start;
+            flex-shrink: 0;
+        }
+        
         /* ================================================================
            NAVIGATION & BREADCRUMBS
            ================================================================ */
+        .breadcrumbs-container {
+            margin-bottom: 24px;
+        }
+        
         .breadcrumbs { 
             display: flex; 
             align-items: center; 
             gap: 8px; 
-            margin-bottom: 24px; 
             padding: 14px 18px; 
             background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
             border-radius: 10px; 
@@ -1431,6 +1466,52 @@ if ($isValidPath) {
         
         .breadcrumbs > a:first-child { 
             font-weight: 600; 
+        }
+        
+        .pagination-amount-selector {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 10px 14px;
+            background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+            border-radius: 10px;
+            border: 1px solid var(--border);
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+            white-space: nowrap;
+        }
+        
+        .pagination-amount-selector label {
+            font-size: 0.875rem;
+            font-weight: 500;
+            color: var(--text);
+            margin: 0;
+        }
+        
+        .pagination-amount-selector select {
+            padding: 6px 28px 6px 10px;
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            background-color: var(--card);
+            color: var(--text);
+            font-size: 0.875rem;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            appearance: none;
+            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%23718096' d='M6 9L1 4h10z'/%3E%3C/svg%3E");
+            background-repeat: no-repeat;
+            background-position: right 8px center;
+            background-size: 12px;
+        }
+        
+        .pagination-amount-selector select:hover {
+            border-color: var(--accent);
+        }
+        
+        .pagination-amount-selector select:focus {
+            outline: none;
+            border-color: var(--accent);
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
         }
         
         /* ================================================================
@@ -1966,7 +2047,28 @@ if ($isValidPath) {
             
             .subtitle {
                 font-size: 0.875rem;
+                margin-bottom: 0;
+            }
+            
+            .header-container {
+                flex-direction: column;
+                align-items: stretch;
+                gap: 16px;
                 margin-bottom: 20px;
+            }
+            
+            .header-right {
+                width: 100%;
+            }
+            
+            .pagination-amount-selector {
+                width: 100%;
+                justify-content: space-between;
+            }
+            
+            .pagination-amount-selector select {
+                flex: 1;
+                max-width: 100px;
             }
             
             .breadcrumbs {
@@ -2864,17 +2966,38 @@ if ($isValidPath) {
 <body>
     <div class="container">
         <div class="card">
-            <h1><?php echo htmlspecialchars($title); ?></h1>
-            <?php if (!empty($subtitle)): ?><div class="subtitle"><?php echo htmlspecialchars($subtitle); ?></div><?php endif; ?>
+            <div class="header-container">
+                <div class="header-left">
+                    <h1><?php echo htmlspecialchars($title); ?></h1>
+                    <?php if (!empty($subtitle)): ?><div class="subtitle"><?php echo htmlspecialchars($subtitle); ?></div><?php endif; ?>
+                </div>
+                <?php if ($enablePaginationAmountSelector): ?>
+                <div class="header-right">
+                    <div class="pagination-amount-selector">
+                        <label for="paginationAmount">Items per page:</label>
+                        <select id="paginationAmount" aria-label="Items per page">
+                            <option value="5" <?php echo $paginationAmount === '5' ? 'selected' : ''; ?>>5</option>
+                            <option value="10" <?php echo $paginationAmount === '10' ? 'selected' : ''; ?>>10</option>
+                            <option value="20" <?php echo $paginationAmount === '20' ? 'selected' : ''; ?>>20</option>
+                            <option value="30" <?php echo $paginationAmount === '30' ? 'selected' : ''; ?>>30</option>
+                            <option value="50" <?php echo $paginationAmount === '50' ? 'selected' : ''; ?>>50</option>
+                            <option value="all" <?php echo $paginationAmount === 'all' ? 'selected' : ''; ?>>All</option>
+                        </select>
+                    </div>
+                </div>
+                <?php endif; ?>
+            </div>
             <?php if (!empty($breadcrumbs)): ?>
-            <div class="breadcrumbs">
-                <a href="<?php echo strtok($_SERVER['REQUEST_URI'], '?'); ?>">Home</a>
-                <?php foreach ($breadcrumbs as $breadcrumb): ?>
-                    &gt;
-                    <a href="?path=<?php echo rawurlencode($breadcrumb['path']); ?>" class="dir-link">
-                        <?php echo $breadcrumb['name']; ?>
-                    </a>
-                <?php endforeach; ?>
+            <div class="breadcrumbs-container">
+                <div class="breadcrumbs">
+                    <a href="<?php echo strtok($_SERVER['REQUEST_URI'], '?'); ?>">Home</a>
+                    <?php foreach ($breadcrumbs as $breadcrumb): ?>
+                        &gt;
+                        <a href="?path=<?php echo rawurlencode($breadcrumb['path']); ?>" class="dir-link">
+                            <?php echo $breadcrumb['name']; ?>
+                        </a>
+                    <?php endforeach; ?>
+                </div>
             </div>
             <?php endif; ?>
 
@@ -2948,14 +3071,19 @@ if ($isValidPath) {
                     // Store if we have items for later use in stats container
                     $hasItemsToSelect = $totalItems > 0;
                     
-                    // Only show pagination if items exceed the threshold (e.g., 26+ items when threshold is 25)
-                    $totalPages = ($totalItems > $paginationThreshold) ? (int)ceil($totalItems / $paginationThreshold) : 1;
+                    // Calculate total pages based on selected pagination amount
+                    if ($paginationAmount === 'all') {
+                        $totalPages = 1;
+                    } else {
+                        // Only show pagination if items exceed the selected amount
+                        $totalPages = ($totalItems > $itemsPerPageActual) ? (int)ceil($totalItems / $itemsPerPageActual) : 1;
+                    }
                     
                     // Ensure current page is within valid range
                     $currentPage = max(1, min($currentPage, $totalPages));
                     
                     // Calculate pagination offsets
-                    $itemsPerPage = $paginationThreshold;
+                    $itemsPerPage = $itemsPerPageActual;
                     $offset = ($currentPage - 1) * $itemsPerPage;
                     
                     // Merge dirs and files into a single array for pagination
@@ -2985,10 +3113,13 @@ if ($isValidPath) {
             <?php
             // Display pagination controls if needed
             if ($isValidPath && $totalPages > 1) {
-                // Build base URL for pagination links (preserve current path)
+                // Build base URL for pagination links (preserve current path and per_page)
                 $baseUrl = '?';
                 if ($currentPath) {
                     $baseUrl .= 'path=' . rawurlencode($currentPath) . '&';
+                }
+                if (isset($_GET['per_page'])) {
+                    $baseUrl .= 'per_page=' . rawurlencode($_GET['per_page']) . '&';
                 }
                 
                 echo '<div class="pagination" role="navigation" aria-label="Pagination">';
@@ -3302,6 +3433,33 @@ if ($isValidPath) {
             }, { capture: true });
 
             window.addEventListener('beforeunload', showOverlay);
+            
+            // Pagination amount selector functionality
+            (function() {
+                const paginationAmountSelect = document.getElementById('paginationAmount');
+                
+                if (!paginationAmountSelect) return;
+                
+                paginationAmountSelect.addEventListener('change', function() {
+                    const selectedAmount = this.value;
+                    
+                    // Get current URL parameters
+                    const urlParams = new URLSearchParams(window.location.search);
+                    
+                    // Update or add the per_page parameter
+                    urlParams.set('per_page', selectedAmount);
+                    
+                    // Reset to page 1 when changing pagination amount
+                    urlParams.delete('page');
+                    
+                    // Build new URL
+                    const newUrl = window.location.pathname + '?' + urlParams.toString();
+                    
+                    // Show loading overlay and navigate
+                    showOverlay();
+                    window.location.href = newUrl;
+                });
+            })();
             
             // Preview tooltip functionality
             (function() {
