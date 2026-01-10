@@ -177,7 +177,7 @@ Simply open `index.php` in a text editor and locate the **CONFIGURATION** sectio
   ```php
   $paginationThreshold = 25; // Number of items per page before pagination appears (legacy)
   $enablePaginationAmountSelector = true; // Enable/disable pagination amount selector dropdown
-  $defaultPaginationAmount = 25; // Default items per page (5, 10, 20, 30, 50, or 'all')
+  $defaultPaginationAmount = 30; // Default items per page (5, 10, 20, 30, 50, or 'all')
   ```
   - `$paginationThreshold` — Legacy setting for when pagination appears (kept for backward compatibility)
   - `$enablePaginationAmountSelector` — When `true`, displays a dropdown selector next to the breadcrumb navigation that allows users to choose how many items to display per page. When `false`, the dropdown is hidden and only the default pagination amount is used.
