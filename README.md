@@ -33,6 +33,7 @@ The version information is embedded in `index.php` and includes:
 - ✅ **Zero configuration** — works immediately
 - 📁 **Automatically lists files and subdirectories** with breadcrumb navigation
 - 📄 **Pagination** — configurable threshold for large directories (default: 25 items per page)
+- 🔢 **Adjustable pagination amount** — dynamically change items per page (5, 10, 20, 30, 50, or All) with dropdown selector
 - ☑️ **Multi-select with batch actions** — select multiple files/folders and download as ZIP or delete them all at once
 - 🔒 **Security-hardened** — protects against path traversal, code execution, and other vulnerabilities
 - 🚫 **Smart exclusions** — hides hidden files (starting with `.`), system files, and dangerous executables
@@ -171,11 +172,18 @@ Simply open `index.php` in a text editor and locate the **CONFIGURATION** sectio
 
 ### Configuration Options
 
-- **Pagination threshold**  
-  Change the `$paginationThreshold` variable to control when pagination appears. Default is 25 items (files + folders combined). Set to a higher number to show more items per page, or lower to paginate sooner.
+- **Pagination settings**  
+  Control pagination behavior with these configuration variables:
   ```php
-  $paginationThreshold = 25; // Show 25 items per page
+  $paginationThreshold = 25; // Number of items per page before pagination appears (legacy)
+  $enablePaginationAmountSelector = true; // Enable/disable pagination amount selector dropdown
+  $defaultPaginationAmount = 25; // Default items per page (5, 10, 20, 30, 50, or 'all')
   ```
+  - `$paginationThreshold` — Legacy setting for when pagination appears (kept for backward compatibility)
+  - `$enablePaginationAmountSelector` — When `true`, displays a dropdown selector next to the breadcrumb navigation that allows users to choose how many items to display per page. When `false`, the dropdown is hidden and only the default pagination amount is used.
+  - `$defaultPaginationAmount` — Sets the default number of items per page. Can be set to 5, 10, 20, 30, 50, or 'all'. This value is used when the user hasn't selected a different amount via the dropdown.
+  
+  **How it works:** Users can dynamically change the number of items displayed per page using the dropdown selector positioned to the right of the breadcrumb navigation. Options include 5, 10, 20, 30, 50 items per page, or "All" to display everything on a single page. The selection is preserved in the URL and persists across page navigation within the same directory.
 
 - **Rename functionality**  
   Enable or disable the rename feature by changing the `$enableRename` variable in the CONFIGURATION section:
@@ -486,7 +494,9 @@ Batch operations maintain the same security standards as individual operations:
 ## Notes
 
 - Files and directories are sorted naturally (case-insensitive) for better organization
-- Pagination automatically appears when the number of items exceeds the configured threshold (default: 25)
+- Pagination automatically appears when the number of items exceeds the selected amount
+- Pagination amount selector (when enabled) allows users to choose 5, 10, 20, 30, 50, or All items per page
+- The selected pagination amount is preserved in the URL and persists across directory navigation
 - Pagination preserves the current directory path when navigating between pages
 - Multi-select controls automatically appear when there are files or folders to select
 - No authentication is built-in — use web server authentication (`.htaccess`, HTTP Basic Auth) if needed
