@@ -43,6 +43,7 @@ The version information is embedded in `index.php` and includes:
 - 👁️ **Hover previews** — see thumbnails of images and videos before downloading
 - ✏️ **Rename files and folders** — easily rename items directly from the web interface (optional, configurable)
 - 🗑️ **Delete files and folders** — remove items with confirmation dialog (optional, configurable)
+- 📤 **File upload** — upload files via button or drag-and-drop anywhere on the page (optional, configurable)
 - 📥 **Secure downloads** — individual file downloads with proper content-type headers
 - 📦 **Download All as ZIP** — bundle entire directories into a single ZIP file
 - 📊 **File statistics** — displays folder/file counts and total size
@@ -209,6 +210,23 @@ Simply open `index.php` in a text editor and locate the **CONFIGURATION** sectio
   - When `$enableDownloadAll` is `false`, the "Download All as ZIP" button is hidden and the endpoint returns 403 Forbidden if accessed.
   - When `$enableBatchDownload` is `false`, multi-select controls are hidden and batch download endpoint returns 403 Forbidden if accessed.
   - When `$enableIndividualDownload` is `false`, file download links are still visible but clicking them returns 403 Forbidden.
+
+- **Upload Configuration**  
+  Control file upload functionality with these configuration variables:
+  ```php
+  $enableUpload = true;  // Enable/disable file upload functionality
+  
+  // Upload size limits (in bytes)
+  $uploadMaxFileSize = 10 * 1024 * 1024;        // Maximum individual file size (default: 10 MB)
+  $uploadMaxTotalSize = 50 * 1024 * 1024;       // Maximum total size for batch upload (default: 50 MB)
+  
+  // Optional allow list for file types (empty = allow all except blocked)
+  $uploadAllowedExtensions = [];  // Example: ['jpg', 'png', 'pdf', 'txt']
+  ```
+  - When `$enableUpload` is `false`, the upload button is hidden and the upload endpoint returns 403 Forbidden if accessed.
+  - `$uploadMaxFileSize` sets the maximum size for any individual file upload (in bytes).
+  - `$uploadMaxTotalSize` sets the maximum combined size when uploading multiple files at once (in bytes).
+  - `$uploadAllowedExtensions` optionally restricts uploads to specific file types. When empty, all types except blocked extensions are allowed.
 
 - **Display Configuration**  
   Control what information is displayed in the interface:
@@ -491,6 +509,126 @@ Batch operations maintain the same security standards as individual operations:
 
 ---
 
+## File Upload Feature
+
+The file upload feature allows you to upload files directly to the current directory through a user-friendly interface or drag-and-drop.
+
+### How to Use
+
+**Method 1: Upload Button**
+1. Click the "Upload Files" button in the action bar
+2. In the upload modal, click "Select Files" or drag files into the drop zone
+3. Review the selected files (you can remove any by clicking the × button)
+4. Click "Upload" to start the upload
+
+**Method 2: Drag and Drop**
+1. Simply drag files from your computer onto the browser window
+2. A full-screen drop overlay will appear
+3. Drop the files anywhere on the page
+4. The upload modal opens automatically with your files ready to upload
+
+### Features
+
+- **Multiple file upload** — Upload multiple files at once
+- **Drag and drop** — Drag files onto any part of the page to start upload
+- **File preview** — See file names and sizes before uploading
+- **Progress feedback** — Clear upload status with success/error messages
+- **Smart filename handling** — Duplicate files are automatically renamed (e.g., `file_1.txt`, `file_2.txt`)
+- **File type validation** — Blocked file types are rejected automatically
+- **Size limits** — Configurable maximum file sizes for individual and batch uploads
+- **Responsive design** — Works seamlessly on desktop, tablet, and mobile devices
+
+### Configuration
+
+The upload feature can be configured via variables in the `index.php` file:
+
+```php
+// Enable/disable upload functionality
+$enableUpload = true;  // Set to false to disable upload feature
+
+// Upload size limits (in bytes)
+$uploadMaxFileSize = 10 * 1024 * 1024;        // Maximum individual file size (default: 10 MB)
+$uploadMaxTotalSize = 50 * 1024 * 1024;       // Maximum total size for batch upload (default: 50 MB)
+
+// Optional allow list for file types (empty = allow all except blocked)
+$uploadAllowedExtensions = [];  // Example: ['jpg', 'png', 'pdf', 'txt']
+```
+
+### Security & Validation
+
+The upload feature includes comprehensive security measures:
+
+- **Blocked file types** — Uses the same `BLOCKED_EXTENSIONS` list as downloads (php, exe, sh, etc.)
+- **Optional allow list** — Restrict uploads to specific file types only
+- **Path traversal prevention** — Filenames are sanitized to prevent directory traversal attacks
+- **Size validation** — Files exceeding size limits are rejected
+- **Hidden file protection** — Cannot upload hidden files (starting with `.`)
+- **System file protection** — Cannot overwrite `index.php` or other protected files
+- **Duplicate handling** — Automatically renames files to prevent overwriting existing files
+- **Secure permissions** — Uploaded files are set to read-only (0644) permissions
+- **Input sanitization** — All filenames and paths are validated and sanitized
+
+### File Type Restrictions
+
+**Blocked Extensions** (cannot be uploaded):
+- Executable files: `.php`, `.phtml`, `.phar`, `.cgi`, `.pl`, `.sh`, `.bat`, `.exe`, `.com`, `.scr`, `.jar`
+- Server-side scripts: `.jsp`, `.asp`, `.aspx`, `.py`, `.rb`, `.ps1`, `.vbs`
+- Configuration files: `.htaccess`
+
+**Allow List** (optional):
+When `$uploadAllowedExtensions` is configured with an array of extensions, only those file types are allowed:
+
+```php
+// Example: Only allow image and document uploads
+$uploadAllowedExtensions = ['jpg', 'jpeg', 'png', 'gif', 'pdf', 'doc', 'docx', 'txt'];
+```
+
+Leave the array empty (`[]`) to allow all file types except those in the blocked list.
+
+### Size Limits
+
+Two size limits control upload behavior:
+
+1. **Individual file size** (`$uploadMaxFileSize`): Maximum size for any single file
+2. **Total batch size** (`$uploadMaxTotalSize`): Maximum combined size when uploading multiple files
+
+Files exceeding these limits are automatically rejected with helpful error messages.
+
+### Error Handling
+
+The upload system provides clear error messages for common issues:
+- "File too large" — when file exceeds `$uploadMaxFileSize`
+- "Total size exceeds X MB" — when batch upload exceeds `$uploadMaxTotalSize`
+- "Blocked file type" — when trying to upload dangerous file types
+- "File type not allowed" — when file doesn't match allow list
+- "Upload functionality is disabled" — when feature is turned off
+- Detailed messages for each failed file in batch uploads
+
+### Best Practices
+
+1. **Enable only when needed** — Keep upload functionality disabled unless actively required
+2. **Configure size limits** — Adjust limits based on your server's PHP configuration and available storage
+3. **Use allow list** — For public-facing sites, consider restricting uploads to specific safe file types
+4. **Server configuration** — Ensure PHP upload limits (`upload_max_filesize`, `post_max_size`) are properly configured
+5. **Monitor disk space** — Regular uploads can consume storage; implement cleanup strategies if needed
+6. **Backup regularly** — Always maintain backups before enabling upload functionality
+7. **Use authentication** — Protect upload access with web server authentication (`.htaccess`, HTTP Basic Auth)
+
+### PHP Configuration
+
+For upload to work properly, ensure your PHP configuration allows file uploads:
+
+```ini
+file_uploads = On
+upload_max_filesize = 10M  ; Should be >= $uploadMaxFileSize
+post_max_size = 50M        ; Should be >= $uploadMaxTotalSize
+max_file_uploads = 20      ; Number of simultaneous file uploads
+```
+
+These settings can be configured in `php.ini`, `.htaccess`, or `.user.ini` depending on your hosting environment.
+
+---
+
 ## Notes
 
 - Files and directories are sorted naturally (case-insensitive) for better organization
@@ -506,6 +644,8 @@ Batch operations maintain the same security standards as individual operations:
 - Preview handler is optimized for performance — it's placed at the top of the script and exits immediately
 - Hidden files (starting with `.`) and dangerous executables are automatically excluded from listings
 - **Delete operations are permanent** — deleted files cannot be recovered, so use this feature carefully
+- **Upload functionality** — when enabled, allows file uploads via button or drag-and-drop anywhere on the page
+- Upload supports multiple files and automatically handles duplicate filenames
 
 ---
 
