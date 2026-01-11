@@ -856,53 +856,95 @@ if (isset($_POST['upload'])) {
             continue;
         }
         
-        // Sanitize filename - remove path separators and dangerous characters
-        // basename() removes all path components including ../ for security
-        $fileName = basename($fileName);
-        $fileName = str_replace(['/', '\\', "\0"], '', $fileName);
-        $fileName = trim($fileName);
+        // Sanitize filename and preserve folder structure for folder uploads
+        // Remove any absolute path indicators and resolve relative paths securely
+        $fileName = str_replace(['\\', "\0"], ['/', ''], $fileName); // Normalize separators
+        $fileName = trim($fileName, '/'); // Remove leading/trailing slashes
         
-        // Validate filename
-        if (empty($fileName) || $fileName === '.' || $fileName === '..') {
+        // Split into path components and validate each
+        $pathParts = explode('/', $fileName);
+        $sanitizedParts = [];
+        
+        foreach ($pathParts as $part) {
+            // Skip empty parts, current dir (.), and parent dir (..)
+            if (empty($part) || $part === '.' || $part === '..') {
+                continue;
+            }
+            // Skip hidden files/folders
+            if ($part[0] === '.') {
+                $failedFiles[] = $fileName . ' (hidden files/folders not allowed)';
+                continue 2; // Skip to next file
+            }
+            // Sanitize the part
+            $part = trim($part);
+            if (!empty($part)) {
+                $sanitizedParts[] = $part;
+            }
+        }
+        
+        if (empty($sanitizedParts)) {
             $failedFiles[] = ($fileName ?: 'unnamed') . ' (invalid name)';
             continue;
         }
         
-        // Prevent uploading hidden files
-        if ($fileName[0] === '.') {
-            $failedFiles[] = $fileName . ' (hidden files not allowed)';
-            continue;
-        }
+        // Reconstruct the safe relative path
+        $fileName = implode(DIRECTORY_SEPARATOR, $sanitizedParts);
+        $displayName = implode('/', $sanitizedParts); // For error messages
+        
+        // Get the actual filename (last part)
+        $actualFileName = end($sanitizedParts);
         
         // Prevent overwriting index.php
-        if ($fileName === 'index.php') {
-            $failedFiles[] = $fileName . ' (protected file)';
+        if ($actualFileName === 'index.php') {
+            $failedFiles[] = $displayName . ' (protected file)';
             continue;
         }
         
-        // Get file extension
-        $ext = strtolower(pathinfo($fileName, PATHINFO_EXTENSION));
+        // Get file extension from the actual filename
+        $ext = strtolower(pathinfo($actualFileName, PATHINFO_EXTENSION));
         
         // Check against blocked extensions
         if (in_array($ext, BLOCKED_EXTENSIONS, true)) {
-            $failedFiles[] = $fileName . ' (blocked file type)';
+            $failedFiles[] = $displayName . ' (blocked file type)';
             continue;
         }
         
         // Check against allow list if configured
         if (!empty($uploadAllowedExtensions) && !in_array($ext, array_map('strtolower', $uploadAllowedExtensions), true)) {
-            $failedFiles[] = $fileName . ' (file type not allowed)';
+            $failedFiles[] = $displayName . ' (file type not allowed)';
             continue;
         }
         
         // Build target file path
         $targetFile = $realBase . DIRECTORY_SEPARATOR . $fileName;
         
+        // Create subdirectories if needed (for folder uploads)
+        $targetDir = dirname($targetFile);
+        if (!file_exists($targetDir)) {
+            if (!@mkdir($targetDir, 0755, true)) {
+                $failedFiles[] = $displayName . ' (failed to create directory)';
+                continue;
+            }
+        }
+        
+        // Validate that target directory is still within root (extra security check)
+        $realTargetDir = realpath($targetDir);
+        if ($realTargetDir === false || strpos($realTargetDir . DIRECTORY_SEPARATOR, $realRoot) !== 0) {
+            $failedFiles[] = $displayName . ' (invalid target path)';
+            continue;
+        }
+        
         // Check if file already exists
         if (file_exists($targetFile)) {
-            // Generate unique filename
+            // For files in subdirectories, just skip duplicates to avoid complex renaming logic
+            if (count($sanitizedParts) > 1) {
+                $failedFiles[] = $displayName . ' (file already exists)';
+                continue;
+            }
+            
+            // Generate unique filename for files in root
             $baseName = pathinfo($fileName, PATHINFO_FILENAME);
-            $extension = pathinfo($fileName, PATHINFO_EXTENSION);
+            $extension = pathinfo($actualFileName, PATHINFO_EXTENSION);
             $counter = 1;
             
             do {
@@ -912,20 +954,21 @@ if (isset($_POST['upload'])) {
             } while (file_exists($targetFile) && $counter < 1000);
             
             if ($counter >= 1000) {
-                $failedFiles[] = $fileName . ' (too many duplicates)';
+                $failedFiles[] = $displayName . ' (too many duplicates)';
                 continue;
             }
             
             $fileName = $newFileName;
+            $displayName = $newFileName;
         }
         
         // Move uploaded file
         if (@move_uploaded_file($fileTmpName, $targetFile)) {
             // Set file permissions to read-only for security
             @chmod($targetFile, 0644);
-            $uploadedFiles[] = $fileName;
+            $uploadedFiles[] = $displayName;
         } else {
-            $failedFiles[] = $fileName . ' (failed to save)';
+            $failedFiles[] = $displayName . ' (failed to save)';
         }
     }
     
@@ -2902,6 +2945,22 @@ if ($isValidPath) {
             background: var(--accent-hover);
         }
         
+        .upload-button-group {
+            display: flex;
+            gap: 12px;
+            justify-content: center;
+            flex-wrap: wrap;
+        }
+        
+        .upload-select-folder-btn {
+            background: var(--accent);
+            opacity: 0.9;
+        }
+        
+        .upload-select-folder-btn:hover {
+            opacity: 1;
+        }
+        
         .upload-file-list {
             margin-bottom: 20px;
         }
@@ -3888,9 +3947,13 @@ if ($isValidPath) {
             <div class="upload-modal-success" id="uploadModalSuccess"></div>
             <div class="upload-drop-zone" id="uploadDropZone">
                 <i class="fa-solid fa-cloud-arrow-up"></i>
-                <p>Drag and drop files here or click to select</p>
+                <p>Drag and drop files or folders here, or click to select</p>
                 <input type="file" id="uploadFileInput" multiple hidden>
-                <button class="upload-select-btn" id="uploadSelectBtn">Select Files</button>
+                <input type="file" id="uploadFolderInput" multiple webkitdirectory hidden>
+                <div class="upload-button-group">
+                    <button class="upload-select-btn" id="uploadSelectBtn">Select Files</button>
+                    <button class="upload-select-btn upload-select-folder-btn" id="uploadSelectFolderBtn">Select Folder</button>
+                </div>
             </div>
             <div class="upload-progress-container" id="uploadProgressContainer">
                 <div class="upload-progress-bar">
@@ -4823,7 +4886,9 @@ if ($isValidPath) {
                 const uploadModalConfirm = document.getElementById('uploadModalConfirm');
                 const uploadDropZone = document.getElementById('uploadDropZone');
                 const uploadFileInput = document.getElementById('uploadFileInput');
+                const uploadFolderInput = document.getElementById('uploadFolderInput');
                 const uploadSelectBtn = document.getElementById('uploadSelectBtn');
+                const uploadSelectFolderBtn = document.getElementById('uploadSelectFolderBtn');
                 const uploadFileList = document.getElementById('uploadFileList');
                 const uploadModalError = document.getElementById('uploadModalError');
                 const uploadModalSuccess = document.getElementById('uploadModalSuccess');
@@ -4959,6 +5024,7 @@ if ($isValidPath) {
                     uploadModal.setAttribute('aria-hidden', 'true');
                     selectedFiles = [];
                     uploadFileInput.value = '';
+                    uploadFolderInput.value = '';
                     uploadProgressContainer.classList.remove('active');
                 }
                 
@@ -5125,15 +5191,28 @@ if ($isValidPath) {
                     uploadFileInput.click();
                 });
                 
+                uploadSelectFolderBtn.addEventListener('click', function() {
+                    uploadFolderInput.click();
+                });
+                
                 uploadFileInput.addEventListener('change', function() {
                     if (this.files.length > 0) {
                         addFiles(this.files);
                     }
                 });
                 
-                // Drop zone events
-                uploadDropZone.addEventListener('click', function() {
-                    uploadFileInput.click();
+                uploadFolderInput.addEventListener('change', function() {
+                    if (this.files.length > 0) {
+                        addFiles(this.files);
+                    }
+                });
+                
+                // Drop zone events - don't trigger file input on click since we have separate buttons
+                uploadDropZone.addEventListener('click', function(e) {
+                    // Only prevent default click if clicking on the drop zone itself, not the buttons
+                    if (e.target === uploadDropZone || e.target.tagName === 'I' || e.target.tagName === 'P') {
+                        // Don't do anything - let users click the buttons
+                    }
                 });
                 
                 uploadDropZone.addEventListener('dragover', function(e) {
