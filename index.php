@@ -2961,6 +2961,70 @@ if ($isValidPath) {
             color: #c0392b;
         }
         
+        .upload-file-status {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-right: 8px;
+        }
+        
+        .upload-file-status i {
+            font-size: 1.2rem;
+        }
+        
+        .upload-file-status.pending i {
+            color: var(--muted);
+        }
+        
+        .upload-file-status.uploading i {
+            color: var(--accent);
+            animation: spin 1s linear infinite;
+        }
+        
+        .upload-file-status.completed i {
+            color: #27ae60;
+        }
+        
+        .upload-file-status.failed i {
+            color: #e74c3c;
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        
+        .upload-progress-container {
+            margin-bottom: 20px;
+            display: none;
+        }
+        
+        .upload-progress-container.active {
+            display: block;
+        }
+        
+        .upload-progress-bar {
+            width: 100%;
+            height: 8px;
+            background: var(--border);
+            border-radius: 4px;
+            overflow: hidden;
+            margin-bottom: 8px;
+        }
+        
+        .upload-progress-fill {
+            height: 100%;
+            background: var(--accent);
+            width: 0%;
+            transition: width 0.3s ease;
+        }
+        
+        .upload-progress-text {
+            font-size: 0.85rem;
+            color: var(--muted);
+            text-align: center;
+        }
+        
         .upload-modal-buttons {
             display: flex;
             gap: 12px;
@@ -3827,6 +3891,12 @@ if ($isValidPath) {
                 <p>Drag and drop files here or click to select</p>
                 <input type="file" id="uploadFileInput" multiple hidden>
                 <button class="upload-select-btn" id="uploadSelectBtn">Select Files</button>
+            </div>
+            <div class="upload-progress-container" id="uploadProgressContainer">
+                <div class="upload-progress-bar">
+                    <div class="upload-progress-fill" id="uploadProgressFill"></div>
+                </div>
+                <div class="upload-progress-text" id="uploadProgressText">Uploading files...</div>
             </div>
             <div class="upload-file-list" id="uploadFileList"></div>
             <div class="upload-modal-buttons">
@@ -4758,6 +4828,9 @@ if ($isValidPath) {
                 const uploadModalError = document.getElementById('uploadModalError');
                 const uploadModalSuccess = document.getElementById('uploadModalSuccess');
                 const dragDropOverlay = document.getElementById('dragDropOverlay');
+                const uploadProgressContainer = document.getElementById('uploadProgressContainer');
+                const uploadProgressFill = document.getElementById('uploadProgressFill');
+                const uploadProgressText = document.getElementById('uploadProgressText');
                 
                 if (!uploadBtn || !uploadModal) return;
                 
@@ -4811,7 +4884,24 @@ if ($isValidPath) {
                     uploadModalConfirm.disabled = false;
                     
                     const html = selectedFiles.map((file, index) => {
-                        return '<div class="upload-file-item">' +
+                        const status = file.uploadStatus || 'pending';
+                        let statusIcon = '';
+                        
+                        if (status === 'pending') {
+                            statusIcon = '<div class="upload-file-status pending"><i class="fa-solid fa-clock"></i></div>';
+                        } else if (status === 'uploading') {
+                            statusIcon = '<div class="upload-file-status uploading"><i class="fa-solid fa-spinner"></i></div>';
+                        } else if (status === 'completed') {
+                            statusIcon = '<div class="upload-file-status completed"><i class="fa-solid fa-check-circle"></i></div>';
+                        } else if (status === 'failed') {
+                            statusIcon = '<div class="upload-file-status failed"><i class="fa-solid fa-times-circle"></i></div>';
+                        }
+                        
+                        const removeButton = status === 'pending' ? 
+                            '<button class="upload-file-remove" data-index="' + index + '" title="Remove"><i class="fa-solid fa-times"></i></button>' :
+                            '';
+                        
+                        return '<div class="upload-file-item" data-file-index="' + index + '">' +
                             '<div class="upload-file-info">' +
                             '<i class="fa-solid fa-file"></i>' +
                             '<div class="upload-file-details">' +
@@ -4819,9 +4909,8 @@ if ($isValidPath) {
                             '<div class="upload-file-size">' + formatFileSize(file.size) + '</div>' +
                             '</div>' +
                             '</div>' +
-                            '<button class="upload-file-remove" data-index="' + index + '" title="Remove">' +
-                            '<i class="fa-solid fa-times"></i>' +
-                            '</button>' +
+                            statusIcon +
+                            removeButton +
                             '</div>';
                     }).join('');
                     
@@ -4859,6 +4948,7 @@ if ($isValidPath) {
                     selectedFiles = [];
                     renderFileList();
                     hideMessages();
+                    uploadProgressContainer.classList.remove('active');
                     uploadModal.classList.add('active');
                     uploadModal.removeAttribute('aria-hidden');
                 }
@@ -4869,6 +4959,7 @@ if ($isValidPath) {
                     uploadModal.setAttribute('aria-hidden', 'true');
                     selectedFiles = [];
                     uploadFileInput.value = '';
+                    uploadProgressContainer.classList.remove('active');
                 }
                 
                 // Perform upload
@@ -4880,6 +4971,17 @@ if ($isValidPath) {
                     uploadModalCancel.disabled = true;
                     uploadModalConfirm.textContent = 'Uploading...';
                     
+                    // Show progress container
+                    uploadProgressContainer.classList.add('active');
+                    uploadProgressFill.style.width = '0%';
+                    uploadProgressText.textContent = 'Uploading files...';
+                    
+                    // Mark all files as uploading
+                    selectedFiles.forEach(file => {
+                        file.uploadStatus = 'uploading';
+                    });
+                    renderFileList();
+                    
                     const formData = new FormData();
                     formData.append('upload', '1');
                     formData.append('target_path', getCurrentPath());
@@ -4888,11 +4990,22 @@ if ($isValidPath) {
                         formData.append('files[]', file);
                     });
                     
+                    // Simulate progress for better UX (since we can't track individual file uploads on server)
+                    let progress = 0;
+                    const progressInterval = setInterval(() => {
+                        if (progress < 90) {
+                            progress += 10;
+                            uploadProgressFill.style.width = progress + '%';
+                            uploadProgressText.textContent = 'Uploading files... ' + progress + '%';
+                        }
+                    }, 200);
+                    
                     fetch('', {
                         method: 'POST',
                         body: formData
                     })
                     .then(response => {
+                        clearInterval(progressInterval);
                         if (!response.ok) {
                             return response.json().then(data => {
                                 throw new Error(data.error || 'Upload failed');
@@ -4903,7 +5016,37 @@ if ($isValidPath) {
                         return response.json();
                     })
                     .then(data => {
+                        clearInterval(progressInterval);
+                        uploadProgressFill.style.width = '100%';
+                        uploadProgressText.textContent = 'Upload complete!';
+                        
                         if (data.success) {
+                            // Mark uploaded files as completed
+                            if (data.files && Array.isArray(data.files)) {
+                                selectedFiles.forEach(file => {
+                                    if (data.files.includes(file.name)) {
+                                        file.uploadStatus = 'completed';
+                                    }
+                                });
+                            }
+                            
+                            // Mark failed files
+                            if (data.failed && Array.isArray(data.failed)) {
+                                data.failed.forEach(failedMsg => {
+                                    // Extract filename from error message (format: "filename (error)")
+                                    const match = failedMsg.match(/^(.+?)\s*\(/);
+                                    if (match) {
+                                        const failedName = match[1];
+                                        const file = selectedFiles.find(f => f.name === failedName);
+                                        if (file) {
+                                            file.uploadStatus = 'failed';
+                                        }
+                                    }
+                                });
+                            }
+                            
+                            renderFileList();
+                            
                             let message = data.uploaded + ' file' + (data.uploaded > 1 ? 's' : '') + ' uploaded successfully';
                             if (data.failed && data.failed.length > 0) {
                                 message += '\n\nFailed:\n' + data.failed.join('\n');
@@ -4915,6 +5058,12 @@ if ($isValidPath) {
                                 window.location.reload();
                             }, 2000);
                         } else {
+                            // Mark all as failed
+                            selectedFiles.forEach(file => {
+                                file.uploadStatus = 'failed';
+                            });
+                            renderFileList();
+                            
                             let errorMsg = data.error || 'Upload failed';
                             if (data.failed && data.failed.length > 0) {
                                 errorMsg += '\n\nFailed:\n' + data.failed.join('\n');
@@ -4923,9 +5072,19 @@ if ($isValidPath) {
                             uploadModalConfirm.disabled = false;
                             uploadModalCancel.disabled = false;
                             uploadModalConfirm.textContent = 'Upload';
+                            uploadProgressContainer.classList.remove('active');
                         }
                     })
                     .catch(err => {
+                        clearInterval(progressInterval);
+                        uploadProgressContainer.classList.remove('active');
+                        
+                        // Mark all as failed
+                        selectedFiles.forEach(file => {
+                            file.uploadStatus = 'failed';
+                        });
+                        renderFileList();
+                        
                         showError(err.message || 'An error occurred. Please try again.');
                         uploadModalConfirm.disabled = false;
                         uploadModalCancel.disabled = false;
