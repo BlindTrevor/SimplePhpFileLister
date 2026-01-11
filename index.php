@@ -3883,7 +3883,7 @@ if ($isValidPath) {
     <div class="upload-modal" id="uploadModal" role="dialog" aria-labelledby="uploadModalTitle" aria-modal="true">
         <div class="upload-modal-content">
             <h2 class="upload-modal-title" id="uploadModalTitle">Upload Files</h2>
-            <p class="upload-modal-subtitle">Select files to upload to this directory</p>
+            <p class="upload-modal-subtitle">Select files to upload to this directory. Max file size: <?php echo htmlspecialchars(formatFileSize($uploadMaxFileSize), ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8'); ?></p>
             <div class="upload-modal-error" id="uploadModalError"></div>
             <div class="upload-modal-success" id="uploadModalSuccess"></div>
             <div class="upload-drop-zone" id="uploadDropZone">
@@ -5008,9 +5008,24 @@ if ($isValidPath) {
                         clearInterval(progressInterval);
                         if (!response.ok) {
                             return response.json().then(data => {
-                                throw new Error(data.error || 'Upload failed');
-                            }).catch(() => {
-                                throw new Error('Upload failed');
+                                // Create more descriptive error message
+                                let errorMsg = data.error || 'Upload failed';
+                                if (response.status === 403) {
+                                    errorMsg = 'Upload forbidden: ' + errorMsg;
+                                } else if (response.status === 413) {
+                                    errorMsg = 'File too large: The uploaded file(s) exceed the maximum allowed size';
+                                } else if (response.status === 500) {
+                                    errorMsg = 'Server error: ' + errorMsg;
+                                } else if (response.status === 400) {
+                                    errorMsg = 'Invalid request: ' + errorMsg;
+                                }
+                                throw new Error(errorMsg);
+                            }).catch(err => {
+                                if (err.message) {
+                                    throw err;
+                                }
+                                // If JSON parsing failed, provide generic error with status
+                                throw new Error('Upload failed with status ' + response.status + ': ' + response.statusText);
                             });
                         }
                         return response.json();
@@ -5085,7 +5100,15 @@ if ($isValidPath) {
                         });
                         renderFileList();
                         
-                        showError(err.message || 'An error occurred. Please try again.');
+                        // Provide more descriptive error message
+                        let errorMsg = err.message || 'Upload failed due to a network error';
+                        if (!navigator.onLine) {
+                            errorMsg = 'Upload failed: No internet connection detected';
+                        } else if (err.message && err.message.includes('NetworkError')) {
+                            errorMsg = 'Upload failed: Network error occurred. Please check your connection';
+                        }
+                        
+                        showError(errorMsg);
                         uploadModalConfirm.disabled = false;
                         uploadModalCancel.disabled = false;
                         uploadModalConfirm.textContent = 'Upload';
