@@ -5,14 +5,14 @@
  * 
  * @author Blind Trevor
  * @link https://github.com/BlindTrevor/SimplePhpFileLister
- * @version 1.0.20
+ * @version 1.0.21
  */
 
 // ============================================================================
 // VERSION INFORMATION
 // ============================================================================
 // Version is automatically updated by GitHub Actions on merge to main branch
-define('APP_VERSION', '1.0.20');
+define('APP_VERSION', '1.0.21');
 
 // ============================================================================
 // CONFIGURATION
