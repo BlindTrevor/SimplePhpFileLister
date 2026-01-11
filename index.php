@@ -2084,7 +2084,7 @@ if ($isValidPath) {
                 width: 28px;
             }
             
-            /* On mobile: icon and size on first row, name wraps below */
+            /* On mobile: icon and size on first row (left side), name wraps below */
             .file-name {
                 font-size: 0.875rem;
                 flex: 1 1 100%;
@@ -2093,10 +2093,10 @@ if ($isValidPath) {
             
             .file-size {
                 font-size: 0.75rem;
-                padding-left: 0;
+                padding-left: 8px;
                 margin-left: 0;
-                flex: 1;
-                text-align: right;
+                flex: 0 0 auto;
+                text-align: left;
                 order: 1;
             }
             
