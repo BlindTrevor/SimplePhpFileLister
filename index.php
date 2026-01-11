@@ -83,7 +83,7 @@ define('BLOCKED_EXTENSIONS', [
     'scr', 'com', 'jar'
 ]);
 
-// Reserved directory names that cannot be created/modified
+// Reserved filesystem names that cannot be used for directories (includes special files and paths)
 define('RESERVED_NAMES', [
     'index.php', '.', '..', '.htaccess', '.gitignore', '.env'
 ]);
@@ -987,8 +987,8 @@ if (isset($_POST['create_directory'])) {
         exit;
     }
     
-    // Prevent creating hidden directories
-    if ($dirName[0] === '.') {
+    // Prevent creating hidden directories (check after ensuring name is not empty)
+    if (strlen($dirName) > 0 && $dirName[0] === '.') {
         http_response_code(400);
         echo json_encode(['success' => false, 'error' => 'Cannot create hidden directory']);
         exit;
@@ -1030,6 +1030,8 @@ if (isset($_POST['create_directory'])) {
     }
     
     // Create the directory with secure permissions (0755)
+    // Clear any previous errors to ensure error_get_last() captures only mkdir errors
+    error_clear_last();
     $result = mkdir($fullNewPath, 0755);
     if ($result) {
         echo json_encode(['success' => true]);
