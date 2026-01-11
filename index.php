@@ -810,11 +810,19 @@ if (isset($_POST['upload'])) {
             $fileTmpName = $_FILES['files']['tmp_name'][$i];
             $fileError = $_FILES['files']['error'][$i];
             $fileSize = $_FILES['files']['size'][$i];
+            // Use full_path if available (PHP 8.1+) for folder uploads
+            if (isset($_FILES['files']['full_path']) && isset($_FILES['files']['full_path'][$i])) {
+                $fileName = $_FILES['files']['full_path'][$i];
+            }
         } else {
             $fileName = $_FILES['files']['name'];
             $fileTmpName = $_FILES['files']['tmp_name'];
             $fileError = $_FILES['files']['error'];
             $fileSize = $_FILES['files']['size'];
+            // Use full_path if available (PHP 8.1+) for folder uploads
+            if (isset($_FILES['files']['full_path'])) {
+                $fileName = $_FILES['files']['full_path'];
+            }
         }
         
         // Check for upload errors
@@ -920,7 +928,7 @@ if (isset($_POST['upload'])) {
         
         // Create subdirectories if needed (for folder uploads)
         $targetDir = dirname($targetFile);
-        if (!file_exists($targetDir)) {
+        if ($targetDir !== $realBase && !file_exists($targetDir)) {
             if (!@mkdir($targetDir, 0755, true)) {
                 $failedFiles[] = $displayName . ' (failed to create directory)';
                 continue;
@@ -928,8 +936,17 @@ if (isset($_POST['upload'])) {
         }
         
         // Validate that target directory is still within root (extra security check)
-        $realTargetDir = realpath($targetDir);
-        if ($realTargetDir === false || strpos($realTargetDir . DIRECTORY_SEPARATOR, $realRoot) !== 0) {
+        // Use the canonical path before realpath to avoid issues with newly created directories
+        $targetDirForValidation = $targetDir;
+        if (file_exists($targetDir)) {
+            $realTargetDir = realpath($targetDir);
+            if ($realTargetDir !== false) {
+                $targetDirForValidation = $realTargetDir;
+            }
+        }
+        
+        // Ensure the target directory starts with the root path
+        if (strpos($targetDirForValidation . DIRECTORY_SEPARATOR, $realRoot) !== 0 && $targetDirForValidation !== $realBase) {
             $failedFiles[] = $displayName . ' (invalid target path)';
             continue;
         }
@@ -943,7 +960,7 @@ if (isset($_POST['upload'])) {
             }
             
             // Generate unique filename for files in root
-            $baseName = pathinfo($fileName, PATHINFO_FILENAME);
+            $baseName = pathinfo($actualFileName, PATHINFO_FILENAME);
             $extension = pathinfo($actualFileName, PATHINFO_EXTENSION);
             $counter = 1;
             
