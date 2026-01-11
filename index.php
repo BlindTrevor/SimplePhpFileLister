@@ -831,7 +831,7 @@ if (isset($_POST['upload'])) {
                     $errorMsg = 'Partial upload';
                     break;
                 case UPLOAD_ERR_NO_FILE:
-                    continue; // Skip this file
+                    continue 2; // Skip this file (continue the outer for loop)
                 case UPLOAD_ERR_NO_TMP_DIR:
                 case UPLOAD_ERR_CANT_WRITE:
                     $errorMsg = 'Server error';
@@ -4924,16 +4924,40 @@ if ($isValidPath) {
                     return div.innerHTML;
                 }
                 
-                // Add files to selection
+                // Add files to selection with folder detection
                 function addFiles(files) {
+                    let folderDetected = false;
+                    let filesAdded = 0;
+                    
                     for (let i = 0; i < files.length; i++) {
                         const file = files[i];
+                        
+                        // Check if this is a folder (folders have size 0 and type "" and webkitRelativePath)
+                        // Or check if it's a folder by checking if size is 0 and type is empty
+                        // However, the browser's file input with multiple doesn't actually allow folder selection
+                        // We need to check if the file has certain properties that indicate it might be part of a folder
+                        
+                        // For drag and drop, we can detect folders by checking DataTransferItem
+                        // But for FileList, we check if file.type is empty and size is 0 (might be a folder)
+                        // Actually, standard file input doesn't allow folders, but we should check the webkitRelativePath
+                        if (file.webkitRelativePath && file.webkitRelativePath.includes('/')) {
+                            folderDetected = true;
+                            continue; // Skip this file
+                        }
+                        
                         // Check if file already exists
                         const exists = selectedFiles.some(f => f.name === file.name && f.size === file.size);
                         if (!exists) {
                             selectedFiles.push(file);
+                            filesAdded++;
                         }
                     }
+                    
+                    // Show warning if folders were detected
+                    if (folderDetected) {
+                        showError('Folders cannot be uploaded. Please select individual files only.');
+                    }
+                    
                     renderFileList();
                 }
                 
@@ -5168,7 +5192,43 @@ if ($isValidPath) {
                 uploadDropZone.addEventListener('drop', function(e) {
                     e.preventDefault();
                     this.classList.remove('drag-over');
-                    if (e.dataTransfer.files.length > 0) {
+                    
+                    // Check for folders using DataTransferItem API
+                    if (e.dataTransfer.items) {
+                        let hasFolders = false;
+                        const validFiles = [];
+                        
+                        for (let i = 0; i < e.dataTransfer.items.length; i++) {
+                            const item = e.dataTransfer.items[i];
+                            
+                            // Check if item is a directory
+                            if (item.kind === 'file') {
+                                const entry = item.webkitGetAsEntry ? item.webkitGetAsEntry() : null;
+                                if (entry && entry.isDirectory) {
+                                    hasFolders = true;
+                                } else {
+                                    // It's a file, add it to valid files
+                                    const file = item.getAsFile();
+                                    if (file) {
+                                        validFiles.push(file);
+                                    }
+                                }
+                            }
+                        }
+                        
+                        // Show error if folders were detected
+                        if (hasFolders) {
+                            showError('Folders cannot be uploaded. Please drop individual files only.');
+                        }
+                        
+                        // Add valid files
+                        if (validFiles.length > 0) {
+                            // Convert array to FileList-like object
+                            const fileList = validFiles;
+                            addFiles(fileList);
+                        }
+                    } else if (e.dataTransfer.files.length > 0) {
+                        // Fallback for browsers that don't support DataTransferItem API
                         addFiles(e.dataTransfer.files);
                     }
                 });
@@ -5235,9 +5295,43 @@ if ($isValidPath) {
                     // Don't handle if modal is already open or if not in file lister
                     if (uploadModal.classList.contains('active')) return;
                     
-                    if (e.dataTransfer.files.length > 0) {
-                        // Open modal and add files
-                        openModal();
+                    // Open modal first
+                    openModal();
+                    
+                    // Check for folders using DataTransferItem API
+                    if (e.dataTransfer.items) {
+                        let hasFolders = false;
+                        const validFiles = [];
+                        
+                        for (let i = 0; i < e.dataTransfer.items.length; i++) {
+                            const item = e.dataTransfer.items[i];
+                            
+                            // Check if item is a directory
+                            if (item.kind === 'file') {
+                                const entry = item.webkitGetAsEntry ? item.webkitGetAsEntry() : null;
+                                if (entry && entry.isDirectory) {
+                                    hasFolders = true;
+                                } else {
+                                    // It's a file, add it to valid files
+                                    const file = item.getAsFile();
+                                    if (file) {
+                                        validFiles.push(file);
+                                    }
+                                }
+                            }
+                        }
+                        
+                        // Show error if folders were detected
+                        if (hasFolders) {
+                            showError('Folders cannot be uploaded. Please drop individual files only.');
+                        }
+                        
+                        // Add valid files
+                        if (validFiles.length > 0) {
+                            addFiles(validFiles);
+                        }
+                    } else if (e.dataTransfer.files.length > 0) {
+                        // Fallback for browsers that don't support DataTransferItem API
                         addFiles(e.dataTransfer.files);
                     }
                 });
