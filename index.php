@@ -1678,6 +1678,14 @@ if ($isValidPath) {
             transform: translateY(-50%) scale(0.95);
         }
         
+        /* Always show rename/delete buttons on touch-only devices */
+        @media (hover: none) and (pointer: coarse) {
+            .rename-btn,
+            .delete-btn {
+                opacity: 1;
+            }
+        }
+        
         .file-list li {
             position: relative;
         }
