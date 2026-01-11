@@ -822,14 +822,16 @@ if (isset($_POST['upload'])) {
             $errorMsg = 'Upload error';
             switch ($fileError) {
                 case UPLOAD_ERR_INI_SIZE:
+                    $errorMsg = 'File too large (server limit)';
+                    break;
                 case UPLOAD_ERR_FORM_SIZE:
-                    $errorMsg = 'File too large';
+                    $errorMsg = 'File exceeds form size limit';
                     break;
                 case UPLOAD_ERR_PARTIAL:
                     $errorMsg = 'Partial upload';
                     break;
                 case UPLOAD_ERR_NO_FILE:
-                    continue 2; // Skip this file
+                    continue; // Skip this file
                 case UPLOAD_ERR_NO_TMP_DIR:
                 case UPLOAD_ERR_CANT_WRITE:
                     $errorMsg = 'Server error';
@@ -3822,7 +3824,7 @@ if ($isValidPath) {
             <div class="upload-drop-zone" id="uploadDropZone">
                 <i class="fa-solid fa-cloud-arrow-up"></i>
                 <p>Drag and drop files here or click to select</p>
-                <input type="file" id="uploadFileInput" multiple hidden accept="*">
+                <input type="file" id="uploadFileInput" multiple hidden>
                 <button class="upload-select-btn" id="uploadSelectBtn">Select Files</button>
             </div>
             <div class="upload-file-list" id="uploadFileList"></div>
@@ -4855,7 +4857,7 @@ if ($isValidPath) {
                     renderFileList();
                     hideMessages();
                     uploadModal.classList.add('active');
-                    uploadModal.setAttribute('aria-hidden', 'false');
+                    uploadModal.removeAttribute('aria-hidden');
                 }
                 
                 // Close modal
@@ -4901,7 +4903,7 @@ if ($isValidPath) {
                         if (data.success) {
                             let message = data.uploaded + ' file' + (data.uploaded > 1 ? 's' : '') + ' uploaded successfully';
                             if (data.failed && data.failed.length > 0) {
-                                message += '\\n\\nFailed:\\n' + data.failed.join('\\n');
+                                message += '\n\nFailed:\n' + data.failed.join('\n');
                             }
                             showSuccess(message);
                             
@@ -4912,7 +4914,7 @@ if ($isValidPath) {
                         } else {
                             let errorMsg = data.error || 'Upload failed';
                             if (data.failed && data.failed.length > 0) {
-                                errorMsg += '\\n\\nFailed:\\n' + data.failed.join('\\n');
+                                errorMsg += '\n\nFailed:\n' + data.failed.join('\n');
                             }
                             showError(errorMsg);
                             uploadModalConfirm.disabled = false;
