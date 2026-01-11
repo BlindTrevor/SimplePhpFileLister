@@ -36,6 +36,7 @@ $enableDelete = false;             // Enable/disable delete functionality
 $enableDownloadAll = true;         // Enable/disable "Download All as ZIP" button
 $enableBatchDownload = true;       // Enable/disable batch download of selected items as ZIP
 $enableIndividualDownload = true;  // Enable/disable individual file downloads
+$enableUpload = false;             // Enable/disable file upload functionality
 
 // --- Display Options ---
 $showFileSize = true;           // Show/hide file sizes in file listings
@@ -49,6 +50,12 @@ $allowThemeChange = true;       // Allow users to change the theme via settings 
 // --- Advanced Options ---
 $includeHiddenFiles = false;    // Include hidden files (starting with .) in listings
 $zipCompressionLevel = 6;       // ZIP compression level (0-9, where 0=no compression, 9=maximum compression)
+
+// --- Upload Settings ---
+$uploadMaxFileSize = 10 * 1024 * 1024;        // Maximum file size in bytes (default: 10 MB)
+$uploadMaxTotalSize = 50 * 1024 * 1024;       // Maximum total size for multiple uploads (default: 50 MB)
+$uploadAllowedExtensions = [];                // Optional: Array of allowed extensions (empty = allow all except blocked)
+                                              // Example: ['jpg', 'png', 'pdf', 'txt'] to only allow these types
 
 // ============================================================================
 // CONFIGURATION VALIDATION
@@ -744,6 +751,195 @@ if (isset($_POST['delete_batch'])) {
     } else {
         http_response_code(500);
         echo json_encode(['success' => false, 'error' => 'Failed to delete items', 'failed' => $failedItems]);
+    }
+    exit;
+}
+
+/**
+ * Secure file upload handler
+ */
+if (isset($_POST['upload'])) {
+    header('Content-Type: application/json');
+    
+    // Check if upload is enabled
+    if (!$enableUpload) {
+        http_response_code(403);
+        echo json_encode(['success' => false, 'error' => 'Upload functionality is disabled']);
+        exit;
+    }
+    
+    // Check if files were uploaded
+    if (!isset($_FILES['files']) || empty($_FILES['files']['name'])) {
+        http_response_code(400);
+        echo json_encode(['success' => false, 'error' => 'No files provided']);
+        exit;
+    }
+    
+    // Get target path
+    $targetPath = isset($_POST['target_path']) ? (string)$_POST['target_path'] : '';
+    
+    // Validate target path
+    $basePath = $targetPath ? './' . str_replace('\\', '/', $targetPath) : '.';
+    $realBase = realpath($basePath);
+    
+    // Validate path is within root
+    if ($realBase === false || strpos($realBase . DIRECTORY_SEPARATOR, $realRoot) !== 0) {
+        http_response_code(404);
+        echo json_encode(['success' => false, 'error' => 'Invalid target directory']);
+        exit;
+    }
+    
+    // Ensure target is a directory
+    if (!is_dir($realBase)) {
+        http_response_code(400);
+        echo json_encode(['success' => false, 'error' => 'Target is not a directory']);
+        exit;
+    }
+    
+    $uploadedFiles = [];
+    $failedFiles = [];
+    $totalSize = 0;
+    
+    // Handle multiple file uploads
+    $fileCount = is_array($_FILES['files']['name']) ? count($_FILES['files']['name']) : 1;
+    
+    for ($i = 0; $i < $fileCount; $i++) {
+        // Extract file info (handle both single and multiple file uploads)
+        if (is_array($_FILES['files']['name'])) {
+            $fileName = $_FILES['files']['name'][$i];
+            $fileTmpName = $_FILES['files']['tmp_name'][$i];
+            $fileError = $_FILES['files']['error'][$i];
+            $fileSize = $_FILES['files']['size'][$i];
+        } else {
+            $fileName = $_FILES['files']['name'];
+            $fileTmpName = $_FILES['files']['tmp_name'];
+            $fileError = $_FILES['files']['error'];
+            $fileSize = $_FILES['files']['size'];
+        }
+        
+        // Check for upload errors
+        if ($fileError !== UPLOAD_ERR_OK) {
+            $errorMsg = 'Upload error';
+            switch ($fileError) {
+                case UPLOAD_ERR_INI_SIZE:
+                case UPLOAD_ERR_FORM_SIZE:
+                    $errorMsg = 'File too large';
+                    break;
+                case UPLOAD_ERR_PARTIAL:
+                    $errorMsg = 'Partial upload';
+                    break;
+                case UPLOAD_ERR_NO_FILE:
+                    continue 2; // Skip this file
+                case UPLOAD_ERR_NO_TMP_DIR:
+                case UPLOAD_ERR_CANT_WRITE:
+                    $errorMsg = 'Server error';
+                    break;
+            }
+            $failedFiles[] = $fileName . ' (' . $errorMsg . ')';
+            continue;
+        }
+        
+        // Check file size
+        if ($fileSize > $uploadMaxFileSize) {
+            $maxSizeMB = round($uploadMaxFileSize / (1024 * 1024), 1);
+            $failedFiles[] = $fileName . ' (exceeds ' . $maxSizeMB . ' MB limit)';
+            continue;
+        }
+        
+        // Check total size
+        $totalSize += $fileSize;
+        if ($totalSize > $uploadMaxTotalSize) {
+            $maxTotalMB = round($uploadMaxTotalSize / (1024 * 1024), 1);
+            $failedFiles[] = $fileName . ' (total size exceeds ' . $maxTotalMB . ' MB)';
+            continue;
+        }
+        
+        // Sanitize filename - remove path separators and dangerous characters
+        $fileName = basename($fileName);
+        $fileName = str_replace(['/', '\\', "\0", '..'], '', $fileName);
+        $fileName = trim($fileName);
+        
+        // Validate filename
+        if (empty($fileName) || $fileName === '.' || $fileName === '..') {
+            $failedFiles[] = ($fileName ?: 'unnamed') . ' (invalid name)';
+            continue;
+        }
+        
+        // Prevent uploading hidden files
+        if ($fileName[0] === '.') {
+            $failedFiles[] = $fileName . ' (hidden files not allowed)';
+            continue;
+        }
+        
+        // Prevent overwriting index.php
+        if ($fileName === 'index.php') {
+            $failedFiles[] = $fileName . ' (protected file)';
+            continue;
+        }
+        
+        // Get file extension
+        $ext = strtolower(pathinfo($fileName, PATHINFO_EXTENSION));
+        
+        // Check against blocked extensions
+        if (in_array($ext, BLOCKED_EXTENSIONS, true)) {
+            $failedFiles[] = $fileName . ' (blocked file type)';
+            continue;
+        }
+        
+        // Check against allow list if configured
+        if (!empty($uploadAllowedExtensions) && !in_array($ext, array_map('strtolower', $uploadAllowedExtensions), true)) {
+            $failedFiles[] = $fileName . ' (file type not allowed)';
+            continue;
+        }
+        
+        // Build target file path
+        $targetFile = $realBase . DIRECTORY_SEPARATOR . $fileName;
+        
+        // Check if file already exists
+        if (file_exists($targetFile)) {
+            // Generate unique filename
+            $baseName = pathinfo($fileName, PATHINFO_FILENAME);
+            $extension = pathinfo($fileName, PATHINFO_EXTENSION);
+            $counter = 1;
+            
+            do {
+                $newFileName = $baseName . '_' . $counter . ($extension ? '.' . $extension : '');
+                $targetFile = $realBase . DIRECTORY_SEPARATOR . $newFileName;
+                $counter++;
+            } while (file_exists($targetFile) && $counter < 1000);
+            
+            if ($counter >= 1000) {
+                $failedFiles[] = $fileName . ' (too many duplicates)';
+                continue;
+            }
+            
+            $fileName = $newFileName;
+        }
+        
+        // Move uploaded file
+        if (@move_uploaded_file($fileTmpName, $targetFile)) {
+            // Set file permissions to read-only for security
+            @chmod($targetFile, 0644);
+            $uploadedFiles[] = $fileName;
+        } else {
+            $failedFiles[] = $fileName . ' (failed to save)';
+        }
+    }
+    
+    // Return response
+    if (count($uploadedFiles) > 0 && empty($failedFiles)) {
+        echo json_encode(['success' => true, 'uploaded' => count($uploadedFiles), 'files' => $uploadedFiles]);
+    } elseif (count($uploadedFiles) > 0 && !empty($failedFiles)) {
+        echo json_encode([
+            'success' => true,
+            'uploaded' => count($uploadedFiles),
+            'files' => $uploadedFiles,
+            'failed' => $failedFiles,
+            'message' => 'Some files could not be uploaded'
+        ]);
+    } else {
+        http_response_code(500);
+        echo json_encode(['success' => false, 'error' => 'Failed to upload files', 'failed' => $failedFiles]);
     }
     exit;
 }
@@ -2591,6 +2787,284 @@ if ($isValidPath) {
         }
         
         /* ================================================================
+           UPLOAD MODAL & DRAG-DROP
+           ================================================================ */
+        .upload-modal {
+            position: fixed;
+            inset: 0;
+            background: rgba(0, 0, 0, 0.5);
+            backdrop-filter: blur(4px);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            z-index: 10001;
+            padding: 20px;
+        }
+        
+        .upload-modal.active {
+            display: flex;
+        }
+        
+        .upload-modal-content {
+            background: white;
+            border-radius: 12px;
+            padding: 28px;
+            max-width: 600px;
+            width: 100%;
+            max-height: 80vh;
+            overflow-y: auto;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            animation: modalSlideIn 0.3s ease;
+        }
+        
+        .upload-modal-title {
+            font-size: 1.5rem;
+            font-weight: 700;
+            margin-bottom: 8px;
+            color: var(--text);
+        }
+        
+        .upload-modal-subtitle {
+            font-size: 0.9rem;
+            color: var(--muted);
+            margin-bottom: 20px;
+        }
+        
+        .upload-modal-error,
+        .upload-modal-success {
+            padding: 12px 16px;
+            border-radius: 8px;
+            margin-bottom: 16px;
+            font-size: 0.9rem;
+            display: none;
+        }
+        
+        .upload-modal-error {
+            background: #fee;
+            color: #c00;
+        }
+        
+        .upload-modal-success {
+            background: #d4edda;
+            color: #155724;
+        }
+        
+        .upload-modal-error.active,
+        .upload-modal-success.active {
+            display: block;
+        }
+        
+        .upload-drop-zone {
+            border: 2px dashed var(--border);
+            border-radius: 12px;
+            padding: 40px 20px;
+            text-align: center;
+            margin-bottom: 20px;
+            transition: all 0.3s ease;
+            cursor: pointer;
+        }
+        
+        .upload-drop-zone:hover,
+        .upload-drop-zone.drag-over {
+            border-color: var(--accent);
+            background: rgba(102, 126, 234, 0.05);
+        }
+        
+        .upload-drop-zone i {
+            font-size: 3rem;
+            color: var(--accent);
+            margin-bottom: 16px;
+            display: block;
+        }
+        
+        .upload-drop-zone p {
+            color: var(--muted);
+            margin-bottom: 16px;
+            font-size: 0.95rem;
+        }
+        
+        .upload-select-btn {
+            background: var(--accent);
+            color: white;
+            border: none;
+            padding: 10px 24px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 0.95rem;
+            font-weight: 600;
+            transition: background 0.2s;
+        }
+        
+        .upload-select-btn:hover {
+            background: var(--accent-hover);
+        }
+        
+        .upload-file-list {
+            margin-bottom: 20px;
+        }
+        
+        .upload-file-item {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 12px;
+            background: var(--hover);
+            border-radius: 8px;
+            margin-bottom: 8px;
+        }
+        
+        .upload-file-info {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            flex: 1;
+            min-width: 0;
+        }
+        
+        .upload-file-info i {
+            color: var(--accent);
+            font-size: 1.2rem;
+        }
+        
+        .upload-file-details {
+            flex: 1;
+            min-width: 0;
+        }
+        
+        .upload-file-name {
+            font-weight: 600;
+            color: var(--text);
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        
+        .upload-file-size {
+            font-size: 0.85rem;
+            color: var(--muted);
+        }
+        
+        .upload-file-remove {
+            background: none;
+            border: none;
+            color: #e74c3c;
+            cursor: pointer;
+            padding: 4px 8px;
+            font-size: 1.2rem;
+            transition: color 0.2s;
+        }
+        
+        .upload-file-remove:hover {
+            color: #c0392b;
+        }
+        
+        .upload-modal-buttons {
+            display: flex;
+            gap: 12px;
+            justify-content: flex-end;
+        }
+        
+        .upload-modal-btn {
+            padding: 10px 24px;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 0.95rem;
+            font-weight: 600;
+            transition: all 0.2s;
+        }
+        
+        .upload-modal-btn-cancel {
+            background: #e0e0e0;
+            color: #333;
+        }
+        
+        .upload-modal-btn-cancel:hover {
+            background: #d0d0d0;
+        }
+        
+        .upload-modal-btn-confirm {
+            background: var(--accent);
+            color: white;
+        }
+        
+        .upload-modal-btn-confirm:hover:not(:disabled) {
+            background: var(--accent-hover);
+        }
+        
+        .upload-modal-btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+        
+        .upload-btn {
+            background: var(--accent);
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 0.95rem;
+            font-weight: 600;
+            transition: background 0.2s;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        .upload-btn:hover {
+            background: var(--accent-hover);
+        }
+        
+        .upload-btn i {
+            font-size: 1rem;
+        }
+        
+        /* Drag and drop overlay (full screen) */
+        .drag-drop-overlay {
+            position: fixed;
+            inset: 0;
+            background: rgba(102, 126, 234, 0.95);
+            backdrop-filter: blur(8px);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            z-index: 10002;
+            pointer-events: none;
+        }
+        
+        .drag-drop-overlay.active {
+            display: flex;
+        }
+        
+        .drag-drop-content {
+            text-align: center;
+            color: white;
+            pointer-events: none;
+        }
+        
+        .drag-drop-content i {
+            font-size: 6rem;
+            margin-bottom: 24px;
+            display: block;
+            animation: bounce 1s infinite;
+        }
+        
+        .drag-drop-content p {
+            font-size: 1.5rem;
+            font-weight: 600;
+        }
+        
+        @keyframes bounce {
+            0%, 100% {
+                transform: translateY(0);
+            }
+            50% {
+                transform: translateY(-20px);
+            }
+        }
+        
+        /* ================================================================
            THEME SETTINGS BUTTON & MODAL
            ================================================================ */
         .theme-settings-btn {
@@ -3282,6 +3756,14 @@ if ($isValidPath) {
                         echo '</a>';
                     }
                     
+                    // Show upload button if enabled
+                    if ($enableUpload) {
+                        echo '<button class="upload-btn" id="uploadBtn" title="Upload files">';
+                        echo '<i class="fa-solid fa-upload"></i>';
+                        echo 'Upload Files';
+                        echo '</button>';
+                    }
+                    
                     echo '</div>'; // end stats-actions-row
                     echo '</div>'; // end stats-container
                 }
@@ -3327,6 +3809,35 @@ if ($isValidPath) {
                 <button class="delete-modal-btn delete-modal-btn-cancel" id="deleteModalCancel">Cancel</button>
                 <button class="delete-modal-btn delete-modal-btn-confirm" id="deleteModalConfirm">Delete</button>
             </div>
+        </div>
+    </div>
+
+    <!-- Upload Modal -->
+    <div class="upload-modal" id="uploadModal" role="dialog" aria-labelledby="uploadModalTitle" aria-modal="true">
+        <div class="upload-modal-content">
+            <h2 class="upload-modal-title" id="uploadModalTitle">Upload Files</h2>
+            <p class="upload-modal-subtitle">Select files to upload to this directory</p>
+            <div class="upload-modal-error" id="uploadModalError"></div>
+            <div class="upload-modal-success" id="uploadModalSuccess"></div>
+            <div class="upload-drop-zone" id="uploadDropZone">
+                <i class="fa-solid fa-cloud-arrow-up"></i>
+                <p>Drag and drop files here or click to select</p>
+                <input type="file" id="uploadFileInput" multiple hidden accept="*">
+                <button class="upload-select-btn" id="uploadSelectBtn">Select Files</button>
+            </div>
+            <div class="upload-file-list" id="uploadFileList"></div>
+            <div class="upload-modal-buttons">
+                <button class="upload-modal-btn upload-modal-btn-cancel" id="uploadModalCancel">Cancel</button>
+                <button class="upload-modal-btn upload-modal-btn-confirm" id="uploadModalConfirm" disabled>Upload</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Drag and Drop Overlay -->
+    <div class="drag-drop-overlay" id="dragDropOverlay">
+        <div class="drag-drop-content">
+            <i class="fa-solid fa-cloud-arrow-up"></i>
+            <p>Drop files here to upload</p>
         </div>
     </div>
 
@@ -4227,6 +4738,298 @@ if ($isValidPath) {
                     if (e.key === 'Escape') {
                         e.preventDefault();
                         closeModal();
+                    }
+                });
+            })();
+            
+            // Upload functionality
+            (function() {
+                const uploadBtn = document.getElementById('uploadBtn');
+                const uploadModal = document.getElementById('uploadModal');
+                const uploadModalCancel = document.getElementById('uploadModalCancel');
+                const uploadModalConfirm = document.getElementById('uploadModalConfirm');
+                const uploadDropZone = document.getElementById('uploadDropZone');
+                const uploadFileInput = document.getElementById('uploadFileInput');
+                const uploadSelectBtn = document.getElementById('uploadSelectBtn');
+                const uploadFileList = document.getElementById('uploadFileList');
+                const uploadModalError = document.getElementById('uploadModalError');
+                const uploadModalSuccess = document.getElementById('uploadModalSuccess');
+                const dragDropOverlay = document.getElementById('dragDropOverlay');
+                
+                if (!uploadBtn || !uploadModal) return;
+                
+                let selectedFiles = [];
+                let dragCounter = 0;
+                
+                // Get current path for upload
+                function getCurrentPath() {
+                    const urlParams = new URLSearchParams(window.location.search);
+                    return urlParams.get('path') || '';
+                }
+                
+                // Format file size
+                function formatFileSize(bytes) {
+                    if (bytes === 0) return '0 B';
+                    const units = ['B', 'KB', 'MB', 'GB'];
+                    const i = Math.floor(Math.log(bytes) / Math.log(1024));
+                    const actualI = Math.min(i, units.length - 1);
+                    const size = bytes / Math.pow(1024, actualI);
+                    return actualI === 0 ? Math.floor(size) + ' B' : size.toFixed(2) + ' ' + units[actualI];
+                }
+                
+                // Show/hide messages
+                function showError(message) {
+                    uploadModalError.textContent = message;
+                    uploadModalError.classList.add('active');
+                    uploadModalSuccess.classList.remove('active');
+                }
+                
+                function showSuccess(message) {
+                    uploadModalSuccess.textContent = message;
+                    uploadModalSuccess.classList.add('active');
+                    uploadModalError.classList.remove('active');
+                }
+                
+                function hideMessages() {
+                    uploadModalError.classList.remove('active');
+                    uploadModalSuccess.classList.remove('active');
+                }
+                
+                // Render file list
+                function renderFileList() {
+                    if (selectedFiles.length === 0) {
+                        uploadFileList.innerHTML = '';
+                        uploadModalConfirm.disabled = true;
+                        return;
+                    }
+                    
+                    uploadModalConfirm.disabled = false;
+                    
+                    const html = selectedFiles.map((file, index) => {
+                        return '<div class="upload-file-item">' +
+                            '<div class="upload-file-info">' +
+                            '<i class="fa-solid fa-file"></i>' +
+                            '<div class="upload-file-details">' +
+                            '<div class="upload-file-name">' + escapeHtml(file.name) + '</div>' +
+                            '<div class="upload-file-size">' + formatFileSize(file.size) + '</div>' +
+                            '</div>' +
+                            '</div>' +
+                            '<button class="upload-file-remove" data-index="' + index + '" title="Remove">' +
+                            '<i class="fa-solid fa-times"></i>' +
+                            '</button>' +
+                            '</div>';
+                    }).join('');
+                    
+                    uploadFileList.innerHTML = html;
+                }
+                
+                // HTML escape helper
+                function escapeHtml(text) {
+                    const div = document.createElement('div');
+                    div.textContent = text;
+                    return div.innerHTML;
+                }
+                
+                // Add files to selection
+                function addFiles(files) {
+                    for (let i = 0; i < files.length; i++) {
+                        const file = files[i];
+                        // Check if file already exists
+                        const exists = selectedFiles.some(f => f.name === file.name && f.size === file.size);
+                        if (!exists) {
+                            selectedFiles.push(file);
+                        }
+                    }
+                    renderFileList();
+                }
+                
+                // Remove file from selection
+                function removeFile(index) {
+                    selectedFiles.splice(index, 1);
+                    renderFileList();
+                }
+                
+                // Open modal
+                function openModal() {
+                    selectedFiles = [];
+                    renderFileList();
+                    hideMessages();
+                    uploadModal.classList.add('active');
+                    uploadModal.setAttribute('aria-hidden', 'false');
+                }
+                
+                // Close modal
+                function closeModal() {
+                    uploadModal.classList.remove('active');
+                    uploadModal.setAttribute('aria-hidden', 'true');
+                    selectedFiles = [];
+                    uploadFileInput.value = '';
+                }
+                
+                // Perform upload
+                function performUpload() {
+                    if (selectedFiles.length === 0) return;
+                    
+                    hideMessages();
+                    uploadModalConfirm.disabled = true;
+                    uploadModalCancel.disabled = true;
+                    uploadModalConfirm.textContent = 'Uploading...';
+                    
+                    const formData = new FormData();
+                    formData.append('upload', '1');
+                    formData.append('target_path', getCurrentPath());
+                    
+                    selectedFiles.forEach(file => {
+                        formData.append('files[]', file);
+                    });
+                    
+                    fetch('', {
+                        method: 'POST',
+                        body: formData
+                    })
+                    .then(response => {
+                        if (!response.ok) {
+                            return response.json().then(data => {
+                                throw new Error(data.error || 'Upload failed');
+                            }).catch(() => {
+                                throw new Error('Upload failed');
+                            });
+                        }
+                        return response.json();
+                    })
+                    .then(data => {
+                        if (data.success) {
+                            let message = data.uploaded + ' file' + (data.uploaded > 1 ? 's' : '') + ' uploaded successfully';
+                            if (data.failed && data.failed.length > 0) {
+                                message += '\\n\\nFailed:\\n' + data.failed.join('\\n');
+                            }
+                            showSuccess(message);
+                            
+                            // Reset and reload after 2 seconds
+                            setTimeout(() => {
+                                window.location.reload();
+                            }, 2000);
+                        } else {
+                            let errorMsg = data.error || 'Upload failed';
+                            if (data.failed && data.failed.length > 0) {
+                                errorMsg += '\\n\\nFailed:\\n' + data.failed.join('\\n');
+                            }
+                            showError(errorMsg);
+                            uploadModalConfirm.disabled = false;
+                            uploadModalCancel.disabled = false;
+                            uploadModalConfirm.textContent = 'Upload';
+                        }
+                    })
+                    .catch(err => {
+                        showError(err.message || 'An error occurred. Please try again.');
+                        uploadModalConfirm.disabled = false;
+                        uploadModalCancel.disabled = false;
+                        uploadModalConfirm.textContent = 'Upload';
+                        console.error('Upload error:', err);
+                    });
+                }
+                
+                // Event listeners
+                uploadBtn.addEventListener('click', openModal);
+                uploadModalCancel.addEventListener('click', closeModal);
+                uploadModalConfirm.addEventListener('click', performUpload);
+                
+                uploadSelectBtn.addEventListener('click', function() {
+                    uploadFileInput.click();
+                });
+                
+                uploadFileInput.addEventListener('change', function() {
+                    if (this.files.length > 0) {
+                        addFiles(this.files);
+                    }
+                });
+                
+                // Drop zone events
+                uploadDropZone.addEventListener('click', function() {
+                    uploadFileInput.click();
+                });
+                
+                uploadDropZone.addEventListener('dragover', function(e) {
+                    e.preventDefault();
+                    this.classList.add('drag-over');
+                });
+                
+                uploadDropZone.addEventListener('dragleave', function() {
+                    this.classList.remove('drag-over');
+                });
+                
+                uploadDropZone.addEventListener('drop', function(e) {
+                    e.preventDefault();
+                    this.classList.remove('drag-over');
+                    if (e.dataTransfer.files.length > 0) {
+                        addFiles(e.dataTransfer.files);
+                    }
+                });
+                
+                // Remove file button
+                uploadFileList.addEventListener('click', function(e) {
+                    const removeBtn = e.target.closest('.upload-file-remove');
+                    if (removeBtn) {
+                        const index = parseInt(removeBtn.dataset.index);
+                        removeFile(index);
+                    }
+                });
+                
+                // Close modal on outside click
+                uploadModal.addEventListener('click', function(e) {
+                    if (e.target === uploadModal) {
+                        closeModal();
+                    }
+                });
+                
+                // Keyboard support
+                uploadModal.addEventListener('keydown', function(e) {
+                    if (e.key === 'Escape') {
+                        e.preventDefault();
+                        closeModal();
+                    }
+                });
+                
+                // Global drag and drop overlay
+                document.addEventListener('dragenter', function(e) {
+                    // Ignore if modal is already open
+                    if (uploadModal.classList.contains('active')) return;
+                    
+                    // Check if it's a file drag (not text or other data)
+                    if (e.dataTransfer.types && e.dataTransfer.types.indexOf('Files') !== -1) {
+                        dragCounter++;
+                        if (dragCounter === 1) {
+                            dragDropOverlay.classList.add('active');
+                        }
+                    }
+                });
+                
+                document.addEventListener('dragleave', function() {
+                    dragCounter--;
+                    if (dragCounter === 0) {
+                        dragDropOverlay.classList.remove('active');
+                    }
+                });
+                
+                document.addEventListener('dragover', function(e) {
+                    // Prevent default to allow drop
+                    if (e.dataTransfer.types && e.dataTransfer.types.indexOf('Files') !== -1) {
+                        e.preventDefault();
+                    }
+                });
+                
+                document.addEventListener('drop', function(e) {
+                    e.preventDefault();
+                    dragCounter = 0;
+                    dragDropOverlay.classList.remove('active');
+                    
+                    // Don't handle if modal is already open or if not in file lister
+                    if (uploadModal.classList.contains('active')) return;
+                    
+                    if (e.dataTransfer.files.length > 0) {
+                        // Open modal and add files
+                        openModal();
+                        addFiles(e.dataTransfer.files);
                     }
                 });
             })();
