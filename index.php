@@ -83,6 +83,11 @@ define('BLOCKED_EXTENSIONS', [
     'scr', 'com', 'jar'
 ]);
 
+// Reserved directory names that cannot be created/modified
+define('RESERVED_NAMES', [
+    'index.php', '.', '..', '.htaccess', '.gitignore', '.env'
+]);
+
 // ============================================================================
 // HELPER FUNCTIONS
 // ============================================================================
@@ -989,8 +994,8 @@ if (isset($_POST['create_directory'])) {
         exit;
     }
     
-    // Prevent creating protected directories
-    if ($dirName === 'index.php') {
+    // Prevent creating reserved/protected directories
+    if (in_array($dirName, RESERVED_NAMES, true)) {
         http_response_code(403);
         echo json_encode(['success' => false, 'error' => 'Cannot use this directory name']);
         exit;
@@ -1025,9 +1030,13 @@ if (isset($_POST['create_directory'])) {
     }
     
     // Create the directory with secure permissions (0755)
-    if (@mkdir($fullNewPath, 0755)) {
+    $result = mkdir($fullNewPath, 0755);
+    if ($result) {
         echo json_encode(['success' => true]);
     } else {
+        // Get last error for more detailed logging if available
+        $error = error_get_last();
+        error_log('Failed to create directory: ' . ($error ? $error['message'] : 'unknown error'));
         http_response_code(500);
         echo json_encode(['success' => false, 'error' => 'Failed to create directory']);
     }
@@ -5645,12 +5654,23 @@ if ($isValidPath) {
                         body: 'create_directory=1&directory_name=' + encodeURIComponent(dirName) + '&target_path=' + encodeURIComponent(getCurrentPath())
                     })
                     .then(response => {
+                        // Store response status for error handling
+                        const status = response.status;
                         // Check if response is ok before parsing JSON
                         if (!response.ok) {
-                            return response.json().then(data => {
-                                throw new Error(data.error || 'Failed to create folder');
-                            }).catch(() => {
-                                throw new Error('Failed to create folder');
+                            // Try to parse JSON error, but handle cases where response is not JSON
+                            return response.text().then(text => {
+                                try {
+                                    const data = JSON.parse(text);
+                                    throw new Error(data.error || 'Failed to create folder (HTTP ' + status + ')');
+                                } catch (e) {
+                                    // If JSON parsing fails, throw a generic error with status code
+                                    if (e instanceof SyntaxError) {
+                                        throw new Error('Failed to create folder (HTTP ' + status + ')');
+                                    }
+                                    // Re-throw if it's already an Error from JSON parsing
+                                    throw e;
+                                }
                             });
                         }
                         return response.json();
