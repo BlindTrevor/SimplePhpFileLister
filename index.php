@@ -5065,13 +5065,17 @@ if ($isValidPath) {
                     });
                     renderFileList();
                     
-                    const formData = new FormData();
-                    formData.append('upload', '1');
-                    formData.append('target_path', getCurrentPath());
-                    
-                    selectedFiles.forEach(file => {
-                        formData.append('files[]', file);
-                    });
+                    try {
+                        const formData = new FormData();
+                        formData.append('upload', '1');
+                        formData.append('target_path', getCurrentPath());
+                        
+                        selectedFiles.forEach((file, index) => {
+                            console.log('Adding file to FormData:', index, file.name, file.size);
+                            formData.append('files[]', file);
+                        });
+                        
+                        console.log('FormData created successfully, uploading', selectedFiles.length, 'files');
                     
                     // Simulate progress for better UX (since we can't track individual file uploads on server)
                     let progress = 0;
@@ -5083,7 +5087,7 @@ if ($isValidPath) {
                         }
                     }, 200);
                     
-                    fetch('', {
+                    fetch(window.location.href, {
                         method: 'POST',
                         body: formData
                     })
@@ -5197,6 +5201,19 @@ if ($isValidPath) {
                         uploadModalConfirm.textContent = 'Upload';
                         console.error('Upload error:', err);
                     });
+                    } catch (err) {
+                        // Handle FormData creation errors
+                        console.error('Error creating FormData:', err);
+                        showError('Failed to prepare upload: ' + err.message);
+                        uploadModalConfirm.disabled = false;
+                        uploadModalCancel.disabled = false;
+                        uploadModalConfirm.textContent = 'Upload';
+                        uploadProgressContainer.classList.remove('active');
+                        selectedFiles.forEach(file => {
+                            file.uploadStatus = 'failed';
+                        });
+                        renderFileList();
+                    }
                 }
                 
                 // Event listeners
