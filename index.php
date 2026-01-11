@@ -81,15 +81,12 @@ define('BLOCKED_EXTENSIONS', [
 
 /**
  * Get list of previewable file types grouped by category
- * Note: PDF preview is limited in tooltips and shows a placeholder message
  * @return array Array of file types by category
  */
 function getPreviewableFileTypes(): array {
     return [
         'image' => ['jpg', 'jpeg', 'png', 'gif', 'webp', 'svg', 'bmp', 'ico'],
         'video' => ['mp4', 'webm', 'ogv'],
-        'audio' => ['mp3', 'wav', 'oga', 'flac', 'm4a'],
-        'pdf' => ['pdf'],
     ];
 }
 
@@ -113,14 +110,6 @@ function getPreviewMimeType(string $ext): ?string {
         'mp4' => 'video/mp4',
         'webm' => 'video/webm',
         'ogv' => 'video/ogg',
-        // Audio
-        'mp3' => 'audio/mpeg',
-        'wav' => 'audio/wav',
-        'oga' => 'audio/ogg',
-        'flac' => 'audio/flac',
-        'm4a' => 'audio/mp4',
-        // Documents
-        'pdf' => 'application/pdf',
     ];
     
     return $mimeTypes[$ext] ?? null;
@@ -220,10 +209,6 @@ function renderItem(string $entry, bool $isDir, string $currentPath, int $fileSi
             $dataAttributes = ' data-preview="image" data-file-path="' . htmlspecialchars($filePath, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8') . '"';
         } elseif (in_array($ext, $previewTypes['video'])) {
             $dataAttributes = ' data-preview="video" data-file-path="' . htmlspecialchars($filePath, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8') . '"';
-        } elseif (in_array($ext, $previewTypes['audio'])) {
-            $dataAttributes = ' data-preview="audio" data-file-path="' . htmlspecialchars($filePath, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8') . '"';
-        } elseif (in_array($ext, $previewTypes['pdf'])) {
-            $dataAttributes = ' data-preview="pdf" data-file-path="' . htmlspecialchars($filePath, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8') . '"';
         }
     }
 
@@ -437,14 +422,6 @@ if (isset($_GET['preview'])) {
         'mp4' => 'video/mp4',
         'webm' => 'video/webm',
         'ogv' => 'video/ogg',
-        // Audio
-        'mp3' => 'audio/mpeg',
-        'wav' => 'audio/wav',
-        'oga' => 'audio/ogg',
-        'flac' => 'audio/flac',
-        'm4a' => 'audio/mp4',
-        // Documents
-        'pdf' => 'application/pdf',
     ];
     
     // Only allow previewable file types
@@ -2343,8 +2320,7 @@ if ($isValidPath) {
         }
         
         .preview-tooltip img,
-        .preview-tooltip video,
-        .preview-tooltip audio {
+        .preview-tooltip video {
             max-width: 100%;
             max-height: 380px;
             display: block;
@@ -2353,10 +2329,6 @@ if ($isValidPath) {
         
         .preview-tooltip video {
             background: #000;
-        }
-        
-        .preview-tooltip audio {
-            width: 100%;
         }
         
         .preview-tooltip .preview-error {
@@ -3627,31 +3599,6 @@ if ($isValidPath) {
                             }
                         };
                         video.src = previewUrl;
-                    } else if (previewType === 'audio') {
-                        console.log('[Preview] Creating audio element for:', filePath);
-                        const audio = document.createElement('audio');
-                        audio.controls = true;
-                        audio.preload = 'metadata';
-                        audio.onloadedmetadata = function() {
-                            console.log('[Preview] Audio metadata loaded:', filePath);
-                            if (currentPreview === link) {
-                                tooltip.innerHTML = '';
-                                tooltip.appendChild(audio);
-                                positionTooltip(e);
-                            }
-                        };
-                        audio.onerror = function() {
-                            console.error('[Preview] Audio failed to load:', filePath);
-                            if (currentPreview === link) {
-                                tooltip.innerHTML = '<div class="preview-error">❌ Unable to load audio preview</div>';
-                            }
-                        };
-                        audio.src = previewUrl;
-                    } else if (previewType === 'pdf') {
-                        console.log('[Preview] PDF preview requested (showing message):', filePath);
-                        // PDF inline preview in a small tooltip is impractical due to size/readability
-                        // Instead, show a helpful message prompting user to click to view full document
-                        tooltip.innerHTML = '<div class="preview-error">PDF preview not available<br>(Click to view)</div>';
                     }
                 }
                 

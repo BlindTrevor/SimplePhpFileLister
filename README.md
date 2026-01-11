@@ -40,7 +40,7 @@ The version information is embedded in `index.php` and includes:
 - 🎨 **Modern, responsive design** — works beautifully on desktop, tablet, and mobile
 - 🎭 **Multiple theme options** — choose from 5 built-in themes (Purple, Blue, Green, Dark, Light)
 - 🖼 **File-type icons & color coding** powered by Font Awesome
-- 👁️ **Hover previews** — see thumbnails of images, videos, audio, and PDFs before downloading
+- 👁️ **Hover previews** — see thumbnails of images and videos before downloading
 - ✏️ **Rename files and folders** — easily rename items directly from the web interface (optional, configurable)
 - 🗑️ **Delete files and folders** — remove items with confirmation dialog (optional, configurable)
 - 📥 **Secure downloads** — individual file downloads with proper content-type headers
@@ -86,7 +86,7 @@ SimplePhpFileLister is designed with security as a top priority. Here's why you 
 
 ### Secure Download & Preview Handlers
 - Downloads use `Content-Disposition: attachment` to force save-as dialog
-- Preview handler only allows whitelisted MIME types (images, videos, audio, PDF)
+- Preview handler only allows whitelisted MIME types (images and videos)
 - Streaming uses `fpassthru()` to efficiently handle large files without loading into memory
 - Temporary files (ZIP downloads) are securely cleaned up after use
 - Cryptographically secure nonces (`random_bytes()`) for CSP inline scripts/styles
@@ -143,7 +143,7 @@ To update to a newer version:
 - Supports subdirectory navigation with breadcrumb trails for easy navigation
 - Files are naturally sorted (case-insensitive) for better organization
 - Individual file downloads are handled through a secure download handler
-- Preview functionality loads images, videos, and audio files on hover (desktop only)
+- Preview functionality loads images and videos on hover (desktop only)
 - "Download All as ZIP" feature recursively bundles directory contents
 - All styling and logic are embedded directly in the file — only Font Awesome is loaded from CDN
 - Responsive CSS adapts the layout for desktop, tablet, and mobile screens
