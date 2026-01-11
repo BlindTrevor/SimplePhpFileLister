@@ -857,8 +857,9 @@ if (isset($_POST['upload'])) {
         }
         
         // Sanitize filename - remove path separators and dangerous characters
+        // basename() removes all path components including ../ for security
         $fileName = basename($fileName);
-        $fileName = str_replace(['/', '\\', "\0", '..'], '', $fileName);
+        $fileName = str_replace(['/', '\\', "\0"], '', $fileName);
         $fileName = trim($fileName);
         
         // Validate filename
@@ -4772,6 +4773,8 @@ if ($isValidPath) {
                 // Format file size
                 function formatFileSize(bytes) {
                     if (bytes === 0) return '0 B';
+                    // Ensure bytes is non-negative
+                    bytes = Math.max(bytes, 0);
                     const units = ['B', 'KB', 'MB', 'GB'];
                     const i = Math.floor(Math.log(bytes) / Math.log(1024));
                     const actualI = Math.min(i, units.length - 1);
@@ -4973,7 +4976,9 @@ if ($isValidPath) {
                     const removeBtn = e.target.closest('.upload-file-remove');
                     if (removeBtn) {
                         const index = parseInt(removeBtn.dataset.index);
-                        removeFile(index);
+                        if (!isNaN(index)) {
+                            removeFile(index);
+                        }
                     }
                 });
                 
