@@ -1687,11 +1687,11 @@ if ($isValidPath) {
             
             /* Add padding to prevent file size from being hidden by always-visible buttons */
             <?php if ($enableRename && $enableDelete): ?>
-            .file-list li a {
+            .file-list li:not(:first-child) a {
                 padding-right: 104px; /* Space for both rename (36px) + delete (36px) + gaps */
             }
             <?php elseif ($enableRename || $enableDelete): ?>
-            .file-list li a {
+            .file-list li:not(:first-child) a {
                 padding-right: 60px; /* Space for one button (36px) + gap */
             }
             <?php endif; ?>
