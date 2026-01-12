@@ -4704,7 +4704,7 @@ if ($isValidPath) {
                     // If clicking the same audio that's playing, pause it
                     if (currentAudio && currentListItem === listItem) {
                         if (currentAudio.paused) {
-                            playAudio(filePath, listItem, button);
+                            playAudio(filePath, listItem, link, button);
                         } else {
                             pauseAudio();
                         }
@@ -4714,12 +4714,12 @@ if ($isValidPath) {
                             stopAudio();
                         }
                         // Start new audio
-                        playAudio(filePath, listItem, button);
+                        playAudio(filePath, listItem, link, button);
                     }
                 }
                 
                 // Play audio
-                function playAudio(filePath, listItem, button) {
+                function playAudio(filePath, listItem, link, button) {
                     console.log('[Music Player] Playing:', filePath);
                     
                     // Create audio element if needed
