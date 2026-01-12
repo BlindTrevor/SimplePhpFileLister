@@ -4795,9 +4795,15 @@ if ($isValidPath) {
                     
                     if (currentListItem) {
                         currentListItem.classList.remove('audio-playing');
-                        // Reset progress bar
-                        currentListItem.style.setProperty('--audio-progress', '0%');
+                        // Reset progress bar by removing data attribute
+                        delete currentListItem.dataset.audioId;
                         currentListItem = null;
+                    }
+                    
+                    // Clean up dynamic style element
+                    const styleEl = document.getElementById('audio-progress-style');
+                    if (styleEl) {
+                        styleEl.remove();
                     }
                     
                     if (progressUpdateInterval) {
@@ -4811,36 +4817,15 @@ if ($isValidPath) {
                     if (!currentAudio || !currentListItem) return;
                     
                     const progress = (currentAudio.currentTime / currentAudio.duration) * 100;
-                    const progressBar = currentListItem.querySelector('::before');
                     
-                    // Use CSS custom property to update width
-                    if (currentListItem) {
-                        currentListItem.style.setProperty('--audio-progress', progress + '%');
-                        // Apply the width to the ::before pseudo-element via inline style on parent
-                        const beforeElement = window.getComputedStyle(currentListItem, '::before');
-                        currentListItem.querySelector('::before')?.style?.setProperty('width', progress + '%');
-                        
-                        // Alternative: directly update the pseudo-element width
-                        const sheet = document.styleSheets[0];
-                        // Find existing rule or create new one
-                        let ruleFound = false;
-                        for (let i = 0; i < sheet.cssRules.length; i++) {
-                            if (sheet.cssRules[i].selectorText === 'li.audio-playing::before') {
-                                sheet.cssRules[i].style.width = progress + '%';
-                                ruleFound = true;
-                                break;
-                            }
-                        }
-                        
-                        // Better approach: use data attribute to track specific item
-                        const itemId = currentListItem.dataset.audioId || 'audio-' + Date.now();
-                        if (!currentListItem.dataset.audioId) {
-                            currentListItem.dataset.audioId = itemId;
-                        }
-                        
-                        // Update using data attribute selector
-                        updateProgressBarWidth(itemId, progress);
+                    // Assign unique ID to current item if not already set
+                    const itemId = currentListItem.dataset.audioId || 'audio-' + Date.now();
+                    if (!currentListItem.dataset.audioId) {
+                        currentListItem.dataset.audioId = itemId;
                     }
+                    
+                    // Update progress bar width using dynamic style
+                    updateProgressBarWidth(itemId, progress);
                 }
                 
                 // Helper to update progress bar width dynamically
@@ -4854,7 +4839,7 @@ if ($isValidPath) {
                         document.head.appendChild(styleEl);
                     }
                     
-                    // Update the style rule
+                    // Update the style rule for the specific audio item
                     styleEl.textContent = 'li.audio-playing[data-audio-id="' + itemId + '"]::before { width: ' + progress + '% !important; }';
                 }
                 
