@@ -64,26 +64,32 @@ $uploadAllowedExtensions = [];                // Optional: Array of allowed exte
 // This section validates and sanitizes configuration values.
 // Do not modify unless you understand the security implications.
 
-// Validate default theme to prevent injection
+// Validate default theme to prevent injection attacks
+// Only allow known, safe theme names
 $validThemes = ['purple', 'blue', 'green', 'dark', 'light'];
 if (!in_array($defaultTheme, $validThemes, true)) {
-    $defaultTheme = 'purple'; // Fallback to purple if invalid
+    $defaultTheme = 'purple'; // Fallback to purple if invalid theme specified
 }
 
-// Validate ZIP compression level to ensure it's within valid range
+// Validate ZIP compression level to ensure it's within PHP ZipArchive valid range (0-9)
+// Level 0 = no compression (fastest), 9 = maximum compression (smallest)
 $zipCompressionLevel = max(0, min(9, (int)$zipCompressionLevel));
 
-// Security Configuration
+// Security Configuration: Establish real root directory for path validation
+// This is the absolute path that all file operations must stay within
+// DIRECTORY_SEPARATOR suffix is critical for security - prevents edge case path traversal bypasses
 $realRoot = rtrim(realpath('.'), DIRECTORY_SEPARATOR) . DIRECTORY_SEPARATOR;
 
-// Blocked file extensions to prevent code execution
+// Blocked file extensions to prevent code execution and security vulnerabilities
+// These file types are hidden from listings and blocked from downloads/uploads
 define('BLOCKED_EXTENSIONS', [
     'php', 'phtml', 'phar', 'cgi', 'pl', 'sh', 'bat', 'exe',
     'jsp', 'asp', 'aspx', 'py', 'rb', 'ps1', 'vbs', 'htaccess',
     'scr', 'com', 'jar'
 ]);
 
-// Reserved filesystem names that cannot be used for directories (includes special files and paths)
+// Reserved filesystem names that cannot be used for directories
+// Includes special files and paths that should never be created/modified
 define('RESERVED_NAMES', [
     'index.php', '.', '..', '.htaccess', '.gitignore', '.env'
 ]);
@@ -106,10 +112,18 @@ function getPreviewableFileTypes(): array {
 
 /**
  * Get MIME type for preview-supported file extensions
+ * 
+ * IMPORTANT: This array is intentionally duplicated in the fast-path preview handler
+ * (around line 630) for performance optimization. When adding or removing file types,
+ * you MUST update BOTH locations to maintain consistency:
+ * 1. This function's $mimeTypes array
+ * 2. The $mimeTypes array in the preview handler (if (isset($_GET['preview'])))
+ * 
  * @param string $ext File extension
  * @return string|null MIME type or null if not supported
  */
 function getPreviewMimeType(string $ext): ?string {
+    // NOTE: Keep this array synchronized with the fast-path preview handler
     $mimeTypes = [
         // Images
         'jpg' => 'image/jpeg',
@@ -574,7 +588,9 @@ if (isset($_GET['preview'])) {
     $rel = (string)$_GET['preview'];
     $full = realpath($realRoot . $rel);
     
-    // Validate path is within root and file exists
+    // Security: Validate path is within root and file exists
+    // realpath() resolves symlinks and normalizes path to prevent directory traversal attacks
+    // DIRECTORY_SEPARATOR suffix prevents edge case where path could bypass check
     if ($full === false || strpos($full . DIRECTORY_SEPARATOR, $realRoot) !== 0) {
         http_response_code(404);
         exit('Not found');
@@ -587,11 +603,15 @@ if (isset($_GET['preview'])) {
     }
     
     // Get file extension and determine MIME type
-    // PERFORMANCE NOTE: MIME types array is intentionally duplicated here (also in getPreviewMimeType())
+    // PERFORMANCE NOTE: This MIME types array is intentionally duplicated here (also in getPreviewMimeType())
     // This duplication is a deliberate performance optimization to avoid function calls in the fast path.
     // The preview handler is placed at the very top of the file and exits immediately to minimize overhead.
-    // IMPORTANT: When updating supported file types, update BOTH this array AND getPreviewMimeType()
+    // 
+    // MAINTENANCE: When updating supported file types, update BOTH locations:
+    // 1. This array (in the fast-path preview handler)
+    // 2. The getPreviewMimeType() function (around line 125)
     $ext = strtolower(pathinfo($full, PATHINFO_EXTENSION));
+    // NOTE: Keep this array synchronized with getPreviewMimeType() function
     $mimeTypes = [
         // Images
         'jpg' => 'image/jpeg',
