@@ -5551,6 +5551,109 @@ if ($isValidPath) {
                     uploadProgressContainer.classList.remove('active');
                 }
                 
+                // Perform immediate upload (for drag and drop)
+                function performImmediateUpload(files) {
+                    if (!files || files.length === 0) return;
+                    
+                    // Show loading overlay
+                    const loadingOverlay = document.getElementById('loadingOverlay');
+                    const loadingText = document.getElementById('loadingText');
+                    if (loadingOverlay) {
+                        loadingOverlay.classList.add('active');
+                        if (loadingText) {
+                            loadingText.textContent = 'Uploading ' + files.length + ' file' + (files.length > 1 ? 's' : '') + '...';
+                        }
+                    }
+                    
+                    try {
+                        const formData = new FormData();
+                        formData.append('upload', '1');
+                        formData.append('target_path', getCurrentPath());
+                        
+                        files.forEach((file, index) => {
+                            console.log('Adding file to FormData:', index, file.name, file.size);
+                            formData.append('files[]', file);
+                        });
+                        
+                        console.log('FormData created successfully, uploading', files.length, 'files');
+                    
+                        fetch(window.location.href, {
+                            method: 'POST',
+                            body: formData
+                        })
+                        .then(response => {
+                            if (!response.ok) {
+                                return response.json().then(data => {
+                                    // Create more descriptive error message
+                                    let errorMsg = data.error || 'Upload failed';
+                                    if (response.status === 403) {
+                                        errorMsg = 'Upload forbidden: ' + errorMsg;
+                                    } else if (response.status === 413) {
+                                        errorMsg = 'File too large: The uploaded file(s) exceed the maximum allowed size';
+                                    } else if (response.status === 500) {
+                                        errorMsg = 'Server error: ' + errorMsg;
+                                    } else if (response.status === 400) {
+                                        errorMsg = 'Invalid request: ' + errorMsg;
+                                    }
+                                    throw new Error(errorMsg);
+                                }).catch(err => {
+                                    if (err.message) {
+                                        throw err;
+                                    }
+                                    // If JSON parsing failed, provide generic error with status
+                                    throw new Error('Upload failed with status ' + response.status + ': ' + response.statusText);
+                                });
+                            }
+                            return response.json();
+                        })
+                        .then(data => {
+                            if (loadingOverlay) {
+                                loadingOverlay.classList.remove('active');
+                            }
+                            
+                            if (data.success) {
+                                let message = data.uploaded + ' file' + (data.uploaded > 1 ? 's' : '') + ' uploaded successfully';
+                                if (data.failed && data.failed.length > 0) {
+                                    message += '\n\nFailed:\n' + data.failed.join('\n');
+                                    alert(message);
+                                }
+                                
+                                // Reload page to show uploaded files
+                                window.location.reload();
+                            } else {
+                                let errorMsg = data.error || 'Upload failed';
+                                if (data.failed && data.failed.length > 0) {
+                                    errorMsg += '\n\nFailed:\n' + data.failed.join('\n');
+                                }
+                                alert(errorMsg);
+                            }
+                        })
+                        .catch(err => {
+                            if (loadingOverlay) {
+                                loadingOverlay.classList.remove('active');
+                            }
+                            
+                            // Provide more descriptive error message
+                            let errorMsg = err.message || 'Upload failed due to a network error';
+                            if (!navigator.onLine) {
+                                errorMsg = 'Upload failed: No internet connection detected';
+                            } else if (err.message && err.message.includes('NetworkError')) {
+                                errorMsg = 'Upload failed: Network error occurred. Please check your connection';
+                            }
+                            
+                            alert(errorMsg);
+                            console.error('Upload error:', err);
+                        });
+                    } catch (err) {
+                        // Handle FormData creation errors
+                        console.error('Error creating FormData:', err);
+                        if (loadingOverlay) {
+                            loadingOverlay.classList.remove('active');
+                        }
+                        alert('Failed to prepare upload: ' + err.message);
+                    }
+                }
+                
                 // Perform upload
                 function performUpload() {
                     if (selectedFiles.length === 0) return;
@@ -5860,9 +5963,6 @@ if ($isValidPath) {
                     // Don't handle if modal is already open or if not in file lister
                     if (uploadModal.classList.contains('active')) return;
                     
-                    // Open modal first
-                    openModal();
-                    
                     // Check for folders using DataTransferItem API
                     if (e.dataTransfer.items) {
                         let hasFolders = false;
@@ -5888,16 +5988,18 @@ if ($isValidPath) {
                         
                         // Show error if folders were detected
                         if (hasFolders) {
-                            showError('Folders cannot be uploaded. Please drop individual files only.');
+                            alert('Folders cannot be uploaded. Please drop individual files only.');
                         }
                         
-                        // Add valid files
+                        // Upload valid files immediately
                         if (validFiles.length > 0) {
-                            addFiles(validFiles);
+                            performImmediateUpload(validFiles);
                         }
                     } else if (e.dataTransfer.files.length > 0) {
                         // Fallback for browsers that don't support DataTransferItem API
-                        addFiles(e.dataTransfer.files);
+                        // Convert FileList to array
+                        const filesArray = Array.from(e.dataTransfer.files);
+                        performImmediateUpload(filesArray);
                     }
                 });
             })();
