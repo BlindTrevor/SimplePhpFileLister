@@ -5074,6 +5074,9 @@ if ($isValidPath) {
                     // Set title
                     title.textContent = fileName;
                     
+                    // Clear wrapper first
+                    wrapper.innerHTML = '';
+                    
                     // Create video element
                     const video = document.createElement('video');
                     video.controls = true;
@@ -5083,18 +5086,17 @@ if ($isValidPath) {
                     video.style.height = 'auto';
                     video.setAttribute('aria-label', 'Video player for ' + fileName);
                     
-                    // Build preview URL
-                    const previewUrl = '?preview=' + encodeURIComponent(filePath);
-                    video.src = previewUrl;
-                    
                     // Handle errors
                     video.addEventListener('error', function() {
                         console.error('[Video Player] Video failed to load:', filePath);
                         wrapper.innerHTML = '<div class="video-player-error">❌ Unable to load video. The file may be corrupted or unsupported by your browser.</div>';
                     });
                     
-                    // Clear wrapper and add video
-                    wrapper.innerHTML = '';
+                    // Build preview URL and set source
+                    const previewUrl = '?preview=' + encodeURIComponent(filePath);
+                    video.src = previewUrl;
+                    
+                    // Add video to wrapper
                     wrapper.appendChild(video);
                     currentVideo = video;
                     
