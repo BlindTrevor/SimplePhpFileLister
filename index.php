@@ -3801,6 +3801,7 @@ if ($isValidPath) {
             overflow: hidden;
         }
         
+        /* Override the accent bar when audio is playing to show progress bar instead */
         li.audio-playing a::before {
             content: '';
             position: absolute;
@@ -3813,6 +3814,7 @@ if ($isValidPath) {
                 rgba(102, 126, 234, 0.20) 100%
             );
             transition: width 0.1s linear;
+            transform: scaleY(1);  /* Override the accent bar transform */
             z-index: 0;
             pointer-events: none;
         }
