@@ -41,6 +41,7 @@ The version information is embedded in `index.php` and includes:
 - 🎭 **Multiple theme options** — choose from 5 built-in themes (Purple, Blue, Green, Dark, Light)
 - 🖼 **File-type icons & color coding** powered by Font Awesome
 - 👁️ **Hover previews** — see thumbnails of images and videos before downloading
+- 🎵 **Built-in music player** — play audio files directly in the browser with play/pause controls and visual progress
 - ✏️ **Rename files and folders** — easily rename items directly from the web interface (optional, configurable)
 - 🗑️ **Delete files and folders** — remove items with confirmation dialog (optional, configurable)
 - 📤 **File upload** — upload files via button or drag-and-drop anywhere on the page (optional, configurable)
@@ -709,6 +710,57 @@ The create directory dialog displays helpful error messages:
 
 ---
 
+## Music Player Feature
+
+The built-in music player allows you to play audio files directly in the browser without downloading them.
+
+### How to Use
+
+1. **Hover over audio files** — When you hover over audio file icons (MP3, WAV, OGG, M4A, FLAC, AAC), a play button appears
+2. **Click play** — Click the circular play button to start playback
+3. **Visual progress** — As the audio plays, a progress bar fills the file item from left to right
+4. **Click pause** — The play button changes to a pause button while playing; click to pause
+5. **Automatic stop** — Playing a different audio file automatically stops the current one
+
+### Features
+
+- **Supported formats** — MP3, WAV, OGG, M4A, FLAC, AAC (browser-dependent)
+- **Hover controls** — Play button appears on hover (always visible on mobile)
+- **Visual feedback** — Progress bar shows playback progress
+- **Single playback** — Only one audio file plays at a time
+- **No downloads required** — Audio streams directly in the browser
+- **Responsive design** — Works on desktop, tablet, and mobile devices
+
+### Supported Audio Formats
+
+The music player supports these audio file types:
+
+- **MP3** (`.mp3`) — Most widely supported format
+- **WAV** (`.wav`) — Uncompressed audio
+- **OGG** (`.ogg`) — Open source audio format
+- **M4A** (`.m4a`) — AAC audio in MP4 container
+- **FLAC** (`.flac`) — Lossless audio (browser support varies)
+- **AAC** (`.aac`) — Advanced Audio Coding
+
+**Note:** Actual playback support depends on your browser. Most modern browsers support MP3, WAV, OGG, and M4A.
+
+### How It Works
+
+- Audio files are served via the same secure preview handler used for images and videos
+- The player uses the HTML5 Audio API for playback
+- Progress is tracked using the `timeupdate` event
+- Visual progress is displayed using a CSS gradient overlay
+- Files are streamed (not fully downloaded) for efficient playback
+
+### Security
+
+- Audio files are served through the secure preview handler with path validation
+- Only whitelisted audio MIME types are allowed
+- All file access is restricted to the configured root directory
+- No dangerous file types can be played through the music player
+
+---
+
 ## Notes
 
 - Files and directories are sorted naturally (case-insensitive) for better organization
@@ -719,6 +771,7 @@ The create directory dialog displays helpful error messages:
 - Multi-select controls automatically appear when there are files or folders to select
 - No authentication is built-in — use web server authentication (`.htaccess`, HTTP Basic Auth) if needed
 - Hover previews only work on desktop devices with mouse support (disabled on touch-only devices)
+- **Music player** — hover over audio files to reveal play/pause controls; progress shown with visual background fill
 - Rename and delete buttons appear on hover on desktop; always visible on mobile/touch devices
 - ZIP download feature requires the ZipArchive PHP extension (enabled by default on most PHP installations)
 - Preview handler is optimized for performance — it's placed at the top of the script and exits immediately
