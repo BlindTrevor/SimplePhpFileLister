@@ -100,6 +100,7 @@ function getPreviewableFileTypes(): array {
     return [
         'image' => ['jpg', 'jpeg', 'png', 'gif', 'webp', 'svg', 'bmp', 'ico'],
         'video' => ['mp4', 'webm', 'ogv'],
+        'audio' => ['mp3', 'wav', 'ogg', 'm4a', 'flac', 'aac'],
     ];
 }
 
@@ -123,6 +124,13 @@ function getPreviewMimeType(string $ext): ?string {
         'mp4' => 'video/mp4',
         'webm' => 'video/webm',
         'ogv' => 'video/ogg',
+        // Audio
+        'mp3' => 'audio/mpeg',
+        'wav' => 'audio/wav',
+        'ogg' => 'audio/ogg',
+        'm4a' => 'audio/mp4',
+        'flac' => 'audio/flac',
+        'aac' => 'audio/aac',
     ];
     
     return $mimeTypes[$ext] ?? null;
@@ -222,6 +230,8 @@ function renderItem(string $entry, bool $isDir, string $currentPath, int $fileSi
             $dataAttributes = ' data-preview="image" data-file-path="' . htmlspecialchars($filePath, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8') . '"';
         } elseif (in_array($ext, $previewTypes['video'])) {
             $dataAttributes = ' data-preview="video" data-file-path="' . htmlspecialchars($filePath, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8') . '"';
+        } elseif (in_array($ext, $previewTypes['audio'])) {
+            $dataAttributes = ' data-preview="audio" data-file-path="' . htmlspecialchars($filePath, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8') . '"';
         }
     }
 
@@ -435,6 +445,13 @@ if (isset($_GET['preview'])) {
         'mp4' => 'video/mp4',
         'webm' => 'video/webm',
         'ogv' => 'video/ogg',
+        // Audio
+        'mp3' => 'audio/mpeg',
+        'wav' => 'audio/wav',
+        'ogg' => 'audio/ogg',
+        'm4a' => 'audio/mp4',
+        'flac' => 'audio/flac',
+        'aac' => 'audio/aac',
     ];
     
     // Only allow previewable file types
@@ -3725,6 +3742,108 @@ if ($isValidPath) {
                 padding: 18px 16px;
             }
         }
+        
+        /* ================================================================
+           MUSIC PLAYER STYLES
+           ================================================================ */
+        /* Play/Pause button overlay on audio file icons */
+        li:has(a[data-preview="audio"]) {
+            position: relative;
+        }
+        
+        li:has(a[data-preview="audio"]) .file-icon {
+            position: relative;
+        }
+        
+        .audio-play-btn {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 32px;
+            height: 32px;
+            background: var(--accent);
+            color: white;
+            border: none;
+            border-radius: 50%;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            opacity: 0;
+            transition: opacity 0.2s ease, background 0.2s ease;
+            z-index: 10;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+        }
+        
+        li:has(a[data-preview="audio"]):hover .audio-play-btn,
+        .audio-play-btn.playing {
+            opacity: 1;
+        }
+        
+        .audio-play-btn:hover {
+            background: var(--accent-hover);
+            transform: translate(-50%, -50%) scale(1.1);
+        }
+        
+        .audio-play-btn i {
+            font-size: 14px;
+            margin-left: 2px; /* Offset play icon to center visually */
+        }
+        
+        .audio-play-btn.playing i {
+            margin-left: 0; /* Pause icon is already centered */
+        }
+        
+        /* Progress bar effect on list item background */
+        li.audio-playing {
+            position: relative;
+            overflow: hidden;
+        }
+        
+        li.audio-playing::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            height: 100%;
+            width: 0%;
+            background: linear-gradient(90deg, 
+                rgba(102, 126, 234, 0.15) 0%, 
+                rgba(102, 126, 234, 0.08) 100%
+            );
+            transition: width 0.1s linear;
+            z-index: 0;
+            pointer-events: none;
+        }
+        
+        li.audio-playing > * {
+            position: relative;
+            z-index: 1;
+        }
+        
+        /* Dark theme adjustments for progress bar */
+        [data-theme="dark"] li.audio-playing::before {
+            background: linear-gradient(90deg, 
+                rgba(102, 126, 234, 0.25) 0%, 
+                rgba(102, 126, 234, 0.12) 100%
+            );
+        }
+        
+        /* Light theme adjustments for progress bar */
+        [data-theme="light"] li.audio-playing::before {
+            background: linear-gradient(90deg, 
+                rgba(102, 126, 234, 0.12) 0%, 
+                rgba(102, 126, 234, 0.06) 100%
+            );
+        }
+        
+        /* Mobile: Always show play button for audio files */
+        @media (max-width: 768px) {
+            .audio-play-btn {
+                opacity: 0.8;
+            }
+        }
     </style>
 </head>
 
@@ -4522,6 +4641,221 @@ if ($isValidPath) {
                         positionTooltip(e);
                     }
                 });
+            })();
+            
+            // Music player functionality
+            (function() {
+                console.log('[Music Player] Initializing music player functionality');
+                
+                let currentAudio = null;
+                let currentListItem = null;
+                let currentButton = null;
+                let progressUpdateInterval = null;
+                
+                // Find all audio file items and add play buttons
+                function initAudioButtons() {
+                    const audioLinks = document.querySelectorAll('a[data-preview="audio"]');
+                    console.log('[Music Player] Found ' + audioLinks.length + ' audio files');
+                    
+                    audioLinks.forEach(link => {
+                        const fileIcon = link.querySelector('.file-icon');
+                        if (!fileIcon) return;
+                        
+                        // Check if button already exists
+                        if (fileIcon.querySelector('.audio-play-btn')) return;
+                        
+                        // Create play button
+                        const playBtn = document.createElement('button');
+                        playBtn.className = 'audio-play-btn';
+                        playBtn.innerHTML = '<i class="fa-solid fa-play"></i>';
+                        playBtn.setAttribute('aria-label', 'Play audio');
+                        playBtn.setAttribute('title', 'Play');
+                        
+                        // Add click handler
+                        playBtn.addEventListener('click', function(e) {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            toggleAudio(link, playBtn);
+                        });
+                        
+                        fileIcon.appendChild(playBtn);
+                    });
+                }
+                
+                // Toggle audio playback
+                function toggleAudio(link, button) {
+                    const filePath = link.dataset.filePath;
+                    const listItem = link.closest('li');
+                    
+                    console.log('[Music Player] Toggle audio:', filePath);
+                    
+                    // If clicking the same audio that's playing, pause it
+                    if (currentAudio && currentListItem === listItem) {
+                        if (currentAudio.paused) {
+                            playAudio(filePath, listItem, button);
+                        } else {
+                            pauseAudio();
+                        }
+                    } else {
+                        // Stop current audio if playing
+                        if (currentAudio) {
+                            stopAudio();
+                        }
+                        // Start new audio
+                        playAudio(filePath, listItem, button);
+                    }
+                }
+                
+                // Play audio
+                function playAudio(filePath, listItem, button) {
+                    console.log('[Music Player] Playing:', filePath);
+                    
+                    // Create audio element if needed
+                    if (!currentAudio || currentListItem !== listItem) {
+                        if (currentAudio) {
+                            currentAudio.pause();
+                            currentAudio = null;
+                        }
+                        
+                        const previewUrl = '?preview=' + encodeURIComponent(filePath);
+                        currentAudio = new Audio(previewUrl);
+                        
+                        // Set up event listeners
+                        currentAudio.addEventListener('ended', function() {
+                            console.log('[Music Player] Audio ended');
+                            stopAudio();
+                        });
+                        
+                        currentAudio.addEventListener('error', function() {
+                            console.error('[Music Player] Audio load error');
+                            stopAudio();
+                            alert('Failed to load audio file');
+                        });
+                        
+                        // Start progress tracking
+                        currentAudio.addEventListener('timeupdate', updateProgress);
+                    }
+                    
+                    // Play audio
+                    currentAudio.play().catch(err => {
+                        console.error('[Music Player] Playback error:', err);
+                        alert('Failed to play audio file');
+                        stopAudio();
+                    });
+                    
+                    // Update UI
+                    currentListItem = listItem;
+                    currentButton = button;
+                    button.classList.add('playing');
+                    button.innerHTML = '<i class="fa-solid fa-pause"></i>';
+                    button.setAttribute('aria-label', 'Pause audio');
+                    button.setAttribute('title', 'Pause');
+                    listItem.classList.add('audio-playing');
+                }
+                
+                // Pause audio
+                function pauseAudio() {
+                    if (!currentAudio) return;
+                    
+                    console.log('[Music Player] Pausing audio');
+                    currentAudio.pause();
+                    
+                    // Update UI
+                    if (currentButton) {
+                        currentButton.classList.remove('playing');
+                        currentButton.innerHTML = '<i class="fa-solid fa-play"></i>';
+                        currentButton.setAttribute('aria-label', 'Play audio');
+                        currentButton.setAttribute('title', 'Play');
+                    }
+                }
+                
+                // Stop audio and clean up
+                function stopAudio() {
+                    if (!currentAudio) return;
+                    
+                    console.log('[Music Player] Stopping audio');
+                    currentAudio.pause();
+                    currentAudio.currentTime = 0;
+                    currentAudio = null;
+                    
+                    // Clean up UI
+                    if (currentButton) {
+                        currentButton.classList.remove('playing');
+                        currentButton.innerHTML = '<i class="fa-solid fa-play"></i>';
+                        currentButton.setAttribute('aria-label', 'Play audio');
+                        currentButton.setAttribute('title', 'Play');
+                        currentButton = null;
+                    }
+                    
+                    if (currentListItem) {
+                        currentListItem.classList.remove('audio-playing');
+                        // Reset progress bar
+                        currentListItem.style.setProperty('--audio-progress', '0%');
+                        currentListItem = null;
+                    }
+                    
+                    if (progressUpdateInterval) {
+                        clearInterval(progressUpdateInterval);
+                        progressUpdateInterval = null;
+                    }
+                }
+                
+                // Update progress bar
+                function updateProgress() {
+                    if (!currentAudio || !currentListItem) return;
+                    
+                    const progress = (currentAudio.currentTime / currentAudio.duration) * 100;
+                    const progressBar = currentListItem.querySelector('::before');
+                    
+                    // Use CSS custom property to update width
+                    if (currentListItem) {
+                        currentListItem.style.setProperty('--audio-progress', progress + '%');
+                        // Apply the width to the ::before pseudo-element via inline style on parent
+                        const beforeElement = window.getComputedStyle(currentListItem, '::before');
+                        currentListItem.querySelector('::before')?.style?.setProperty('width', progress + '%');
+                        
+                        // Alternative: directly update the pseudo-element width
+                        const sheet = document.styleSheets[0];
+                        // Find existing rule or create new one
+                        let ruleFound = false;
+                        for (let i = 0; i < sheet.cssRules.length; i++) {
+                            if (sheet.cssRules[i].selectorText === 'li.audio-playing::before') {
+                                sheet.cssRules[i].style.width = progress + '%';
+                                ruleFound = true;
+                                break;
+                            }
+                        }
+                        
+                        // Better approach: use data attribute to track specific item
+                        const itemId = currentListItem.dataset.audioId || 'audio-' + Date.now();
+                        if (!currentListItem.dataset.audioId) {
+                            currentListItem.dataset.audioId = itemId;
+                        }
+                        
+                        // Update using data attribute selector
+                        updateProgressBarWidth(itemId, progress);
+                    }
+                }
+                
+                // Helper to update progress bar width dynamically
+                function updateProgressBarWidth(itemId, progress) {
+                    // Find or create dynamic style element
+                    let styleEl = document.getElementById('audio-progress-style');
+                    if (!styleEl) {
+                        styleEl = document.createElement('style');
+                        styleEl.id = 'audio-progress-style';
+                        styleEl.setAttribute('nonce', document.querySelector('script[nonce]')?.getAttribute('nonce') || '');
+                        document.head.appendChild(styleEl);
+                    }
+                    
+                    // Update the style rule
+                    styleEl.textContent = 'li.audio-playing[data-audio-id="' + itemId + '"]::before { width: ' + progress + '% !important; }';
+                }
+                
+                // Initialize on page load
+                initAudioButtons();
+                
+                console.log('[Music Player] Music player functionality initialized');
             })();
             
             // Rename functionality
