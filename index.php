@@ -3796,12 +3796,12 @@ if ($isValidPath) {
         }
         
         /* Progress bar effect on list item background */
-        li.audio-playing {
+        li.audio-playing a {
             position: relative;
             overflow: hidden;
         }
         
-        li.audio-playing::before {
+        li.audio-playing a::before {
             content: '';
             position: absolute;
             top: 0;
@@ -3817,13 +3817,13 @@ if ($isValidPath) {
             pointer-events: none;
         }
         
-        li.audio-playing > * {
+        li.audio-playing a > * {
             position: relative;
             z-index: 1;
         }
         
         /* Dark theme adjustments for progress bar */
-        [data-theme="dark"] li.audio-playing::before {
+        [data-theme="dark"] li.audio-playing a::before {
             background: linear-gradient(90deg, 
                 rgba(102, 126, 234, 0.25) 0%, 
                 rgba(102, 126, 234, 0.12) 100%
@@ -3831,7 +3831,7 @@ if ($isValidPath) {
         }
         
         /* Light theme adjustments for progress bar */
-        [data-theme="light"] li.audio-playing::before {
+        [data-theme="light"] li.audio-playing a::before {
             background: linear-gradient(90deg, 
                 rgba(102, 126, 234, 0.12) 0%, 
                 rgba(102, 126, 234, 0.06) 100%
@@ -4655,6 +4655,7 @@ if ($isValidPath) {
                 
                 let currentAudio = null;
                 let currentListItem = null;
+                let currentLink = null;
                 let currentButton = null;
                 
                 // Find all audio file items and add play buttons
@@ -4756,6 +4757,7 @@ if ($isValidPath) {
                     
                     // Update UI
                     currentListItem = listItem;
+                    currentLink = link;
                     currentButton = button;
                     button.classList.add('playing');
                     button.innerHTML = '<i class="fa-solid fa-pause"></i>';
@@ -4800,15 +4802,19 @@ if ($isValidPath) {
                     
                     if (currentListItem) {
                         currentListItem.classList.remove('audio-playing');
-                        // Reset progress bar
-                        currentListItem.style.removeProperty('--audio-progress');
                         currentListItem = null;
+                    }
+                    
+                    if (currentLink) {
+                        // Reset progress bar
+                        currentLink.style.removeProperty('--audio-progress');
+                        currentLink = null;
                     }
                 }
                 
                 // Update progress bar
                 function updateProgress() {
-                    if (!currentAudio || !currentListItem) return;
+                    if (!currentAudio || !currentLink) return;
                     
                     // Guard against invalid duration or currentTime
                     if (!currentAudio.duration || currentAudio.duration <= 0 || isNaN(currentAudio.duration)) return;
@@ -4816,8 +4822,8 @@ if ($isValidPath) {
                     
                     const progress = Math.min(100, Math.max(0, (currentAudio.currentTime / currentAudio.duration) * 100));
                     
-                    // Update progress using CSS custom property
-                    currentListItem.style.setProperty('--audio-progress', progress + '%');
+                    // Update progress using CSS custom property on the link element
+                    currentLink.style.setProperty('--audio-progress', progress + '%');
                 }
                 
                 // Initialize on page load
