@@ -2308,32 +2308,26 @@ if ($isValidPath) {
         .download-all-btn { 
             display: inline-flex; 
             align-items: center; 
-            gap: 6px; 
-            padding: 8px 14px; 
-            background: linear-gradient(135deg, #27ae60 0%, #229954 100%);
+            gap: 8px; 
+            padding: 10px 20px; 
+            background: var(--accent);
             color: white; 
             border: none; 
             border-radius: 8px; 
-            font-size: clamp(0.8rem, 2vw, 0.85rem);
-            font-weight: 700; 
+            font-size: 0.95rem;
+            font-weight: 600; 
             text-decoration: none; 
             cursor: pointer; 
-            transition: all 0.25s ease; 
+            transition: background 0.2s; 
             white-space: nowrap;
-            box-shadow: 0 2px 8px rgba(39, 174, 96, 0.3);
         }
         
         .download-all-btn:hover { 
-            background: linear-gradient(135deg, #229954 0%, #27ae60 100%);
-            filter: brightness(1.1);
-        }
-        
-        .download-all-btn:active {
-            filter: brightness(0.95);
+            background: var(--accent-hover);
         }
         
         .download-all-btn i { 
-            font-size: 0.9rem; 
+            font-size: 1rem; 
         }
         
         /* ================================================================
@@ -2509,7 +2503,9 @@ if ($isValidPath) {
             .selected-count,
             .batch-download-btn,
             .batch-delete-btn,
-            .download-all-btn {
+            .download-all-btn,
+            .upload-btn,
+            .create-dir-btn {
                 width: 100%;
                 justify-content: center;
                 padding: 12px 16px;
@@ -2530,11 +2526,6 @@ if ($isValidPath) {
                 padding: 12px 14px;
             }
             
-            .download-all-btn {
-                width: 100%;
-                justify-content: center;
-            }
-            
             .stats-actions-row {
                 flex-direction: column;
                 align-items: stretch;
@@ -2553,7 +2544,10 @@ if ($isValidPath) {
             
             .selected-count,
             .batch-download-btn,
-            .batch-delete-btn {
+            .batch-delete-btn,
+            .download-all-btn,
+            .upload-btn,
+            .create-dir-btn {
                 width: 100%;
                 justify-content: center;
                 padding: 11px 16px;
