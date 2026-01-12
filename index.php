@@ -3807,7 +3807,7 @@ if ($isValidPath) {
             top: 0;
             left: 0;
             height: 100%;
-            width: 0%;
+            width: var(--audio-progress, 0%);
             background: linear-gradient(90deg, 
                 rgba(102, 126, 234, 0.15) 0%, 
                 rgba(102, 126, 234, 0.08) 100%
@@ -4800,15 +4800,9 @@ if ($isValidPath) {
                     
                     if (currentListItem) {
                         currentListItem.classList.remove('audio-playing');
-                        // Reset progress bar by removing data attribute
-                        delete currentListItem.dataset.audioId;
+                        // Reset progress bar
+                        currentListItem.style.removeProperty('--audio-progress');
                         currentListItem = null;
-                    }
-                    
-                    // Clean up dynamic style element
-                    const styleEl = document.getElementById('audio-progress-style');
-                    if (styleEl) {
-                        styleEl.remove();
                     }
                 }
                 
@@ -4818,29 +4812,8 @@ if ($isValidPath) {
                     
                     const progress = (currentAudio.currentTime / currentAudio.duration) * 100;
                     
-                    // Assign unique ID to current item if not already set
-                    const itemId = currentListItem.dataset.audioId || 'audio-' + Date.now();
-                    if (!currentListItem.dataset.audioId) {
-                        currentListItem.dataset.audioId = itemId;
-                    }
-                    
-                    // Update progress bar width using dynamic style
-                    updateProgressBarWidth(itemId, progress);
-                }
-                
-                // Helper to update progress bar width dynamically
-                function updateProgressBarWidth(itemId, progress) {
-                    // Find or create dynamic style element
-                    let styleEl = document.getElementById('audio-progress-style');
-                    if (!styleEl) {
-                        styleEl = document.createElement('style');
-                        styleEl.id = 'audio-progress-style';
-                        styleEl.setAttribute('nonce', document.querySelector('script[nonce]')?.getAttribute('nonce') || '');
-                        document.head.appendChild(styleEl);
-                    }
-                    
-                    // Update the style rule for the specific audio item
-                    styleEl.textContent = 'li.audio-playing[data-audio-id="' + itemId + '"]::before { width: ' + progress + '% !important; }';
+                    // Update progress using CSS custom property
+                    currentListItem.style.setProperty('--audio-progress', progress + '%');
                 }
                 
                 // Initialize on page load
