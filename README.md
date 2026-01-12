@@ -44,6 +44,7 @@ The version information is embedded in `index.php` and includes:
 - ✏️ **Rename files and folders** — easily rename items directly from the web interface (optional, configurable)
 - 🗑️ **Delete files and folders** — remove items with confirmation dialog (optional, configurable)
 - 📤 **File upload** — upload files via button or drag-and-drop anywhere on the page (optional, configurable)
+- 📁 **Create directories** — create new folders directly from the web interface (optional, configurable)
 - 📥 **Secure downloads** — individual file downloads with proper content-type headers
 - 📦 **Download All as ZIP** — bundle entire directories into a single ZIP file
 - 📊 **File statistics** — displays folder/file counts and total size
@@ -227,6 +228,14 @@ Simply open `index.php` in a text editor and locate the **CONFIGURATION** sectio
   - `$uploadMaxFileSize` sets the maximum size for any individual file upload (in bytes).
   - `$uploadMaxTotalSize` sets the maximum combined size when uploading multiple files at once (in bytes).
   - `$uploadAllowedExtensions` optionally restricts uploads to specific file types. When empty, all types except blocked extensions are allowed.
+
+- **Create Directory Configuration**  
+  Control folder creation functionality with this configuration variable:
+  ```php
+  $enableCreateDirectory = true;  // Enable/disable create directory functionality
+  ```
+  - When `$enableCreateDirectory` is `false`, the "New Folder" button is hidden and the create directory endpoint returns 403 Forbidden if accessed.
+  - When enabled, users can create new folders in the current directory via a simple dialog interface.
 
 - **Display Configuration**  
   Control what information is displayed in the interface:
@@ -629,6 +638,77 @@ These settings can be configured in `php.ini`, `.htaccess`, or `.user.ini` depen
 
 ---
 
+## Create Directory Feature
+
+The create directory feature allows you to create new folders directly in the current directory through a simple dialog.
+
+### How to Use
+
+1. Click the "New Folder" button in the action bar
+2. In the create folder dialog, enter a name for the new folder
+3. Click "Create" to confirm, or "Cancel" to abort
+
+### Features
+
+- **Simple interface** — Clean modal dialog for quick folder creation
+- **Instant creation** — New folders appear immediately after creation
+- **Input validation** — Prevents invalid or dangerous folder names
+- **Duplicate detection** — Warns if a folder with the same name already exists
+
+### Configuration
+
+The create directory feature can be enabled or disabled via the `$enableCreateDirectory` configuration variable:
+
+```php
+$enableCreateDirectory = true;  // Set to false to disable create directory functionality
+```
+
+When disabled:
+- The "New Folder" button is hidden from the UI
+- Backend create directory endpoint returns 403 Forbidden if accessed
+
+### Security & Validation
+
+The create directory feature includes comprehensive security measures:
+
+- **Path traversal prevention** — Cannot use `/`, `\`, or null bytes in folder names
+- **Hidden directory protection** — Cannot create hidden folders (starting with `.`)
+- **System directory protection** — Cannot use reserved names like `index.php`
+- **Duplicate detection** — Prevents creating folders with existing names
+- **Secure permissions** — Folders are created with secure permissions (0755)
+- **Input sanitization** — All inputs are validated and sanitized
+- **Parent directory validation** — Ensures folders are created only in allowed locations
+
+### Validation Rules
+
+Folder names must meet these criteria:
+- Cannot be empty or contain only whitespace
+- Cannot contain path separators (`/` or `\`)
+- Cannot be `.` or `..`
+- Cannot start with `.` (hidden folders)
+- Cannot conflict with existing files or folders
+- Cannot use reserved names
+
+### Error Handling
+
+The create directory dialog displays helpful error messages:
+- "Invalid directory name" — when the name contains invalid characters
+- "Cannot create hidden directory" — when trying to create a hidden folder
+- "A file or directory with this name already exists" — when the name conflicts
+- "Cannot use this directory name" — when trying to use a reserved name
+- "Failed to create directory" — when the filesystem operation fails
+- "Create directory functionality is disabled" — when the feature is turned off
+
+### Best Practices
+
+1. **Enable only when needed** — Keep create directory functionality disabled unless actively required
+2. **Use meaningful names** — Choose descriptive folder names for better organization
+3. **Limit access** — Use web server authentication (`.htaccess`, HTTP Basic Auth) to restrict access
+4. **Monitor disk space** — Regular folder creation can lead to clutter; implement cleanup strategies if needed
+5. **Review permissions** — Ensure filesystem permissions match your security requirements
+
+---
+
 ## Notes
 
 - Files and directories are sorted naturally (case-insensitive) for better organization
@@ -646,6 +726,7 @@ These settings can be configured in `php.ini`, `.htaccess`, or `.user.ini` depen
 - **Delete operations are permanent** — deleted files cannot be recovered, so use this feature carefully
 - **Upload functionality** — when enabled, allows file uploads via button or drag-and-drop anywhere on the page
 - Upload supports multiple files and automatically handles duplicate filenames
+- **Create directory functionality** — when enabled, allows creating new folders directly from the web interface
 
 ---
 

@@ -37,6 +37,7 @@ $enableDownloadAll = true;         // Enable/disable "Download All as ZIP" butto
 $enableBatchDownload = true;       // Enable/disable batch download of selected items as ZIP
 $enableIndividualDownload = true;  // Enable/disable individual file downloads
 $enableUpload = true;              // Enable/disable file upload functionality
+$enableCreateDirectory = true;     // Enable/disable create directory functionality
 
 // --- Display Options ---
 $showFileSize = true;           // Show/hide file sizes in file listings
@@ -80,6 +81,11 @@ define('BLOCKED_EXTENSIONS', [
     'php', 'phtml', 'phar', 'cgi', 'pl', 'sh', 'bat', 'exe',
     'jsp', 'asp', 'aspx', 'py', 'rb', 'ps1', 'vbs', 'htaccess',
     'scr', 'com', 'jar'
+]);
+
+// Reserved filesystem names that cannot be used for directories (includes special files and paths)
+define('RESERVED_NAMES', [
+    'index.php', '.', '..', '.htaccess', '.gitignore', '.env'
 ]);
 
 // ============================================================================
@@ -943,6 +949,98 @@ if (isset($_POST['upload'])) {
     } else {
         http_response_code(500);
         echo json_encode(['success' => false, 'error' => 'Failed to upload files', 'failed' => $failedFiles]);
+    }
+    exit;
+}
+
+/**
+ * Secure create directory handler
+ */
+if (isset($_POST['create_directory'])) {
+    header('Content-Type: application/json');
+    
+    // Check if create directory is enabled
+    if (!$enableCreateDirectory) {
+        http_response_code(403);
+        echo json_encode(['success' => false, 'error' => 'Create directory functionality is disabled']);
+        exit;
+    }
+    
+    $dirName = isset($_POST['directory_name']) ? (string)$_POST['directory_name'] : '';
+    $targetPath = isset($_POST['target_path']) ? (string)$_POST['target_path'] : '';
+    
+    // Validate inputs
+    if (empty($dirName)) {
+        http_response_code(400);
+        echo json_encode(['success' => false, 'error' => 'Invalid parameters']);
+        exit;
+    }
+    
+    // Sanitize directory name - prevent path traversal
+    $dirName = str_replace(['/', '\\', "\0"], '', $dirName);
+    $dirName = trim($dirName);
+    
+    // Validate directory name is not empty after sanitization
+    if (empty($dirName) || $dirName === '.' || $dirName === '..') {
+        http_response_code(400);
+        echo json_encode(['success' => false, 'error' => 'Invalid directory name']);
+        exit;
+    }
+    
+    // Prevent creating hidden directories (check after ensuring name is not empty)
+    if (strlen($dirName) > 0 && $dirName[0] === '.') {
+        http_response_code(400);
+        echo json_encode(['success' => false, 'error' => 'Cannot create hidden directory']);
+        exit;
+    }
+    
+    // Prevent creating reserved/protected directories
+    if (in_array($dirName, RESERVED_NAMES, true)) {
+        http_response_code(403);
+        echo json_encode(['success' => false, 'error' => 'Cannot use this directory name']);
+        exit;
+    }
+    
+    // Validate target path
+    $basePath = $targetPath ? './' . str_replace('\\', '/', $targetPath) : '.';
+    $realBase = realpath($basePath);
+    
+    // Validate path is within root
+    if ($realBase === false || strpos($realBase . DIRECTORY_SEPARATOR, $realRoot) !== 0) {
+        http_response_code(404);
+        echo json_encode(['success' => false, 'error' => 'Invalid target directory']);
+        exit;
+    }
+    
+    // Ensure target is a directory
+    if (!is_dir($realBase)) {
+        http_response_code(400);
+        echo json_encode(['success' => false, 'error' => 'Target is not a directory']);
+        exit;
+    }
+    
+    // Build full path for new directory
+    $fullNewPath = $realBase . DIRECTORY_SEPARATOR . $dirName;
+    
+    // Check if directory already exists
+    if (file_exists($fullNewPath)) {
+        http_response_code(409);
+        echo json_encode(['success' => false, 'error' => 'A file or directory with this name already exists']);
+        exit;
+    }
+    
+    // Create the directory with secure permissions (0755)
+    // Clear any previous errors to ensure error_get_last() captures only mkdir errors
+    error_clear_last();
+    $result = mkdir($fullNewPath, 0755);
+    if ($result) {
+        echo json_encode(['success' => true]);
+    } else {
+        // Get last error for more detailed logging if available
+        $error = error_get_last();
+        error_log('Failed to create directory: ' . ($error ? $error['message'] : 'unknown error'));
+        http_response_code(500);
+        echo json_encode(['success' => false, 'error' => 'Failed to create directory']);
     }
     exit;
 }
@@ -3087,6 +3185,30 @@ if ($isValidPath) {
             font-size: 1rem;
         }
         
+        /* Create directory button */
+        .create-dir-btn {
+            background: var(--accent);
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 0.95rem;
+            font-weight: 600;
+            transition: background 0.2s;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        .create-dir-btn:hover {
+            background: var(--accent-hover);
+        }
+        
+        .create-dir-btn i {
+            font-size: 1rem;
+        }
+        
         /* Drag and drop overlay (full screen) */
         .drag-drop-overlay {
             position: fixed;
@@ -3129,6 +3251,117 @@ if ($isValidPath) {
             50% {
                 transform: translateY(-20px);
             }
+        }
+        
+        /* ================================================================
+           CREATE DIRECTORY MODAL
+           ================================================================ */
+        .create-dir-modal {
+            position: fixed;
+            inset: 0;
+            background: rgba(0, 0, 0, 0.5);
+            backdrop-filter: blur(4px);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            z-index: 10001;
+            padding: 20px;
+        }
+        
+        .create-dir-modal.active {
+            display: flex;
+        }
+        
+        .create-dir-modal-content {
+            background: white;
+            border-radius: 12px;
+            padding: 28px;
+            max-width: 500px;
+            width: 100%;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            animation: modalSlideIn 0.3s ease;
+        }
+        
+        .create-dir-modal-title {
+            font-size: 1.5rem;
+            font-weight: 700;
+            margin-bottom: 8px;
+            color: var(--text);
+        }
+        
+        .create-dir-modal-subtitle {
+            font-size: 0.9rem;
+            color: var(--muted);
+            margin-bottom: 20px;
+        }
+        
+        .create-dir-modal-error {
+            padding: 12px 16px;
+            border-radius: 8px;
+            margin-bottom: 16px;
+            font-size: 0.9rem;
+            background: #fee;
+            color: #c00;
+            display: none;
+        }
+        
+        .create-dir-modal-error.active {
+            display: block;
+        }
+        
+        .create-dir-modal-input {
+            width: 100%;
+            padding: 12px 16px;
+            border: 2px solid var(--border);
+            border-radius: 8px;
+            font-size: 1rem;
+            margin-bottom: 20px;
+            transition: border-color 0.2s;
+            box-sizing: border-box;
+        }
+        
+        .create-dir-modal-input:focus {
+            outline: none;
+            border-color: var(--accent);
+        }
+        
+        .create-dir-modal-buttons {
+            display: flex;
+            gap: 12px;
+            justify-content: flex-end;
+        }
+        
+        .create-dir-modal-btn {
+            padding: 10px 24px;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 0.95rem;
+            font-weight: 600;
+            transition: all 0.2s;
+        }
+        
+        .create-dir-modal-btn-cancel {
+            background: #e0e0e0;
+            color: #333;
+        }
+        
+        .create-dir-modal-btn-cancel:hover {
+            background: #d0d0d0;
+        }
+        
+        .create-dir-modal-btn-confirm {
+            background: var(--accent);
+            color: white;
+        }
+        
+        .create-dir-modal-btn-confirm:hover:not(:disabled) {
+            background: var(--accent-hover);
+        }
+        
+        .create-dir-modal-btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
         }
         
         /* ================================================================
@@ -3831,6 +4064,14 @@ if ($isValidPath) {
                         echo '</button>';
                     }
                     
+                    // Show create directory button if enabled
+                    if ($enableCreateDirectory) {
+                        echo '<button class="create-dir-btn" id="createDirBtn" title="Create new folder">';
+                        echo '<i class="fa-solid fa-folder-plus"></i>';
+                        echo 'New Folder';
+                        echo '</button>';
+                    }
+                    
                     echo '</div>'; // end stats-actions-row
                     echo '</div>'; // end stats-container
                 }
@@ -3902,6 +4143,20 @@ if ($isValidPath) {
             <div class="upload-modal-buttons">
                 <button class="upload-modal-btn upload-modal-btn-cancel" id="uploadModalCancel">Cancel</button>
                 <button class="upload-modal-btn upload-modal-btn-confirm" id="uploadModalConfirm" disabled>Upload</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Create Directory Modal -->
+    <div class="create-dir-modal" id="createDirModal" role="dialog" aria-labelledby="createDirModalTitle" aria-modal="true">
+        <div class="create-dir-modal-content">
+            <h2 class="create-dir-modal-title" id="createDirModalTitle">Create New Folder</h2>
+            <p class="create-dir-modal-subtitle">Enter a name for the new folder</p>
+            <div class="create-dir-modal-error" id="createDirModalError"></div>
+            <input type="text" class="create-dir-modal-input" id="createDirModalInput" placeholder="Folder name" maxlength="255" autocomplete="off">
+            <div class="create-dir-modal-buttons">
+                <button class="create-dir-modal-btn create-dir-modal-btn-cancel" id="createDirModalCancel">Cancel</button>
+                <button class="create-dir-modal-btn create-dir-modal-btn-confirm" id="createDirModalConfirm">Create</button>
             </div>
         </div>
     </div>
@@ -5333,6 +5588,132 @@ if ($isValidPath) {
                     } else if (e.dataTransfer.files.length > 0) {
                         // Fallback for browsers that don't support DataTransferItem API
                         addFiles(e.dataTransfer.files);
+                    }
+                });
+            })();
+            
+            // Create directory functionality
+            (function() {
+                const createDirBtn = document.getElementById('createDirBtn');
+                const modal = document.getElementById('createDirModal');
+                const input = document.getElementById('createDirModalInput');
+                const error = document.getElementById('createDirModalError');
+                const cancelBtn = document.getElementById('createDirModalCancel');
+                const confirmBtn = document.getElementById('createDirModalConfirm');
+                
+                if (!createDirBtn || !modal) return;
+                
+                function showError(message) {
+                    error.textContent = message;
+                    error.classList.add('active');
+                }
+                
+                function hideError() {
+                    error.classList.remove('active');
+                }
+                
+                function openModal() {
+                    input.value = '';
+                    hideError();
+                    modal.classList.add('active');
+                    modal.setAttribute('aria-hidden', 'false');
+                    
+                    // Focus input
+                    setTimeout(() => {
+                        input.focus();
+                    }, 50);
+                }
+                
+                function closeModal() {
+                    modal.classList.remove('active');
+                    modal.setAttribute('aria-hidden', 'true');
+                }
+                
+                function getCurrentPath() {
+                    const urlParams = new URLSearchParams(window.location.search);
+                    return urlParams.get('path') || '';
+                }
+                
+                function performCreate() {
+                    const dirName = input.value.trim();
+                    
+                    if (!dirName) {
+                        showError('Please enter a folder name');
+                        return;
+                    }
+                    
+                    // Disable buttons during operation
+                    confirmBtn.disabled = true;
+                    cancelBtn.disabled = true;
+                    hideError();
+                    
+                    // Send create request
+                    fetch('', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/x-www-form-urlencoded',
+                        },
+                        body: 'create_directory=1&directory_name=' + encodeURIComponent(dirName) + '&target_path=' + encodeURIComponent(getCurrentPath())
+                    })
+                    .then(response => {
+                        // Store response status for error handling
+                        const status = response.status;
+                        // Check if response is ok before parsing JSON
+                        if (!response.ok) {
+                            // Try to parse JSON error, but handle cases where response is not JSON
+                            return response.text().then(text => {
+                                try {
+                                    const data = JSON.parse(text);
+                                    throw new Error(data.error || 'Failed to create folder (HTTP ' + status + ')');
+                                } catch (e) {
+                                    // If JSON parsing fails, throw a generic error with status code
+                                    if (e instanceof SyntaxError) {
+                                        throw new Error('Failed to create folder (HTTP ' + status + ')');
+                                    }
+                                    // Re-throw if it's already an Error from JSON parsing
+                                    throw e;
+                                }
+                            });
+                        }
+                        return response.json();
+                    })
+                    .then(data => {
+                        if (data.success) {
+                            // Reload page to show new folder
+                            window.location.reload();
+                        } else {
+                            showError(data.error || 'Failed to create folder');
+                            confirmBtn.disabled = false;
+                            cancelBtn.disabled = false;
+                        }
+                    })
+                    .catch(err => {
+                        showError(err.message || 'An error occurred. Please try again.');
+                        confirmBtn.disabled = false;
+                        cancelBtn.disabled = false;
+                        console.error('Create directory error:', err);
+                    });
+                }
+                
+                // Event listeners
+                createDirBtn.addEventListener('click', openModal);
+                cancelBtn.addEventListener('click', closeModal);
+                confirmBtn.addEventListener('click', performCreate);
+                
+                input.addEventListener('keydown', function(e) {
+                    if (e.key === 'Enter') {
+                        e.preventDefault();
+                        performCreate();
+                    } else if (e.key === 'Escape') {
+                        e.preventDefault();
+                        closeModal();
+                    }
+                });
+                
+                // Close modal when clicking outside
+                modal.addEventListener('click', function(e) {
+                    if (e.target === modal) {
+                        closeModal();
                     }
                 });
             })();
