@@ -4810,7 +4810,11 @@ if ($isValidPath) {
                 function updateProgress() {
                     if (!currentAudio || !currentListItem) return;
                     
-                    const progress = (currentAudio.currentTime / currentAudio.duration) * 100;
+                    // Guard against invalid duration or currentTime
+                    if (!currentAudio.duration || currentAudio.duration <= 0 || isNaN(currentAudio.duration)) return;
+                    if (isNaN(currentAudio.currentTime)) return;
+                    
+                    const progress = Math.min(100, Math.max(0, (currentAudio.currentTime / currentAudio.duration) * 100));
                     
                     // Update progress using CSS custom property
                     currentListItem.style.setProperty('--audio-progress', progress + '%');
