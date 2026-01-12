@@ -5141,8 +5141,8 @@ if ($isValidPath) {
                     if (e.key === 'Escape') {
                         closeVideoPlayer();
                     }
-                    // Space key toggles play/pause
-                    if (e.key === ' ') {
+                    // Space key toggles play/pause (only if not in an input field)
+                    if (e.key === ' ' && !['INPUT', 'TEXTAREA'].includes(e.target.tagName)) {
                         if (currentVideo) {
                             e.preventDefault();
                             if (currentVideo.paused) {
