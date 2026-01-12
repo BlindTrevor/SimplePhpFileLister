@@ -164,20 +164,80 @@ function formatFileSize(int $bytes): string {
 function getFileIcon(string $path): array {
     $ext = strtolower(pathinfo($path, PATHINFO_EXTENSION));
     $extMap = [
+        // Document formats
         'pdf' => ['fa-regular fa-file-pdf', 'icon-pdf'],
         'doc' => ['fa-regular fa-file-word', 'icon-word'],
         'docx' => ['fa-regular fa-file-word', 'icon-word'],
+        'xls' => ['fa-regular fa-file-excel', 'icon-excel'],
         'xlsx' => ['fa-regular fa-file-excel', 'icon-excel'],
+        'ppt' => ['fa-regular fa-file-powerpoint', 'icon-powerpoint'],
         'pptx' => ['fa-regular fa-file-powerpoint', 'icon-powerpoint'],
+        'txt' => ['fa-regular fa-file-lines', 'icon-text'],
+        'rtf' => ['fa-regular fa-file-lines', 'icon-text'],
+        'odt' => ['fa-regular fa-file-word', 'icon-word'],
+        'ods' => ['fa-regular fa-file-excel', 'icon-excel'],
+        'odp' => ['fa-regular fa-file-powerpoint', 'icon-powerpoint'],
+        
+        // Archive formats
         'zip' => ['fa-solid fa-file-zipper', 'icon-archive'],
+        'rar' => ['fa-solid fa-file-zipper', 'icon-archive'],
+        '7z' => ['fa-solid fa-file-zipper', 'icon-archive'],
+        'tar' => ['fa-solid fa-file-zipper', 'icon-archive'],
+        'gz' => ['fa-solid fa-file-zipper', 'icon-archive'],
+        'bz2' => ['fa-solid fa-file-zipper', 'icon-archive'],
+        
+        // Image formats
         'jpg' => ['fa-regular fa-file-image', 'icon-image'],
+        'jpeg' => ['fa-regular fa-file-image', 'icon-image'],
         'png' => ['fa-regular fa-file-image', 'icon-image'],
+        'gif' => ['fa-regular fa-file-image', 'icon-image'],
+        'svg' => ['fa-regular fa-file-image', 'icon-image'],
+        'bmp' => ['fa-regular fa-file-image', 'icon-image'],
+        'ico' => ['fa-regular fa-file-image', 'icon-image'],
+        'webp' => ['fa-regular fa-file-image', 'icon-image'],
+        'tiff' => ['fa-regular fa-file-image', 'icon-image'],
+        'tif' => ['fa-regular fa-file-image', 'icon-image'],
+        
+        // Audio formats
         'mp3' => ['fa-regular fa-file-audio', 'icon-audio'],
+        'wav' => ['fa-regular fa-file-audio', 'icon-audio'],
+        'ogg' => ['fa-regular fa-file-audio', 'icon-audio'],
+        'm4a' => ['fa-regular fa-file-audio', 'icon-audio'],
+        'flac' => ['fa-regular fa-file-audio', 'icon-audio'],
+        'aac' => ['fa-regular fa-file-audio', 'icon-audio'],
+        
+        // Video formats
         'mp4' => ['fa-regular fa-file-video', 'icon-video'],
+        'avi' => ['fa-regular fa-file-video', 'icon-video'],
+        'mov' => ['fa-regular fa-file-video', 'icon-video'],
+        'wmv' => ['fa-regular fa-file-video', 'icon-video'],
+        'flv' => ['fa-regular fa-file-video', 'icon-video'],
+        'mkv' => ['fa-regular fa-file-video', 'icon-video'],
+        'webm' => ['fa-regular fa-file-video', 'icon-video'],
+        'ogv' => ['fa-regular fa-file-video', 'icon-video'],
+        
+        // Code and markup formats
         'html' => ['fa-regular fa-file-code', 'icon-html'],
+        'htm' => ['fa-regular fa-file-code', 'icon-html'],
         'css' => ['fa-regular fa-file-code', 'icon-css'],
         'js' => ['fa-regular fa-file-code', 'icon-js'],
         'php' => ['fa-regular fa-file-code', 'icon-php'],
+        'json' => ['fa-regular fa-file-code', 'icon-code'],
+        'xml' => ['fa-regular fa-file-code', 'icon-code'],
+        'yaml' => ['fa-regular fa-file-code', 'icon-code'],
+        'yml' => ['fa-regular fa-file-code', 'icon-code'],
+        'py' => ['fa-regular fa-file-code', 'icon-code'],
+        'rb' => ['fa-regular fa-file-code', 'icon-code'],
+        'java' => ['fa-regular fa-file-code', 'icon-code'],
+        'c' => ['fa-regular fa-file-code', 'icon-code'],
+        'cpp' => ['fa-regular fa-file-code', 'icon-code'],
+        'cs' => ['fa-regular fa-file-code', 'icon-code'],
+        'go' => ['fa-regular fa-file-code', 'icon-code'],
+        'rs' => ['fa-regular fa-file-code', 'icon-code'],
+        'ts' => ['fa-regular fa-file-code', 'icon-code'],
+        'tsx' => ['fa-regular fa-file-code', 'icon-code'],
+        'jsx' => ['fa-regular fa-file-code', 'icon-code'],
+        'sql' => ['fa-regular fa-file-code', 'icon-code'],
         'md' => ['fa-regular fa-file-lines', 'icon-markdown'],
     ];
 
