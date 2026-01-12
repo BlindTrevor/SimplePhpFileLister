@@ -2186,7 +2186,7 @@ if ($isValidPath) {
         
         .stats-top-row {
             display: flex;
-            justify-content: space-between;
+            justify-content: center;
             align-items: center;
             gap: 16px;
             flex-wrap: wrap;
@@ -2201,7 +2201,7 @@ if ($isValidPath) {
         
         .stats-actions-row {
             display: flex;
-            justify-content: space-between;
+            justify-content: flex-end;
             align-items: center;
             gap: 12px;
             flex-wrap: wrap;
