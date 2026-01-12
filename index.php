@@ -2209,6 +2209,13 @@ if ($isValidPath) {
             border-top: 1px solid var(--stats-divider);
         }
         
+        .action-buttons-container {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            flex-wrap: wrap;
+        }
+        
         /* ================================================================
            FOOTER & BRANDING
            ================================================================ */
@@ -2500,6 +2507,11 @@ if ($isValidPath) {
                 flex-direction: column;
             }
             
+            .action-buttons-container {
+                width: 100%;
+                flex-direction: column;
+            }
+            
             .selected-count,
             .batch-download-btn,
             .batch-delete-btn,
@@ -2538,6 +2550,11 @@ if ($isValidPath) {
             }
             
             .batch-actions-container {
+                width: 100%;
+                flex-direction: column;
+            }
+            
+            .action-buttons-container {
                 width: 100%;
                 flex-direction: column;
             }
@@ -4159,6 +4176,9 @@ if ($isValidPath) {
                     
                     echo '</div>'; // end batch-actions-container
                     
+                    // Action buttons container (download all, upload, create directory)
+                    echo '<div class="action-buttons-container">';
+                    
                     // Show download all button if enabled and content check already passed (separate from batch actions)
                     if ($hasDownloadAll) {
                         $downloadAllUrl = '?download_all_zip=1';
@@ -4186,6 +4206,8 @@ if ($isValidPath) {
                         echo 'New Folder';
                         echo '</button>';
                     }
+                    
+                    echo '</div>'; // end action-buttons-container
                     
                     echo '</div>'; // end stats-actions-row
                     echo '</div>'; // end stats-container
