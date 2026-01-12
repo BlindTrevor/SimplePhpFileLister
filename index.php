@@ -3747,11 +3747,11 @@ if ($isValidPath) {
            MUSIC PLAYER STYLES
            ================================================================ */
         /* Play/Pause button overlay on audio file icons */
-        li:has(a[data-preview="audio"]) {
+        li.audio-file {
             position: relative;
         }
         
-        li:has(a[data-preview="audio"]) .file-icon {
+        li.audio-file .file-icon {
             position: relative;
         }
         
@@ -3776,7 +3776,7 @@ if ($isValidPath) {
             box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
         }
         
-        li:has(a[data-preview="audio"]):hover .audio-play-btn,
+        li.audio-file:hover .audio-play-btn,
         .audio-play-btn.playing {
             opacity: 1;
         }
@@ -4656,7 +4656,6 @@ if ($isValidPath) {
                 let currentAudio = null;
                 let currentListItem = null;
                 let currentButton = null;
-                let progressUpdateInterval = null;
                 
                 // Find all audio file items and add play buttons
                 function initAudioButtons() {
@@ -4669,6 +4668,12 @@ if ($isValidPath) {
                         
                         // Check if button already exists
                         if (fileIcon.querySelector('.audio-play-btn')) return;
+                        
+                        // Add audio-file class to the list item for CSS styling
+                        const listItem = link.closest('li');
+                        if (listItem) {
+                            listItem.classList.add('audio-file');
+                        }
                         
                         // Create play button
                         const playBtn = document.createElement('button');
@@ -4804,11 +4809,6 @@ if ($isValidPath) {
                     const styleEl = document.getElementById('audio-progress-style');
                     if (styleEl) {
                         styleEl.remove();
-                    }
-                    
-                    if (progressUpdateInterval) {
-                        clearInterval(progressUpdateInterval);
-                        progressUpdateInterval = null;
                     }
                 }
                 
