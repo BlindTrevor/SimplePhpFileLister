@@ -31,8 +31,8 @@ $enablePaginationAmountSelector = true; // Enable/disable pagination amount sele
 $defaultPaginationAmount = 30; // Default items per page (5, 10, 20, 30, 50, or 'all')
 
 // --- Feature Toggles ---
-$enableRename = false;             // Enable/disable rename functionality
-$enableDelete = false;             // Enable/disable delete functionality
+$enableRename = true;              // Enable/disable rename functionality
+$enableDelete = true;              // Enable/disable delete functionality
 $enableDownloadAll = true;         // Enable/disable "Download All as ZIP" button
 $enableBatchDownload = true;       // Enable/disable batch download of selected items as ZIP
 $enableIndividualDownload = true;  // Enable/disable individual file downloads
