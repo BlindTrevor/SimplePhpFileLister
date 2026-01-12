@@ -3846,6 +3846,172 @@ if ($isValidPath) {
                 opacity: 0.8;
             }
         }
+        
+        /* ================================================================
+           VIDEO PLAYER STYLES
+           ================================================================ */
+        /* Play button overlay on video file icons */
+        li.video-file {
+            position: relative;
+        }
+        
+        li.video-file .file-icon {
+            position: relative;
+        }
+        
+        .video-play-btn {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 32px;
+            height: 32px;
+            background: var(--accent);
+            color: white;
+            border: none;
+            border-radius: 50%;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            opacity: 0;
+            transition: opacity 0.2s ease, background 0.2s ease;
+            z-index: 10;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+        }
+        
+        li.video-file:hover .video-play-btn {
+            opacity: 1;
+        }
+        
+        .video-play-btn:hover {
+            background: var(--accent-hover);
+            transform: translate(-50%, -50%) scale(1.1);
+        }
+        
+        .video-play-btn i {
+            font-size: 14px;
+            margin-left: 2px; /* Offset play icon to center visually */
+        }
+        
+        /* Mobile: Always show play button for video files */
+        @media (max-width: 768px) {
+            .video-play-btn {
+                opacity: 0.8;
+            }
+        }
+        
+        /* Video player lightbox modal */
+        .video-player-modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.95);
+            z-index: 10000;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+        
+        .video-player-modal.active {
+            display: flex;
+        }
+        
+        .video-player-container {
+            position: relative;
+            max-width: 90%;
+            max-height: 90%;
+            width: auto;
+            height: auto;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 20px;
+        }
+        
+        .video-player-wrapper {
+            position: relative;
+            width: 100%;
+            max-width: 1200px;
+            background: #000;
+            border-radius: 8px;
+            overflow: hidden;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5);
+        }
+        
+        .video-player-wrapper video {
+            width: 100%;
+            height: auto;
+            display: block;
+            max-height: 80vh;
+        }
+        
+        .video-player-title {
+            color: white;
+            font-size: 18px;
+            font-weight: 600;
+            text-align: center;
+            max-width: 100%;
+            word-break: break-word;
+            text-shadow: 0 2px 4px rgba(0, 0, 0, 0.5);
+        }
+        
+        .video-player-close {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            width: 40px;
+            height: 40px;
+            background: rgba(255, 255, 255, 0.1);
+            border: 2px solid rgba(255, 255, 255, 0.3);
+            border-radius: 50%;
+            color: white;
+            font-size: 20px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.2s ease;
+            backdrop-filter: blur(10px);
+            z-index: 10001;
+        }
+        
+        .video-player-close:hover {
+            background: rgba(255, 255, 255, 0.2);
+            border-color: rgba(255, 255, 255, 0.5);
+            transform: scale(1.1);
+        }
+        
+        .video-player-error {
+            color: white;
+            text-align: center;
+            padding: 20px;
+            font-size: 16px;
+        }
+        
+        /* Responsive adjustments */
+        @media (max-width: 768px) {
+            .video-player-container {
+                max-width: 95%;
+                max-height: 95%;
+                gap: 15px;
+            }
+            
+            .video-player-title {
+                font-size: 16px;
+            }
+            
+            .video-player-close {
+                top: 10px;
+                right: 10px;
+                width: 36px;
+                height: 36px;
+                font-size: 18px;
+            }
+        }
     </style>
 </head>
 
@@ -4329,6 +4495,19 @@ if ($isValidPath) {
         </div>
     </div>
     <?php endif; ?>
+
+    <!-- Video Player Modal -->
+    <div class="video-player-modal" id="videoPlayerModal" role="dialog" aria-labelledby="videoPlayerTitle" aria-modal="true">
+        <button class="video-player-close" id="videoPlayerClose" aria-label="Close video player">
+            <i class="fa-solid fa-times"></i>
+        </button>
+        <div class="video-player-container">
+            <div class="video-player-title" id="videoPlayerTitle"></div>
+            <div class="video-player-wrapper" id="videoPlayerWrapper">
+                <!-- Video element will be inserted here -->
+            </div>
+        </div>
+    </div>
 
     <div class="loading-overlay" aria-hidden="true">
         <div role="status" aria-live="polite" aria-label="Loading">
@@ -4832,6 +5011,153 @@ if ($isValidPath) {
                 initAudioButtons();
                 
                 console.log('[Music Player] Music player functionality initialized');
+            })();
+            
+            // Video player functionality
+            (function() {
+                console.log('[Video Player] Initializing video player functionality');
+                
+                const modal = document.getElementById('videoPlayerModal');
+                const wrapper = document.getElementById('videoPlayerWrapper');
+                const title = document.getElementById('videoPlayerTitle');
+                const closeBtn = document.getElementById('videoPlayerClose');
+                
+                if (!modal || !wrapper || !title || !closeBtn) {
+                    console.warn('[Video Player] Missing required elements');
+                    return;
+                }
+                
+                let currentVideo = null;
+                
+                // Find all video file items and add play buttons
+                function initVideoButtons() {
+                    const videoLinks = document.querySelectorAll('a[data-preview="video"]');
+                    console.log('[Video Player] Found ' + videoLinks.length + ' video files');
+                    
+                    videoLinks.forEach(link => {
+                        const fileIcon = link.querySelector('.file-icon');
+                        if (!fileIcon) return;
+                        
+                        // Check if button already exists
+                        if (fileIcon.querySelector('.video-play-btn')) return;
+                        
+                        // Add video-file class to the list item for CSS styling
+                        const listItem = link.closest('li');
+                        if (listItem) {
+                            listItem.classList.add('video-file');
+                        }
+                        
+                        // Create play button
+                        const playBtn = document.createElement('button');
+                        playBtn.className = 'video-play-btn';
+                        playBtn.innerHTML = '<i class="fa-solid fa-play"></i>';
+                        playBtn.setAttribute('aria-label', 'Play video');
+                        playBtn.setAttribute('title', 'Play video');
+                        
+                        // Add click handler
+                        playBtn.addEventListener('click', function(e) {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            const fileName = link.querySelector('.file-name')?.textContent || 'Video';
+                            const filePath = link.dataset.filePath;
+                            openVideoPlayer(filePath, fileName);
+                        });
+                        
+                        fileIcon.appendChild(playBtn);
+                    });
+                }
+                
+                // Open video player modal
+                function openVideoPlayer(filePath, fileName) {
+                    console.log('[Video Player] Opening video player for:', filePath);
+                    
+                    // Set title
+                    title.textContent = fileName;
+                    
+                    // Create video element
+                    const video = document.createElement('video');
+                    video.controls = true;
+                    video.autoplay = true;
+                    video.preload = 'auto';
+                    video.style.width = '100%';
+                    video.style.height = 'auto';
+                    video.setAttribute('aria-label', 'Video player for ' + fileName);
+                    
+                    // Build preview URL
+                    const previewUrl = '?preview=' + encodeURIComponent(filePath);
+                    video.src = previewUrl;
+                    
+                    // Handle errors
+                    video.addEventListener('error', function() {
+                        console.error('[Video Player] Video failed to load:', filePath);
+                        wrapper.innerHTML = '<div class="video-player-error">❌ Unable to load video. The file may be corrupted or unsupported by your browser.</div>';
+                    });
+                    
+                    // Clear wrapper and add video
+                    wrapper.innerHTML = '';
+                    wrapper.appendChild(video);
+                    currentVideo = video;
+                    
+                    // Show modal
+                    modal.classList.add('active');
+                    modal.setAttribute('aria-hidden', 'false');
+                    
+                    // Focus on close button for accessibility
+                    setTimeout(() => closeBtn.focus(), 100);
+                }
+                
+                // Close video player modal
+                function closeVideoPlayer() {
+                    console.log('[Video Player] Closing video player');
+                    
+                    // Stop and remove video
+                    if (currentVideo) {
+                        currentVideo.pause();
+                        currentVideo.src = '';
+                        currentVideo = null;
+                    }
+                    
+                    // Clear wrapper
+                    wrapper.innerHTML = '';
+                    
+                    // Hide modal
+                    modal.classList.remove('active');
+                    modal.setAttribute('aria-hidden', 'true');
+                }
+                
+                // Close button click handler
+                closeBtn.addEventListener('click', closeVideoPlayer);
+                
+                // Close on background click
+                modal.addEventListener('click', function(e) {
+                    if (e.target === modal) {
+                        closeVideoPlayer();
+                    }
+                });
+                
+                // Keyboard support
+                modal.addEventListener('keydown', function(e) {
+                    // Escape key closes modal
+                    if (e.key === 'Escape') {
+                        closeVideoPlayer();
+                    }
+                    // Space key toggles play/pause
+                    if (e.key === ' ' || e.key === 'Spacebar') {
+                        if (currentVideo) {
+                            e.preventDefault();
+                            if (currentVideo.paused) {
+                                currentVideo.play();
+                            } else {
+                                currentVideo.pause();
+                            }
+                        }
+                    }
+                });
+                
+                // Initialize on page load
+                initVideoButtons();
+                
+                console.log('[Video Player] Video player functionality initialized');
             })();
             
             // Rename functionality
