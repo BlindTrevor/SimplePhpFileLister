@@ -3809,8 +3809,8 @@ if ($isValidPath) {
             height: 100%;
             width: var(--audio-progress, 0%);
             background: linear-gradient(90deg, 
-                rgba(102, 126, 234, 0.15) 0%, 
-                rgba(102, 126, 234, 0.08) 100%
+                rgba(102, 126, 234, 0.35) 0%, 
+                rgba(102, 126, 234, 0.20) 100%
             );
             transition: width 0.1s linear;
             z-index: 0;
@@ -3825,16 +3825,16 @@ if ($isValidPath) {
         /* Dark theme adjustments for progress bar */
         [data-theme="dark"] li.audio-playing a::before {
             background: linear-gradient(90deg, 
-                rgba(102, 126, 234, 0.25) 0%, 
-                rgba(102, 126, 234, 0.12) 100%
+                rgba(102, 126, 234, 0.45) 0%, 
+                rgba(102, 126, 234, 0.25) 100%
             );
         }
         
         /* Light theme adjustments for progress bar */
         [data-theme="light"] li.audio-playing a::before {
             background: linear-gradient(90deg, 
-                rgba(102, 126, 234, 0.12) 0%, 
-                rgba(102, 126, 234, 0.06) 100%
+                rgba(102, 126, 234, 0.25) 0%, 
+                rgba(102, 126, 234, 0.15) 100%
             );
         }
         
