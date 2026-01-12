@@ -875,7 +875,7 @@ if (isset($_POST['delete_batch'])) {
         }
         
         // Perform the delete
-        if ($deleteRecursive($fullPath)) {
+        if (deleteRecursive($fullPath)) {
             $deletedCount++;
         } else {
             $failedItems[] = $baseName . ' (delete failed)';
