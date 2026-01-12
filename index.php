@@ -4485,6 +4485,12 @@ if ($isValidPath) {
                         return;
                     }
                     
+                    // Skip audio files - they have their own player
+                    if (previewType === 'audio') {
+                        console.log('[Preview] Skipping preview for audio file - music player handles this');
+                        return;
+                    }
+                    
                     createTooltip();
                     tooltip.innerHTML = '<div class="preview-loading">⏳ Loading preview...</div>';
                     positionTooltip(e);
