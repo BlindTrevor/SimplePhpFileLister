@@ -42,6 +42,7 @@ The version information is embedded in `index.php` and includes:
 - 🖼 **File-type icons & color coding** powered by Font Awesome
 - 👁️ **Hover previews** — see thumbnails of images and videos before downloading
 - 🎵 **Built-in music player** — play audio files directly in the browser with play/pause controls and visual progress
+- 🎬 **Built-in video player** — watch videos in a fullscreen lightbox with native controls and keyboard navigation
 - ✏️ **Rename files and folders** — easily rename items directly from the web interface (optional, configurable)
 - 🗑️ **Delete files and folders** — remove items with confirmation dialog (optional, configurable)
 - 📤 **File upload** — upload files via button or drag-and-drop anywhere on the page (optional, configurable)
@@ -761,6 +762,68 @@ The music player supports these audio file types:
 
 ---
 
+## Video Player Feature
+
+The built-in video player allows you to watch video files directly in the browser with a fullscreen lightbox experience.
+
+### How to Use
+
+1. **Hover over video files** — When you hover over video file icons (MP4, WebM, OGV), a play button appears
+2. **Click play** — Click the circular play button to open the video in a fullscreen lightbox overlay
+3. **Watch video** — The video opens in a beautiful lightbox with full playback controls
+4. **Control playback** — Use the built-in video controls for play/pause, volume, seeking, and fullscreen
+5. **Close player** — Click the X button, click outside the video, or press Escape to close
+
+### Features
+
+- **Supported formats** — MP4, WebM, OGV (browser-dependent)
+- **Lightbox experience** — Videos open in an elegant fullscreen overlay for distraction-free viewing
+- **Full controls** — Native HTML5 video controls with play/pause, volume, seek bar, and fullscreen
+- **Hover controls** — Play button appears on hover (always visible on mobile)
+- **Keyboard navigation** — Press Escape to close, Space to play/pause
+- **No downloads required** — Videos stream directly in the browser
+- **Responsive design** — Adapts to desktop, tablet, and mobile screens
+- **Accessibility** — Includes ARIA attributes and keyboard support for screen readers
+
+### Supported Video Formats
+
+The video player supports these video file types:
+
+- **MP4** (`.mp4`) — Most widely supported format, H.264 video codec
+- **WebM** (`.webm`) — Open source video format, VP8/VP9 video codec
+- **OGV** (`.ogv`) — Ogg Video format, Theora video codec
+
+**Note:** MP4 (H.264) has universal support across all modern browsers and is recommended for best compatibility. WebM is widely supported in all major browsers. OGV has limited support (primarily Firefox).
+
+### Browser Compatibility
+
+| Format | Chrome | Firefox | Safari | Edge | Opera |
+|--------|--------|---------|--------|------|-------|
+| MP4    | ✅     | ✅      | ✅     | ✅   | ✅    |
+| WebM   | ✅     | ✅      | ✅     | ✅   | ✅    |
+| OGV    | ❌     | ✅      | ❌     | ❌   | ❌    |
+
+**Legend:** ✅ Full support | ❌ No support
+
+**Note:** MP4 (H.264) has universal support across all modern browsers. WebM is now widely supported including Safari 14.1+. OGV (Ogg Theora) support is limited primarily to Firefox.
+
+### How It Works
+
+- Video files are served via the same secure preview handler used for images and audio
+- The player uses native HTML5 `<video>` element with full controls
+- Videos open in a modal lightbox overlay with dark background
+- Clicking outside the video or pressing Escape closes the player
+- Files are streamed (not fully downloaded) for efficient playback
+
+### Security
+
+- Video files are served through the secure preview handler with path validation
+- Only whitelisted video MIME types are allowed
+- All file access is restricted to the configured root directory
+- No dangerous file types can be played through the video player
+
+---
+
 ## Notes
 
 - Files and directories are sorted naturally (case-insensitive) for better organization
@@ -772,6 +835,7 @@ The music player supports these audio file types:
 - No authentication is built-in — use web server authentication (`.htaccess`, HTTP Basic Auth) if needed
 - Hover previews only work on desktop devices with mouse support (disabled on touch-only devices)
 - **Music player** — hover over audio files to reveal play/pause controls; progress shown with visual background fill
+- **Video player** — hover over video files to reveal play button; click to open fullscreen lightbox with native video controls
 - Rename and delete buttons appear on hover on desktop; always visible on mobile/touch devices
 - ZIP download feature requires the ZipArchive PHP extension (enabled by default on most PHP installations)
 - Preview handler is optimized for performance — it's placed at the top of the script and exits immediately
