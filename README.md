@@ -793,17 +793,19 @@ The video player supports these video file types:
 - **WebM** (`.webm`) — Open source video format, VP8/VP9 video codec
 - **OGV** (`.ogv`) — Ogg Video format, Theora video codec
 
-**Note:** Actual playback support depends on your browser. MP4 (H.264) is supported by all modern browsers. WebM and OGV support varies by browser.
+**Note:** MP4 (H.264) has universal support across all modern browsers and is recommended for best compatibility. WebM is widely supported in all major browsers. OGV has limited support (primarily Firefox).
 
 ### Browser Compatibility
 
 | Format | Chrome | Firefox | Safari | Edge | Opera |
 |--------|--------|---------|--------|------|-------|
 | MP4    | ✅     | ✅      | ✅     | ✅   | ✅    |
-| WebM   | ✅     | ✅      | ⚠️     | ✅   | ✅    |
-| OGV    | ⚠️     | ✅      | ❌     | ⚠️   | ⚠️    |
+| WebM   | ✅     | ✅      | ✅     | ✅   | ✅    |
+| OGV    | ❌     | ✅      | ❌     | ❌   | ❌    |
 
-**Legend:** ✅ Full support | ⚠️ Partial support | ❌ No support
+**Legend:** ✅ Full support | ❌ No support
+
+**Note:** MP4 (H.264) has universal support across all modern browsers. WebM is now widely supported including Safari 14.1+. OGV (Ogg Theora) support is limited primarily to Firefox.
 
 ### How It Works
 

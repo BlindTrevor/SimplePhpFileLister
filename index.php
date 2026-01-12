@@ -4499,7 +4499,7 @@ if ($isValidPath) {
     <!-- Video Player Modal -->
     <div class="video-player-modal" id="videoPlayerModal" role="dialog" aria-labelledby="videoPlayerTitle" aria-modal="true">
         <button class="video-player-close" id="videoPlayerClose" aria-label="Close video player">
-            <i class="fa-solid fa-times"></i>
+            <i class="fa-solid fa-xmark"></i>
         </button>
         <div class="video-player-container">
             <div class="video-player-title" id="videoPlayerTitle"></div>
@@ -5142,7 +5142,7 @@ if ($isValidPath) {
                         closeVideoPlayer();
                     }
                     // Space key toggles play/pause
-                    if (e.key === ' ' || e.key === 'Spacebar') {
+                    if (e.key === ' ') {
                         if (currentVideo) {
                             e.preventDefault();
                             if (currentVideo.paused) {
