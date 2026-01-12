@@ -458,6 +458,107 @@ function hasDownloadableContent(string $dir, string $realRoot, bool $includeHidd
     return $hasContent;
 }
 
+/**
+ * Recursively delete a file or directory
+ * @param string $path Path to delete
+ * @return bool True on success, false on failure
+ */
+function deleteRecursive(string $path): bool {
+    if (is_dir($path)) {
+        $handle = opendir($path);
+        if ($handle === false) {
+            return false;
+        }
+        
+        while (($entry = readdir($handle)) !== false) {
+            if ($entry === '.' || $entry === '..') {
+                continue;
+            }
+            
+            // Skip index.php and hidden files within subdirectories
+            if ($entry === 'index.php' || ($entry !== '' && $entry[0] === '.')) {
+                closedir($handle);
+                return false;
+            }
+            
+            $entryPath = $path . DIRECTORY_SEPARATOR . $entry;
+            if (!deleteRecursive($entryPath)) {
+                closedir($handle);
+                return false;
+            }
+        }
+        closedir($handle);
+        
+        return @rmdir($path);
+    } else {
+        return @unlink($path);
+    }
+}
+
+/**
+ * Recursively add directory contents to a ZIP archive
+ * @param ZipArchive $zip ZIP archive object
+ * @param string $dir Directory to add
+ * @param string $zipPath Path within ZIP archive
+ * @param int $count Reference to file count
+ * @param string $realRoot Real root path for security validation
+ * @param int $zipCompressionLevel Compression level (0-9)
+ * @param bool $includeHiddenFiles Whether to include hidden files
+ * @return void
+ */
+function addToZip(ZipArchive $zip, string $dir, string $zipPath, int &$count, string $realRoot, int $zipCompressionLevel, bool $includeHiddenFiles): void {
+    $handle = opendir($dir);
+    if ($handle === false) {
+        return;
+    }
+    
+    while (($entry = readdir($handle)) !== false) {
+        // Skip hidden files based on configuration
+        if (in_array($entry, ['.', '..', 'index.php'], true) || (!$includeHiddenFiles && $entry[0] === '.')) {
+            continue;
+        }
+        
+        $fullPath = $dir . '/' . $entry;
+        $realPath = realpath($fullPath);
+        
+        // Skip invalid paths, symlinks
+        if (is_link($fullPath) || $realPath === false || 
+            strpos($realPath . DIRECTORY_SEPARATOR, $realRoot) !== 0) {
+            continue;
+        }
+        
+        $zipEntryPath = $zipPath ? $zipPath . '/' . $entry : $entry;
+        
+        if (is_dir($fullPath)) {
+            // Add directory to zip and recurse
+            $zip->addEmptyDir($zipEntryPath);
+            addToZip($zip, $fullPath, $zipEntryPath, $count, $realRoot, $zipCompressionLevel, $includeHiddenFiles);
+        } else {
+            // Block dangerous extensions
+            $ext = strtolower(pathinfo($entry, PATHINFO_EXTENSION));
+            if (in_array($ext, BLOCKED_EXTENSIONS, true)) {
+                continue;
+            }
+            
+            // Add file to zip
+            if ($zip->addFile($fullPath, $zipEntryPath)) {
+                // Set compression level for this file if supported
+                if (method_exists($zip, 'setCompressionIndex')) {
+                    try {
+                        $fileIndex = $zip->numFiles - 1;
+                        $zip->setCompressionIndex($fileIndex, ZipArchive::CM_DEFLATE, $zipCompressionLevel);
+                    } catch (Exception $e) {
+                        // Compression setting failed - file will use default compression
+                        // Continue processing without failing the entire operation
+                    }
+                }
+                $count++;
+            }
+        }
+    }
+    closedir($handle);
+}
+
 // ============================================================================
 // REQUEST HANDLERS
 // ============================================================================
@@ -688,41 +789,8 @@ if (isset($_POST['delete'])) {
         exit;
     }
     
-    // Recursive delete function for directories
-    $deleteRecursive = function($path) use (&$deleteRecursive) {
-        if (is_dir($path)) {
-            $handle = opendir($path);
-            if ($handle === false) {
-                return false;
-            }
-            
-            while (($entry = readdir($handle)) !== false) {
-                if ($entry === '.' || $entry === '..') {
-                    continue;
-                }
-                
-                // Skip index.php and hidden files within subdirectories
-                if ($entry === 'index.php' || ($entry !== '' && $entry[0] === '.')) {
-                    closedir($handle);
-                    return false;
-                }
-                
-                $entryPath = $path . DIRECTORY_SEPARATOR . $entry;
-                if (!$deleteRecursive($entryPath)) {
-                    closedir($handle);
-                    return false;
-                }
-            }
-            closedir($handle);
-            
-            return @rmdir($path);
-        } else {
-            return @unlink($path);
-        }
-    };
-    
     // Perform the delete
-    if ($deleteRecursive($fullPath)) {
+    if (deleteRecursive($fullPath)) {
         echo json_encode(['success' => true]);
     } else {
         http_response_code(500);
@@ -760,39 +828,6 @@ if (isset($_POST['delete_batch'])) {
         echo json_encode(['success' => false, 'error' => 'Invalid items list']);
         exit;
     }
-    
-    // Recursive delete function for directories
-    $deleteRecursive = function($path) use (&$deleteRecursive) {
-        if (is_dir($path)) {
-            $handle = opendir($path);
-            if ($handle === false) {
-                return false;
-            }
-            
-            while (($entry = readdir($handle)) !== false) {
-                if ($entry === '.' || $entry === '..') {
-                    continue;
-                }
-                
-                // Skip index.php and hidden files within subdirectories
-                if ($entry === 'index.php' || ($entry !== '' && $entry[0] === '.')) {
-                    closedir($handle);
-                    return false;
-                }
-                
-                $entryPath = $path . DIRECTORY_SEPARATOR . $entry;
-                if (!$deleteRecursive($entryPath)) {
-                    closedir($handle);
-                    return false;
-                }
-            }
-            closedir($handle);
-            
-            return @rmdir($path);
-        } else {
-            return @unlink($path);
-        }
-    };
     
     $deletedCount = 0;
     $failedItems = [];
@@ -1171,60 +1206,6 @@ if (isset($_GET['download_batch_zip'])) {
         exit('Failed to create ZIP file');
     }
     
-    // Recursive function to add directory contents to zip
-    $addToZip = function($dir, $zipPath, &$count) use (&$addToZip, $zip, $realRoot, $zipCompressionLevel, $includeHiddenFiles) {
-        $handle = opendir($dir);
-        if ($handle === false) {
-            return;
-        }
-        
-        while (($entry = readdir($handle)) !== false) {
-            // Skip hidden files based on configuration
-            if (in_array($entry, ['.', '..', 'index.php'], true) || (!$includeHiddenFiles && $entry[0] === '.')) {
-                continue;
-            }
-            
-            $fullPath = $dir . '/' . $entry;
-            $realPath = realpath($fullPath);
-            
-            // Skip invalid paths, symlinks
-            if (is_link($fullPath) || $realPath === false || 
-                strpos($realPath . DIRECTORY_SEPARATOR, $realRoot) !== 0) {
-                continue;
-            }
-            
-            $zipEntryPath = $zipPath ? $zipPath . '/' . $entry : $entry;
-            
-            if (is_dir($fullPath)) {
-                // Add directory to zip and recurse
-                $zip->addEmptyDir($zipEntryPath);
-                $addToZip($fullPath, $zipEntryPath, $count);
-            } else {
-                // Block dangerous extensions
-                $ext = strtolower(pathinfo($entry, PATHINFO_EXTENSION));
-                if (in_array($ext, BLOCKED_EXTENSIONS, true)) {
-                    continue;
-                }
-                
-                // Add file to zip
-                if ($zip->addFile($fullPath, $zipEntryPath)) {
-                    // Set compression level for this file if supported
-                    if (method_exists($zip, 'setCompressionIndex')) {
-                        try {
-                            $fileIndex = $zip->numFiles - 1;
-                            $zip->setCompressionIndex($fileIndex, ZipArchive::CM_DEFLATE, $zipCompressionLevel);
-                        } catch (Exception $e) {
-                            // Compression setting failed - file will use default compression
-                            // Continue processing without failing the entire operation
-                        }
-                    }
-                    $count++;
-                }
-            }
-        }
-        closedir($handle);
-    };
-    
     $fileCount = 0;
     
     // Process each selected item
@@ -1250,7 +1231,7 @@ if (isset($_GET['download_batch_zip'])) {
         if (is_dir($fullPath)) {
             // Add directory and its contents
             $zip->addEmptyDir($baseName);
-            $addToZip($fullPath, $baseName, $fileCount);
+            addToZip($zip, $fullPath, $baseName, $fileCount, $realRoot, $zipCompressionLevel, $includeHiddenFiles);
         } else {
             // Block dangerous extensions
             $ext = strtolower(pathinfo($baseName, PATHINFO_EXTENSION));
@@ -1360,63 +1341,9 @@ if (isset($_GET['download_all_zip'])) {
         exit('Failed to create ZIP file');
     }
     
-    // Recursive function to add directory contents to zip
-    $addToZip = function($dir, $zipPath, &$count) use (&$addToZip, $zip, $realRoot, $zipCompressionLevel, $includeHiddenFiles) {
-        $handle = opendir($dir);
-        if ($handle === false) {
-            return;
-        }
-        
-        while (($entry = readdir($handle)) !== false) {
-            // Skip hidden files based on configuration
-            if (in_array($entry, ['.', '..', 'index.php'], true) || (!$includeHiddenFiles && $entry[0] === '.')) {
-                continue;
-            }
-            
-            $fullPath = $dir . '/' . $entry;
-            $realPath = realpath($fullPath);
-            
-            // Skip invalid paths, symlinks
-            if (is_link($fullPath) || $realPath === false || 
-                strpos($realPath . DIRECTORY_SEPARATOR, $realRoot) !== 0) {
-                continue;
-            }
-            
-            $zipEntryPath = $zipPath ? $zipPath . '/' . $entry : $entry;
-            
-            if (is_dir($fullPath)) {
-                // Add directory to zip and recurse
-                $zip->addEmptyDir($zipEntryPath);
-                $addToZip($fullPath, $zipEntryPath, $count);
-            } else {
-                // Block dangerous extensions
-                $ext = strtolower(pathinfo($entry, PATHINFO_EXTENSION));
-                if (in_array($ext, BLOCKED_EXTENSIONS, true)) {
-                    continue;
-                }
-                
-                // Add file to zip
-                if ($zip->addFile($fullPath, $zipEntryPath)) {
-                    // Set compression level for this file if supported
-                    if (method_exists($zip, 'setCompressionIndex')) {
-                        try {
-                            $fileIndex = $zip->numFiles - 1;
-                            $zip->setCompressionIndex($fileIndex, ZipArchive::CM_DEFLATE, $zipCompressionLevel);
-                        } catch (Exception $e) {
-                            // Compression setting failed - file will use default compression
-                            // Continue processing without failing the entire operation
-                        }
-                    }
-                    $count++;
-                }
-            }
-        }
-        closedir($handle);
-    };
-    
     // Add files and directories to zip
     $fileCount = 0;
-    $addToZip($basePath, '', $fileCount);
+    addToZip($zip, $basePath, '', $fileCount, $realRoot, $zipCompressionLevel, $includeHiddenFiles);
     
     $zip->close();
     
