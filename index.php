@@ -2186,7 +2186,7 @@ if ($isValidPath) {
         
         .stats-top-row {
             display: flex;
-            justify-content: center;
+            justify-content: space-between;
             align-items: center;
             gap: 16px;
             flex-wrap: wrap;
@@ -2201,12 +2201,21 @@ if ($isValidPath) {
         
         .stats-actions-row {
             display: flex;
-            justify-content: flex-end;
+            justify-content: space-between;
             align-items: center;
             gap: 12px;
             flex-wrap: wrap;
             padding-top: 12px;
             border-top: 1px solid var(--stats-divider);
+        }
+        
+        .batch-actions-container {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0;
+            flex-wrap: wrap;
+            flex: 1;
         }
         
         .action-buttons-container {
