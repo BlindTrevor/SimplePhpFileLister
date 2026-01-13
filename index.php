@@ -3081,6 +3081,108 @@ if ($isValidPath) {
            AUTHENTICATION STYLES
            ================================================================ */
         
+        /* Authentication Bar - Docked at top */
+        .auth-bar {
+            background: linear-gradient(135deg, var(--accent) 0%, var(--accent-hover) 100%);
+            border-bottom: 1px solid rgba(0, 0, 0, 0.1);
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+            position: sticky;
+            top: 0;
+            z-index: 1000;
+            padding: 12px 0;
+        }
+        
+        .auth-bar-content {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 0 24px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 20px;
+        }
+        
+        .auth-user-info {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            color: white;
+            font-size: 14px;
+            font-weight: 500;
+        }
+        
+        .auth-username {
+            font-weight: 600;
+        }
+        
+        .auth-badge {
+            background: rgba(255, 255, 255, 0.25);
+            color: white;
+            padding: 3px 10px;
+            border-radius: 12px;
+            font-size: 11px;
+            font-weight: 700;
+            letter-spacing: 0.5px;
+            text-transform: uppercase;
+            backdrop-filter: blur(4px);
+        }
+        
+        .auth-actions {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .auth-btn {
+            padding: 8px 16px;
+            border: none;
+            border-radius: 8px;
+            font-size: 13px;
+            font-weight: 500;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            transition: all 0.2s ease;
+            text-decoration: none;
+            white-space: nowrap;
+        }
+        
+        .auth-btn-primary {
+            background: rgba(255, 255, 255, 0.2);
+            color: white;
+            backdrop-filter: blur(4px);
+        }
+        
+        .auth-btn-primary:hover {
+            background: rgba(255, 255, 255, 0.3);
+            transform: translateY(-1px);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+        }
+        
+        .auth-btn-primary:active {
+            transform: translateY(0);
+        }
+        
+        .auth-btn-secondary {
+            background: white;
+            color: var(--accent);
+        }
+        
+        .auth-btn-secondary:hover {
+            background: rgba(255, 255, 255, 0.95);
+            transform: translateY(-1px);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+        }
+        
+        .auth-btn-secondary:active {
+            transform: translateY(0);
+        }
+        
+        .auth-btn i {
+            font-size: 14px;
+        }
+        
         /* Login form button hover */
         #loginBtn:hover {
             filter: brightness(1.1);
@@ -3122,6 +3224,42 @@ if ($isValidPath) {
         
         /* Mobile phones (portrait) */
         @media (max-width: 480px) {
+            /* Auth bar mobile adjustments */
+            .auth-bar-content {
+                flex-direction: column;
+                gap: 12px;
+                padding: 0 16px;
+            }
+            
+            .auth-user-info {
+                width: 100%;
+                justify-content: center;
+                font-size: 13px;
+            }
+            
+            .auth-actions {
+                width: 100%;
+                justify-content: center;
+                flex-wrap: wrap;
+                gap: 8px;
+            }
+            
+            .auth-btn {
+                flex: 1;
+                min-width: 0;
+                justify-content: center;
+                padding: 8px 12px;
+                font-size: 12px;
+            }
+            
+            .auth-btn span {
+                display: none;
+            }
+            
+            .auth-btn i {
+                font-size: 16px;
+            }
+            
             body {
                 padding: 12px 12px;
             }
@@ -3342,6 +3480,11 @@ if ($isValidPath) {
         
         /* Tablets (portrait) */
         @media (min-width: 769px) and (max-width: 1024px) {
+            /* Auth bar tablet adjustments */
+            .auth-bar-content {
+                padding: 0 20px;
+            }
+            
             body {
                 padding: 24px 20px;
             }
@@ -4940,6 +5083,37 @@ if ($isValidPath) {
 </head>
 
 <body>
+    <?php if ($authEnabled && isAuthenticated() && isset($_SESSION['user'])): ?>
+    <!-- Authentication Bar -->
+    <div class="auth-bar">
+        <div class="auth-bar-content">
+            <div class="auth-user-info">
+                <i class="fa-solid fa-circle-user" style="font-size: 18px;"></i>
+                <span class="auth-username"><?php echo htmlspecialchars($_SESSION['user']['username']); ?></span>
+                <?php if (isAdmin()): ?>
+                <span class="auth-badge">ADMIN</span>
+                <?php endif; ?>
+            </div>
+            <div class="auth-actions">
+                <?php if (isAdmin()): ?>
+                <button id="userManagementBtn" class="auth-btn auth-btn-primary" title="User Management">
+                    <i class="fa-solid fa-users"></i>
+                    <span>Manage Users</span>
+                </button>
+                <button id="settingsBtn" class="auth-btn auth-btn-primary" title="Feature Settings">
+                    <i class="fa-solid fa-sliders"></i>
+                    <span>Settings</span>
+                </button>
+                <?php endif; ?>
+                <a href="?logout=1" class="auth-btn auth-btn-secondary">
+                    <i class="fa-solid fa-arrow-right-from-bracket"></i>
+                    <span>Logout</span>
+                </a>
+            </div>
+        </div>
+    </div>
+    <?php endif; ?>
+    
     <?php if ($requireLogin): ?>
     <!-- Login Form -->
     <div class="container">
@@ -4981,27 +5155,7 @@ if ($isValidPath) {
                     <h1><?php echo htmlspecialchars($title); ?></h1>
                     <?php if (!empty($subtitle)): ?><div class="subtitle"><?php echo htmlspecialchars($subtitle); ?></div><?php endif; ?>
                 </div>
-                <?php if ($authEnabled && isAuthenticated() && isset($_SESSION['user'])): ?>
-                <div class="header-right" style="display: flex; align-items: center; gap: 15px;">
-                    <div style="font-size: 14px; color: var(--muted);">
-                        Logged in as <strong style="color: var(--text);"><?php echo htmlspecialchars($_SESSION['user']['username']); ?></strong>
-                        <?php if (isAdmin()): ?>
-                        <span style="background: var(--accent); color: white; padding: 2px 8px; border-radius: 4px; font-size: 11px; margin-left: 5px;">ADMIN</span>
-                        <?php endif; ?>
-                    </div>
-                    <?php if (isAdmin()): ?>
-                    <button id="userManagementBtn" title="User Management" style="padding: 6px 12px; background: var(--accent); color: white; border: none; border-radius: 6px; font-size: 13px; cursor: pointer; display: flex; align-items: center; gap: 6px; transition: all 0.2s ease;">
-                        <i class="fa-solid fa-users"></i>
-                        <span>Manage Users</span>
-                    </button>
-                    <button id="settingsBtn" title="Feature Settings" style="padding: 6px 12px; background: var(--accent); color: white; border: none; border-radius: 6px; font-size: 13px; cursor: pointer; display: flex; align-items: center; gap: 6px; transition: all 0.2s ease;">
-                        <i class="fa-solid fa-sliders"></i>
-                        <span>Settings</span>
-                    </button>
-                    <?php endif; ?>
-                    <a href="?logout=1" style="padding: 6px 12px; background: var(--surface); color: var(--text); text-decoration: none; border-radius: 6px; font-size: 13px; border: 1px solid var(--border);">Logout</a>
-                </div>
-                <?php elseif ($enablePaginationAmountSelector): ?>
+                <?php if ($enablePaginationAmountSelector && !($authEnabled && isAuthenticated())): ?>
                 <div class="header-right">
                     <div class="pagination-amount-selector">
                         <label for="paginationAmount">Items per page:</label>
