@@ -29,5 +29,14 @@
         "create_directory"
       ]
     }
-  ]
+  ],
+  "settings": {
+    "enableRename": false,
+    "enableDelete": false,
+    "enableDownloadAll": true,
+    "enableBatchDownload": true,
+    "enableIndividualDownload": true,
+    "enableUpload": false,
+    "enableCreateDirectory": false
+  }
 }

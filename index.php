@@ -59,10 +59,17 @@ $uploadAllowedExtensions = [];                // Optional: Array of allowed exte
                                               // Example: ['jpg', 'png', 'pdf', 'txt'] to only allow these types
 
 // --- Authentication Settings ---
-$usersFilePath = './SPFL-Users.json';              // Path to users file (if exists, login required)
-$settingsFilePath = './SPFL-Settings.json';        // Path to settings file (optional, for admin-controlled feature toggles)
+$configFilePath = './SPFL-Config.json';             // Path to config file (if exists, login required)
 $sessionTimeout = 3600;                        // Session timeout in seconds (default: 1 hour)
 $enableReadOnlyMode = false;                   // When true, unauthenticated users can view files read-only
+
+// For backward compatibility, check old filenames
+if (!file_exists($configFilePath)) {
+    if (file_exists('./SPFL-Users.json')) {
+        $configFilePath = './SPFL-Users.json';
+    }
+}
+$usersFilePath = $configFilePath; // Alias for backward compatibility
 
 // ============================================================================
 // CONFIGURATION VALIDATION
@@ -97,18 +104,19 @@ define('BLOCKED_EXTENSIONS', [
 // Reserved filesystem names that cannot be used for directories
 // Includes special files and paths that should never be created/modified
 define('RESERVED_NAMES', [
-    'index.php', '.', '..', '.htaccess', '.gitignore', '.env', 'SPFL-Users.json', 'SPFL-Settings.json'
+    'index.php', '.', '..', '.htaccess', '.gitignore', '.env', 'SPFL-Config.json', 'SPFL-Users.json'
 ]);
 
-// Authentication: Check if users file exists (determines if login is required)
-$authEnabled = file_exists($usersFilePath) && is_readable($usersFilePath);
+// Authentication: Check if config file exists (determines if login is required)
+$authEnabled = file_exists($configFilePath) && is_readable($configFilePath);
 
-// Load admin-controlled settings if auth is enabled and settings file exists
-if ($authEnabled && file_exists($settingsFilePath) && is_readable($settingsFilePath)) {
-    $settingsContent = file_get_contents($settingsFilePath);
-    if ($settingsContent !== false) {
-        $settings = json_decode($settingsContent, true);
-        if (is_array($settings)) {
+// Load admin-controlled settings if auth is enabled
+if ($authEnabled) {
+    $configContent = file_get_contents($configFilePath);
+    if ($configContent !== false) {
+        $config = json_decode($configContent, true);
+        if (is_array($config) && isset($config['settings']) && is_array($config['settings'])) {
+            $settings = $config['settings'];
             // Override feature toggles with admin-controlled settings
             if (isset($settings['enableRename'])) $enableRename = (bool)$settings['enableRename'];
             if (isset($settings['enableDelete'])) $enableDelete = (bool)$settings['enableDelete'];
@@ -666,21 +674,32 @@ function loadUsers(): array {
 }
 
 /**
- * Save users to the users file
+ * Save users to the config file (preserves existing settings)
  * @param array $users Array of users to save
  * @return bool True on success, false on failure
  */
 function saveUsers(array $users): bool {
-    global $usersFilePath;
+    global $configFilePath;
     
-    $data = ['users' => $users];
-    $json = json_encode($data, JSON_PRETTY_PRINT);
+    // Load existing config to preserve settings
+    $config = ['users' => $users];
+    if (file_exists($configFilePath)) {
+        $existingContent = file_get_contents($configFilePath);
+        if ($existingContent !== false) {
+            $existingConfig = json_decode($existingContent, true);
+            if (is_array($existingConfig) && isset($existingConfig['settings'])) {
+                $config['settings'] = $existingConfig['settings'];
+            }
+        }
+    }
+    
+    $json = json_encode($config, JSON_PRETTY_PRINT);
     
     if ($json === false) {
         return false;
     }
     
-    return file_put_contents($usersFilePath, $json, LOCK_EX) !== false;
+    return file_put_contents($configFilePath, $json, LOCK_EX) !== false;
 }
 
 /**
@@ -1121,7 +1140,7 @@ if (isset($_POST['settings_management'])) {
     
     if ($action === 'get') {
         // Get current settings
-        global $settingsFilePath, $enableRename, $enableDelete, $enableDownloadAll, $enableBatchDownload, $enableIndividualDownload, $enableUpload, $enableCreateDirectory;
+        global $enableRename, $enableDelete, $enableDownloadAll, $enableBatchDownload, $enableIndividualDownload, $enableUpload, $enableCreateDirectory;
         
         $settings = [
             'enableRename' => $enableRename,
@@ -1138,7 +1157,7 @@ if (isset($_POST['settings_management'])) {
     }
     
     if ($action === 'save') {
-        global $settingsFilePath;
+        global $configFilePath;
         
         // Get settings from POST
         $settings = [
@@ -1151,13 +1170,25 @@ if (isset($_POST['settings_management'])) {
             'enableCreateDirectory' => isset($_POST['enableCreateDirectory']) && $_POST['enableCreateDirectory'] === 'true'
         ];
         
-        $json = json_encode($settings, JSON_PRETTY_PRINT);
+        // Load existing config to preserve users
+        $config = ['settings' => $settings];
+        if (file_exists($configFilePath)) {
+            $existingContent = file_get_contents($configFilePath);
+            if ($existingContent !== false) {
+                $existingConfig = json_decode($existingContent, true);
+                if (is_array($existingConfig) && isset($existingConfig['users'])) {
+                    $config['users'] = $existingConfig['users'];
+                }
+            }
+        }
+        
+        $json = json_encode($config, JSON_PRETTY_PRINT);
         if ($json === false) {
             echo json_encode(['success' => false, 'message' => 'Failed to encode settings']);
             exit;
         }
         
-        if (file_put_contents($settingsFilePath, $json, LOCK_EX) !== false) {
+        if (file_put_contents($configFilePath, $json, LOCK_EX) !== false) {
             echo json_encode(['success' => true, 'message' => 'Settings saved successfully']);
         } else {
             echo json_encode(['success' => false, 'message' => 'Failed to save settings file']);
@@ -8194,15 +8225,21 @@ if ($isValidPath) {
                         const data = await response.json();
                         
                         if (data.success) {
-                            showSettingsError('Settings saved successfully! Reload the page to see changes.', 'success');
-                            setTimeout(() => {
-                                settingsModal.classList.remove('active');
-                            }, 2000);
+                            settingsModal.classList.remove('active');
+                            if (typeof window.showToast === 'function') {
+                                window.showToast('Settings saved successfully! The page will reload to apply changes.', 'success', 3000);
+                                setTimeout(() => {
+                                    window.location.reload();
+                                }, 1500);
+                            } else {
+                                alert('Settings saved successfully! The page will reload.');
+                                window.location.reload();
+                            }
                         } else {
                             showSettingsError(data.message || 'Failed to save settings');
                         }
                     } catch (err) {
-                        showSettingsError('Failed to save settings');
+                        showSettingsError('Failed to save settings: ' + err.message);
                     }
                 });
                 

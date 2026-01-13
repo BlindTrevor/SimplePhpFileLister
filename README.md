@@ -91,20 +91,22 @@ SimplePhpFileLister now supports optional user authentication with per-user perm
 
 ### Enabling Authentication
 
-1. Create a file named `SPFL-Users.json` in the same directory as `index.php`
-2. The file should contain JSON with user definitions (see example below)
+1. Create a file named `SPFL-Config.json` in the same directory as `index.php`
+2. The file should contain JSON with user definitions and optional settings (see example below)
 3. When the file exists, login will be required to access the file lister
 
-**Quick Start:** Use the provided `SPFL-Users.json.example` file as a template. It includes three pre-configured users with default passwords:
+**Quick Start:** Use the provided `SPFL-Config.json.example` file as a template. It includes three pre-configured users with default passwords:
 - **admin** / password: `admin` (full administrator access)
 - **user** / password: `user` (view and download only)
 - **editor** / password: `editor` (all file operations except user management)
 
 ⚠️ **Security Warning:** Change these default passwords immediately in production environments!
 
-### Users File Format
+**Note:** For backward compatibility, `SPFL-Users.json` is still supported, but `SPFL-Config.json` is recommended as it also stores feature settings.
 
-Create `SPFL-Users.json` with the following JSON structure:
+### Config File Format
+
+Create `SPFL-Config.json` with the following JSON structure:
 
 ```json
 {
@@ -127,7 +129,16 @@ Create `SPFL-Users.json` with the following JSON structure:
       "admin": false,
       "permissions": ["view", "download", "upload", "rename", "delete", "create_directory"]
     }
-  ]
+  ],
+  "settings": {
+    "enableRename": false,
+    "enableDelete": false,
+    "enableDownloadAll": true,
+    "enableBatchDownload": true,
+    "enableIndividualDownload": true,
+    "enableUpload": false,
+    "enableCreateDirectory": false
+  }
 }
 ```
 
@@ -135,6 +146,8 @@ Create `SPFL-Users.json` with the following JSON structure:
 ```php
 php -r "echo password_hash('your_password', PASSWORD_BCRYPT);"
 ```
+
+**Settings Section (Optional):** The `settings` object allows admins to control which features are available system-wide. Admins can also modify these settings through the web interface by clicking the "Settings" button in the header. When features are disabled in settings, they won't appear as permission options when managing users.
 
 **Available Permissions:**
 - `view` — View file listings
@@ -151,9 +164,9 @@ php -r "echo password_hash('your_password', PASSWORD_BCRYPT);"
 Configure authentication in `index.php`:
 
 ```php
-$usersFilePath = './SPFL-Users.json';      // Path to users file
-$sessionTimeout = 3600;                // Session timeout in seconds (1 hour)
-$enableReadOnlyMode = false;           // Allow unauthenticated users to view files read-only
+$configFilePath = './SPFL-Config.json';     // Path to config file (backward compatible with SPFL-Users.json)
+$sessionTimeout = 3600;                     // Session timeout in seconds (1 hour)
+$enableReadOnlyMode = false;                // Allow unauthenticated users to view files read-only
 ```
 
 ### Read-Only Mode
@@ -162,10 +175,10 @@ Enable `$enableReadOnlyMode = true` to allow unauthenticated users to view and d
 
 ### User Management
 
-Admin users can manage users through the **User Management** button (floating button in the bottom-right corner):
-- Add new users with custom permissions
-- Edit existing users (change permissions, reset passwords)
-- Delete users (cannot delete yourself)
+Admin users can manage users and settings through buttons in the header:
+- **Manage Users** button: Add, edit, or delete user accounts with custom permissions
+- **Settings** button: Control which features are enabled system-wide
+- Users cannot delete their own admin account for safety
 
 ### Security Notes
 
@@ -177,7 +190,7 @@ Admin users can manage users through the **User Management** button (floating bu
 
 ### Disabling Authentication
 
-To disable authentication, simply remove or rename the `SPFL-Users.json` file. The application will immediately return to standalone mode with all features accessible.
+To disable authentication, simply remove or rename the `SPFL-Config.json` (or `SPFL-Users.json`) file. The application will immediately return to standalone mode with all features accessible.
 
 ## Security
 
