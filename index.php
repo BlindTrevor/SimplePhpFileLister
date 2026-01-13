@@ -72,6 +72,7 @@ $uploadAllowedExtensions = [];                // Optional: Array of allowed exte
 $configFilePath = './SPFL-Config.json';             // Path to config file (if exists, login required)
 $sessionTimeout = 3600;                        // Session timeout in seconds (default: 1 hour)
 $enableReadOnlyMode = false;                   // When true, unauthenticated users can view files read-only
+$enableGuestMode = false;                      // When true, unauthenticated users can browse (login button for admins)
 
 // For backward compatibility, check old filenames
 if (!file_exists($configFilePath)) {
@@ -806,10 +807,10 @@ function isAuthenticated(): bool {
 
 /**
  * Check if user can access the file lister
- * @return bool True if can access (authenticated or read-only mode), false otherwise
+ * @return bool True if can access (authenticated, guest mode, or read-only mode), false otherwise
  */
 function canAccessFileLister(): bool {
-    global $authEnabled, $enableReadOnlyMode;
+    global $authEnabled, $enableReadOnlyMode, $enableGuestMode;
     
     // If authentication is disabled, always allow access
     if (!$authEnabled) {
@@ -818,6 +819,11 @@ function canAccessFileLister(): bool {
     
     // If user is authenticated, allow access
     if (isAuthenticated()) {
+        return true;
+    }
+    
+    // If guest mode is enabled, allow unauthenticated access
+    if ($enableGuestMode) {
         return true;
     }
     
@@ -921,7 +927,22 @@ if (isset($_POST['login'])) {
         $_SESSION['created'] = time();
         $_SESSION['last_activity'] = time();
         
-        echo json_encode(['success' => true, 'message' => 'Login successful']);
+        // Check if user has default password
+        $defaultPasswords = ['admin' => 'admin', 'user' => 'user', 'editor' => 'editor'];
+        $requiresPasswordChange = false;
+        
+        if (isset($defaultPasswords[strtolower($username)])) {
+            $defaultPassword = $defaultPasswords[strtolower($username)];
+            if (password_verify($defaultPassword, $user['password'])) {
+                $requiresPasswordChange = true;
+            }
+        }
+        
+        echo json_encode([
+            'success' => true, 
+            'message' => 'Login successful',
+            'requirePasswordChange' => $requiresPasswordChange
+        ]);
     } else {
         echo json_encode(['success' => false, 'message' => 'Invalid username or password']);
     }
@@ -939,6 +960,151 @@ if (isset($_GET['logout'])) {
     
     // Redirect to home
     header('Location: ' . strtok($_SERVER['REQUEST_URI'], '?'));
+    exit;
+}
+
+/**
+ * Setup authentication wizard handler (first-time admin creation)
+ */
+if (isset($_POST['setup_auth'])) {
+    header('Content-Type: application/json');
+    
+    // Only allow if auth is not already enabled
+    if ($authEnabled) {
+        echo json_encode(['success' => false, 'message' => 'Authentication is already configured']);
+        exit;
+    }
+    
+    $username = isset($_POST['username']) ? trim((string)$_POST['username']) : '';
+    $password = isset($_POST['password']) ? (string)$_POST['password']) : '';
+    $confirmPassword = isset($_POST['confirm_password']) ? (string)$_POST['confirm_password']) : '';
+    
+    if (empty($username) || empty($password)) {
+        echo json_encode(['success' => false, 'message' => 'Username and password are required']);
+        exit;
+    }
+    
+    if ($password !== $confirmPassword) {
+        echo json_encode(['success' => false, 'message' => 'Passwords do not match']);
+        exit;
+    }
+    
+    if (strlen($password) < 6) {
+        echo json_encode(['success' => false, 'message' => 'Password must be at least 6 characters']);
+        exit;
+    }
+    
+    // Validate username format
+    if (!preg_match('/^[a-zA-Z0-9_]+$/', $username)) {
+        echo json_encode(['success' => false, 'message' => 'Username can only contain letters, numbers, and underscores']);
+        exit;
+    }
+    
+    // Create new admin user
+    $hashedPassword = password_hash($password, PASSWORD_BCRYPT);
+    $config = [
+        'users' => [
+            [
+                'username' => $username,
+                'password' => $hashedPassword,
+                'admin' => true,
+                'permissions' => []
+            ]
+        ],
+        'settings' => [
+            'enableRename' => false,
+            'enableDelete' => false,
+            'enableUpload' => false,
+            'enableCreateDirectory' => false,
+            'enableIndividualDownload' => true
+        ]
+    ];
+    
+    // Write config file
+    $jsonContent = json_encode($config, JSON_PRETTY_PRINT);
+    if (file_put_contents($configFilePath, $jsonContent) === false) {
+        echo json_encode(['success' => false, 'message' => 'Failed to create configuration file']);
+        exit;
+    }
+    
+    // Log the user in immediately
+    session_regenerate_id(true);
+    $_SESSION['user'] = $config['users'][0];
+    $_SESSION['created'] = time();
+    $_SESSION['last_activity'] = time();
+    
+    echo json_encode(['success' => true, 'message' => 'Authentication setup complete']);
+    exit;
+}
+
+/**
+ * Force password change handler
+ */
+if (isset($_POST['change_default_password'])) {
+    header('Content-Type: application/json');
+    
+    if (!$authEnabled || !isAuthenticated()) {
+        echo json_encode(['success' => false, 'message' => 'Not authenticated']);
+        exit;
+    }
+    
+    $newPassword = isset($_POST['new_password']) ? (string)$_POST['new_password'] : '';
+    $confirmPassword = isset($_POST['confirm_password']) ? (string)$_POST['confirm_password'] : '';
+    
+    if (empty($newPassword)) {
+        echo json_encode(['success' => false, 'message' => 'New password is required']);
+        exit;
+    }
+    
+    if ($newPassword !== $confirmPassword) {
+        echo json_encode(['success' => false, 'message' => 'Passwords do not match']);
+        exit;
+    }
+    
+    if (strlen($newPassword) < 6) {
+        echo json_encode(['success' => false, 'message' => 'Password must be at least 6 characters']);
+        exit;
+    }
+    
+    // Check if new password is a default password
+    $defaultPasswords = ['admin', 'user', 'editor'];
+    if (in_array($newPassword, $defaultPasswords, true)) {
+        echo json_encode(['success' => false, 'message' => 'Cannot use a default password']);
+        exit;
+    }
+    
+    // Get current user
+    $currentUser = $_SESSION['user'];
+    $username = $currentUser['username'];
+    
+    // Load config and update password
+    $config = loadUsers();
+    $userFound = false;
+    
+    foreach ($config['users'] as &$user) {
+        if (strcasecmp($user['username'], $username) === 0) {
+            $user['password'] = password_hash($newPassword, PASSWORD_BCRYPT);
+            $userFound = true;
+            
+            // Update session
+            $_SESSION['user'] = $user;
+            break;
+        }
+    }
+    
+    if (!$userFound) {
+        echo json_encode(['success' => false, 'message' => 'User not found']);
+        exit;
+    }
+    
+    // Save updated config
+    $jsonContent = json_encode($config, JSON_PRETTY_PRINT);
+    if (file_put_contents($configFilePath, $jsonContent) === false) {
+        echo json_encode(['success' => false, 'message' => 'Failed to update configuration']);
+        exit;
+    }
+    
+    echo json_encode(['success' => true, 'message' => 'Password updated successfully']);
     exit;
 }
 
