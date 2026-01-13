@@ -105,7 +105,7 @@ define('RESERVED_NAMES', [
 function getPreviewableFileTypes(): array {
     return [
         'image' => ['jpg', 'jpeg', 'png', 'gif', 'webp', 'svg', 'bmp', 'ico'],
-        'video' => ['mp4', 'webm', 'ogv'],
+        'video' => ['mp4', 'webm', 'ogv', 'mpg', 'mpeg'],
         'audio' => ['mp3', 'wav', 'ogg', 'm4a', 'flac', 'aac'],
     ];
 }
@@ -138,6 +138,8 @@ function getPreviewMimeType(string $ext): ?string {
         'mp4' => 'video/mp4',
         'webm' => 'video/webm',
         'ogv' => 'video/ogg',
+        'mpg' => 'video/mpeg',
+        'mpeg' => 'video/mpeg',
         // Audio
         'mp3' => 'audio/mpeg',
         'wav' => 'audio/wav',
@@ -229,6 +231,8 @@ function getFileIcon(string $path): array {
         'mkv' => ['fa-regular fa-file-video', 'icon-video'],
         'webm' => ['fa-regular fa-file-video', 'icon-video'],
         'ogv' => ['fa-regular fa-file-video', 'icon-video'],
+        'mpg' => ['fa-regular fa-file-video', 'icon-video'],
+        'mpeg' => ['fa-regular fa-file-video', 'icon-video'],
         
         // Code and markup formats
         'html' => ['fa-regular fa-file-code', 'icon-html'],
@@ -626,6 +630,8 @@ if (isset($_GET['preview'])) {
         'mp4' => 'video/mp4',
         'webm' => 'video/webm',
         'ogv' => 'video/ogg',
+        'mpg' => 'video/mpeg',
+        'mpeg' => 'video/mpeg',
         // Audio
         'mp3' => 'audio/mpeg',
         'wav' => 'audio/wav',
@@ -5441,9 +5447,24 @@ if ($isValidPath) {
                     video.setAttribute('aria-label', 'Video player for ' + fileName);
                     
                     // Handle errors
-                    video.addEventListener('error', function() {
+                    video.addEventListener('error', function(e) {
                         console.error('[Video Player] Video failed to load:', filePath);
-                        wrapper.innerHTML = '<div class="video-player-error">❌ Unable to load video. The file may be corrupted or unsupported by your browser.</div>';
+                        
+                        // Get file extension to provide better error message
+                        const fileExt = fileName.toLowerCase().split('.').pop();
+                        let errorMessage = '❌ Unable to load video. ';
+                        
+                        // Provide specific guidance for known problematic formats
+                        if (fileExt === 'mpg' || fileExt === 'mpeg') {
+                            errorMessage += 'MPEG files (.mpg/.mpeg) have limited browser support. ' +
+                                          'For best compatibility, consider converting to MP4, WebM, or OGV format. ' +
+                                          'You can try downloading the file to play it with a dedicated video player like VLC.';
+                        } else {
+                            errorMessage += 'The file may be corrupted or use a codec unsupported by your browser. ' +
+                                          'Try downloading the file or use a different browser.';
+                        }
+                        
+                        wrapper.innerHTML = '<div class="video-player-error">' + errorMessage + '</div>';
                     });
                     
                     // Build preview URL and set source
