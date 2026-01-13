@@ -3929,6 +3929,7 @@ if ($isValidPath) {
         li.audio-playing a {
             position: relative;
             overflow: hidden;
+            background: rgba(102, 126, 234, 0.15); /* Distinctive background for playing file */
         }
         
         /* Override the accent bar when audio is playing to show progress bar instead */
@@ -3955,6 +3956,10 @@ if ($isValidPath) {
         }
         
         /* Dark theme adjustments for progress bar */
+        [data-theme="dark"] li.audio-playing a {
+            background: rgba(102, 126, 234, 0.20); /* More visible in dark theme */
+        }
+        
         [data-theme="dark"] li.audio-playing a::before {
             background: linear-gradient(90deg, 
                 rgba(102, 126, 234, 0.45) 0%, 
@@ -3963,11 +3968,27 @@ if ($isValidPath) {
         }
         
         /* Light theme adjustments for progress bar */
+        [data-theme="light"] li.audio-playing a {
+            background: rgba(102, 126, 234, 0.12); /* Lighter for light theme */
+        }
+        
         [data-theme="light"] li.audio-playing a::before {
             background: linear-gradient(90deg, 
                 rgba(102, 126, 234, 0.25) 0%, 
                 rgba(102, 126, 234, 0.15) 100%
             );
+        }
+        
+        /* Time counter for playing audio */
+        .audio-time-counter {
+            font-size: clamp(0.7rem, 2vw, 0.8rem);
+            color: var(--muted);
+            white-space: nowrap;
+            margin-left: 8px;
+            padding-left: 8px;
+            border-left: 1px solid var(--border);
+            font-weight: 500;
+            font-family: 'Courier New', monospace; /* Monospace for better time display */
         }
         
         /* Mobile: Always show play button for audio files */
@@ -5091,6 +5112,20 @@ if ($isValidPath) {
                         });
                         
                         fileIcon.appendChild(playBtn);
+                        
+                        // Create time counter element (hidden by default)
+                        const timeCounter = document.createElement('span');
+                        timeCounter.className = 'audio-time-counter';
+                        timeCounter.style.display = 'none';
+                        timeCounter.textContent = '0:00 / 0:00';
+                        
+                        // Insert time counter after file size (or file name if no size)
+                        const fileSize = link.querySelector('.file-size');
+                        if (fileSize) {
+                            fileSize.parentNode.insertBefore(timeCounter, fileSize.nextSibling);
+                        } else {
+                            link.appendChild(timeCounter);
+                        }
                     });
                 }
                 
@@ -5164,6 +5199,12 @@ if ($isValidPath) {
                     button.setAttribute('aria-label', 'Pause audio');
                     button.setAttribute('title', 'Pause');
                     listItem.classList.add('audio-playing');
+                    
+                    // Show time counter
+                    const timeCounter = link.querySelector('.audio-time-counter');
+                    if (timeCounter) {
+                        timeCounter.style.display = 'inline-block';
+                    }
                 }
                 
                 // Pause audio
@@ -5208,11 +5249,19 @@ if ($isValidPath) {
                     if (currentLink) {
                         // Reset progress bar
                         currentLink.style.removeProperty('--audio-progress');
+                        
+                        // Hide time counter
+                        const timeCounter = currentLink.querySelector('.audio-time-counter');
+                        if (timeCounter) {
+                            timeCounter.style.display = 'none';
+                            timeCounter.textContent = '0:00 / 0:00';
+                        }
+                        
                         currentLink = null;
                     }
                 }
                 
-                // Update progress bar
+                // Update progress bar and time counter
                 function updateProgress() {
                     if (!currentAudio || !currentLink) return;
                     
@@ -5223,7 +5272,33 @@ if ($isValidPath) {
                     const progress = Math.min(100, Math.max(0, (currentAudio.currentTime / currentAudio.duration) * 100));
                     
                     // Update progress using CSS custom property on the link element
-                    currentLink.style.setProperty('--audio-progress', progress + '%');
+                    currentLink.style.setProperty('--audio-progress', `${progress}%`);
+                    
+                    // Update time counter
+                    const timeCounter = currentLink.querySelector('.audio-time-counter');
+                    if (timeCounter) {
+                        const currentTime = formatTime(currentAudio.currentTime);
+                        const duration = formatTime(currentAudio.duration);
+                        timeCounter.textContent = `${currentTime} / ${duration}`;
+                    }
+                }
+                
+                // Format time in MM:SS or H:MM:SS format
+                function formatTime(seconds) {
+                    if (!isFinite(seconds) || seconds < 0) return '0:00';
+                    
+                    const hours = Math.floor(seconds / 3600);
+                    const minutes = Math.floor((seconds % 3600) / 60);
+                    const secs = Math.floor(seconds % 60);
+                    
+                    // Helper to pad numbers with leading zero
+                    const pad = (num) => String(num).padStart(2, '0');
+                    
+                    if (hours > 0) {
+                        return `${hours}:${pad(minutes)}:${pad(secs)}`;
+                    } else {
+                        return `${minutes}:${pad(secs)}`;
+                    }
                 }
                 
                 // Initialize on page load
