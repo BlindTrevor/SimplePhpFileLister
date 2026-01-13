@@ -2977,12 +2977,13 @@ if ($isValidPath) {
         /* User management button hover */
         #userManagementBtn:hover {
             filter: brightness(1.1);
-            transform: scale(1.05);
-            box-shadow: 0 6px 16px rgba(0, 0, 0, 0.3);
+            transform: translateY(-1px);
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
         }
         
         #userManagementBtn:active {
-            transform: scale(0.95);
+            transform: translateY(0);
+            filter: brightness(0.95);
         }
         
         /* ================================================================
@@ -4858,6 +4859,12 @@ if ($isValidPath) {
                         <span style="background: var(--accent); color: white; padding: 2px 8px; border-radius: 4px; font-size: 11px; margin-left: 5px;">ADMIN</span>
                         <?php endif; ?>
                     </div>
+                    <?php if (isAdmin()): ?>
+                    <button id="userManagementBtn" title="User Management" style="padding: 6px 12px; background: var(--accent); color: white; border: none; border-radius: 6px; font-size: 13px; cursor: pointer; display: flex; align-items: center; gap: 6px; transition: all 0.2s ease;">
+                        <i class="fa-solid fa-users"></i>
+                        <span>Manage Users</span>
+                    </button>
+                    <?php endif; ?>
                     <a href="?logout=1" style="padding: 6px 12px; background: var(--surface); color: var(--text); text-decoration: none; border-radius: 6px; font-size: 13px; border: 1px solid var(--border);">Logout</a>
                 </div>
                 <?php elseif ($enablePaginationAmountSelector): ?>
@@ -5425,11 +5432,6 @@ if ($isValidPath) {
             </div>
         </div>
     </div>
-    
-    <!-- User Management Button (floating) -->
-    <button id="userManagementBtn" title="User Management" style="position: fixed; bottom: 80px; right: 20px; width: 50px; height: 50px; border-radius: 50%; background: linear-gradient(135deg, var(--accent) 0%, var(--accent-hover) 100%); color: white; border: none; box-shadow: 0 4px 12px rgba(0,0,0,0.2); cursor: pointer; display: flex; align-items: center; justify-content: center; font-size: 20px; z-index: 999; transition: all 0.3s ease;">
-        <i class="fa-solid fa-users"></i>
-    </button>
     <?php endif; ?>
     <?php endif; // Close the else for requireLogin ?>
 
@@ -7711,20 +7713,20 @@ if ($isValidPath) {
                 
                 // Show modal
                 userManagementBtn.addEventListener('click', function() {
-                    userManagementModal.classList.add('show');
+                    userManagementModal.classList.add('active');
                     loadUsers();
                 });
                 
                 // Close modal
                 userFormCancel.addEventListener('click', function() {
-                    userManagementModal.classList.remove('show');
+                    userManagementModal.classList.remove('active');
                     resetForm();
                 });
                 
                 // Click outside to close
                 userManagementModal.addEventListener('click', function(e) {
                     if (e.target === userManagementModal) {
-                        userManagementModal.classList.remove('show');
+                        userManagementModal.classList.remove('active');
                         resetForm();
                     }
                 });
