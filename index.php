@@ -2404,9 +2404,24 @@ if ($isValidPath) {
             line-height: 1.6;
         }
         
+        /* Remove top padding when auth bar is present */
+        <?php if ($authEnabled && isAuthenticated()): ?>
+        body {
+            padding-top: 0;
+        }
+        <?php endif; ?>
+        
         /* ================================================================
            LAYOUT COMPONENTS
            ================================================================ */
+        
+        /* Add top margin to container when auth bar is present */
+        <?php if ($authEnabled && isAuthenticated()): ?>
+        .container {
+            margin-top: 20px;
+        }
+        <?php endif; ?>
+        
         .container { 
             max-width: 900px; 
             margin: 0 auto; 
@@ -3264,6 +3279,17 @@ if ($isValidPath) {
                 padding: 12px 12px;
             }
             
+            /* Remove top padding on mobile when auth bar present */
+            <?php if ($authEnabled && isAuthenticated()): ?>
+            body {
+                padding-top: 0;
+            }
+            
+            .container {
+                margin-top: 12px;
+            }
+            <?php endif; ?>
+            
             .card {
                 padding: 20px 16px;
                 border-radius: 12px;
@@ -3440,6 +3466,17 @@ if ($isValidPath) {
                 padding: 16px;
             }
             
+            /* Remove top padding when auth bar present */
+            <?php if ($authEnabled && isAuthenticated()): ?>
+            body {
+                padding-top: 0;
+            }
+            
+            .container {
+                margin-top: 16px;
+            }
+            <?php endif; ?>
+            
             .card {
                 padding: 24px 20px;
             }
@@ -3486,6 +3523,19 @@ if ($isValidPath) {
             }
             
             body {
+                padding: 24px 20px;
+            }
+            
+            /* Remove top padding when auth bar present */
+            <?php if ($authEnabled && isAuthenticated()): ?>
+            body {
+                padding-top: 0;
+            }
+            
+            .container {
+                margin-top: 24px;
+            }
+            <?php endif; ?>
                 padding: 24px 20px;
             }
             
