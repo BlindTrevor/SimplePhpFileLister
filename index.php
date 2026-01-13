@@ -650,11 +650,45 @@ if (isset($_GET['preview'])) {
         exit('Failed to read file');
     }
     
+    $fileSize = filesize($full);
+    $start = 0;
+    $end = $fileSize - 1;
+    
+    // Handle range requests (critical for audio/video seeking and duration detection)
+    if (isset($_SERVER['HTTP_RANGE'])) {
+        header('Accept-Ranges: bytes');
+        
+        // Parse range header
+        if (preg_match('/bytes=(\d+)-(\d*)/', $_SERVER['HTTP_RANGE'], $matches)) {
+            $start = intval($matches[1]);
+            $end = !empty($matches[2]) ? intval($matches[2]) : $fileSize - 1;
+            
+            // Validate range
+            if ($start > $end || $start < 0 || $end >= $fileSize) {
+                http_response_code(416); // Range Not Satisfiable
+                header('Content-Range: bytes */' . $fileSize);
+                fclose($fp);
+                exit;
+            }
+            
+            // Send partial content
+            http_response_code(206);
+            header('Content-Range: bytes ' . $start . '-' . $end . '/' . $fileSize);
+            header('Content-Length: ' . ($end - $start + 1));
+            
+            // Seek to start position
+            fseek($fp, $start);
+        }
+    } else {
+        // No range request - send full file
+        header('Accept-Ranges: bytes');
+        header('Content-Length: ' . $fileSize);
+    }
+    
     // Set headers for inline display
     header('Content-Type: ' . $mimeType);
     header('Content-Disposition: inline');
     header('X-Content-Type-Options: nosniff');
-    header('Content-Length: ' . filesize($full));
     header('Cache-Control: public, max-age=3600');
     
     // Disable output buffering for efficient streaming
@@ -663,7 +697,20 @@ if (isset($_GET['preview'])) {
     }
     
     // Stream file content
-    fpassthru($fp);
+    if (isset($_SERVER['HTTP_RANGE'])) {
+        // Stream only the requested range
+        $remaining = $end - $start + 1;
+        $bufferSize = 8192;
+        while ($remaining > 0 && !feof($fp)) {
+            $readSize = min($bufferSize, $remaining);
+            echo fread($fp, $readSize);
+            $remaining -= $readSize;
+            flush();
+        }
+    } else {
+        // Stream entire file
+        fpassthru($fp);
+    }
     fclose($fp);
     exit;
 }
@@ -5179,6 +5226,18 @@ if ($isValidPath) {
                             showToast('Failed to load audio file', 'error');
                         });
                         
+                        // Wait for metadata to load before showing duration
+                        currentAudio.addEventListener('loadedmetadata', function() {
+                            console.log('[Music Player] Metadata loaded, duration:', currentAudio.duration);
+                            updateProgress();
+                        });
+                        
+                        // Handle duration change (fires when duration changes from Infinity to actual value)
+                        currentAudio.addEventListener('durationchange', function() {
+                            console.log('[Music Player] Duration changed, duration:', currentAudio.duration);
+                            updateProgress();
+                        });
+                        
                         // Start progress tracking
                         currentAudio.addEventListener('timeupdate', updateProgress);
                     }
@@ -5264,21 +5323,22 @@ if ($isValidPath) {
                 // Update progress bar and time counter
                 function updateProgress() {
                     if (!currentAudio || !currentLink) return;
-                    
-                    // Guard against invalid duration or currentTime
-                    if (!currentAudio.duration || currentAudio.duration <= 0 || isNaN(currentAudio.duration)) return;
                     if (isNaN(currentAudio.currentTime)) return;
                     
-                    const progress = Math.min(100, Math.max(0, (currentAudio.currentTime / currentAudio.duration) * 100));
+                    // Check if duration is valid
+                    const hasDuration = currentAudio.duration && currentAudio.duration > 0 && isFinite(currentAudio.duration);
                     
-                    // Update progress using CSS custom property on the link element
-                    currentLink.style.setProperty('--audio-progress', `${progress}%`);
+                    // Update progress bar only if we have a valid duration
+                    if (hasDuration) {
+                        const progress = Math.min(100, Math.max(0, (currentAudio.currentTime / currentAudio.duration) * 100));
+                        currentLink.style.setProperty('--audio-progress', `${progress}%`);
+                    }
                     
-                    // Update time counter
+                    // Always update time counter (show current time even if duration is unknown)
                     const timeCounter = currentLink.querySelector('.audio-time-counter');
                     if (timeCounter) {
                         const currentTime = formatTime(currentAudio.currentTime);
-                        const duration = formatTime(currentAudio.duration);
+                        const duration = hasDuration ? formatTime(currentAudio.duration) : '?:??';
                         timeCounter.textContent = `${currentTime} / ${duration}`;
                     }
                 }
