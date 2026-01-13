@@ -2,7 +2,7 @@
 
 A lightweight, zero-configuration PHP directory lister with a modern interface. Just drop `index.php` into any directory on a PHP-enabled server—it works immediately with no setup required.
 
-![Screen Shot](screenshot.png)
+<img width="842" height="942" alt="image" src="https://github.com/user-attachments/assets/a88b8572-6204-4d8b-9e4d-effaa9b9cf37" />
 
 ## Features
 
@@ -111,9 +111,11 @@ SimplePhpFileLister prioritizes security:
 
 **Media Players:**
 - **Audio** — MP3, WAV, OGG, M4A, FLAC, AAC
+  - Visual progress bars for audio playback
+  - <img width="335" height="301" alt="image" src="https://github.com/user-attachments/assets/678d1780-d6c2-4f3b-8592-26929d982d91" />
 - **Video** — MP4, WebM, OGV (fullscreen lightbox)
 - Hover over files to reveal play buttons
-- Visual progress bars for audio playback
+  - <img width="814" height="510" alt="image" src="https://github.com/user-attachments/assets/b470f8b5-122c-42ee-917e-1f9d3da9ae47" />
 
 **File Management:**
 - Rename files/folders (configurable)
@@ -131,6 +133,8 @@ SimplePhpFileLister prioritizes security:
 - **Light** — Minimal light theme
 
 Users can switch themes via the floating palette icon (when `$allowThemeChange = true`). Preferences are saved in browser localStorage.
+
+<img width="521" height="679" alt="image" src="https://github.com/user-attachments/assets/6ef3275f-e373-4b5f-b239-72b1d36c0d19" />
 
 ## Notes
 
