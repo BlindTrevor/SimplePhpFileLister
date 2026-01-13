@@ -8350,8 +8350,8 @@ if ($isValidPath) {
                                 // Show password change modal instead of reloading
                                 showPasswordChangeModal();
                             } else {
-                                // Force immediate page reload with fresh request
-                                window.location.href = window.location.href;
+                                // Force immediate navigation with fresh request - replace doesn't add to history
+                                window.location.replace(window.location.href);
                             }
                         } else {
                             loginError.textContent = data.message || 'Login failed';
