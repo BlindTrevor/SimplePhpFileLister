@@ -2404,10 +2404,10 @@ if ($isValidPath) {
             line-height: 1.6;
         }
         
-        /* Remove top padding when auth bar is present */
+        /* Remove all body padding when auth bar is present */
         <?php if ($authEnabled && isAuthenticated()): ?>
         body {
-            padding-top: 0;
+            padding: 0;
         }
         <?php endif; ?>
         
@@ -2435,6 +2435,13 @@ if ($isValidPath) {
             margin-bottom: 24px;
             animation: fadeIn 0.5s ease-in;
         }
+        
+        /* Add top padding to card when auth bar is present */
+        <?php if ($authEnabled && isAuthenticated()): ?>
+        .card {
+            padding-top: 50px;
+        }
+        <?php endif; ?>
         
         @keyframes fadeIn {
             from { opacity: 0; transform: translateY(20px); }
@@ -3283,10 +3290,10 @@ if ($isValidPath) {
                 padding: 12px 12px;
             }
             
-            /* Remove top padding on mobile when auth bar present */
+            /* Remove all body padding on mobile when auth bar present */
             <?php if ($authEnabled && isAuthenticated()): ?>
             body {
-                padding-top: 0;
+                padding: 0;
             }
             
             .container {
@@ -3470,10 +3477,10 @@ if ($isValidPath) {
                 padding: 16px;
             }
             
-            /* Remove top padding when auth bar present */
+            /* Remove all body padding when auth bar present */
             <?php if ($authEnabled && isAuthenticated()): ?>
             body {
-                padding-top: 0;
+                padding: 0;
             }
             
             .container {
@@ -3530,10 +3537,10 @@ if ($isValidPath) {
                 padding: 24px 20px;
             }
             
-            /* Remove top padding when auth bar present */
+            /* Remove all body padding when auth bar present */
             <?php if ($authEnabled && isAuthenticated()): ?>
             body {
-                padding-top: 0;
+                padding: 0;
             }
             
             .container {
@@ -3551,6 +3558,13 @@ if ($isValidPath) {
             body {
                 padding: 40px 24px;
             }
+            
+            /* Remove all body padding when auth bar present */
+            <?php if ($authEnabled && isAuthenticated()): ?>
+            body {
+                padding: 0;
+            }
+            <?php endif; ?>
             
             .card {
                 padding: 36px 40px;
