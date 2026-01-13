@@ -2424,7 +2424,8 @@ if ($isValidPath) {
             background: var(--card); 
             border-radius: 16px; 
             box-shadow: var(--shadow); 
-            padding: 50px 32px 32px 32px;
+            padding: 32px;
+            margin-top: 50px;
             margin-bottom: 24px;
             animation: fadeIn 0.5s ease-in;
         }
@@ -3280,7 +3281,8 @@ if ($isValidPath) {
             <?php endif; ?>
             
             .card {
-                padding: 50px 16px 20px 16px;
+                padding: 16px 16px 20px 16px;
+                margin-top: 50px;
                 border-radius: 12px;
             }
             
@@ -3459,7 +3461,8 @@ if ($isValidPath) {
             <?php endif; ?>
             
             .card {
-                padding: 50px 20px 24px 20px;
+                padding: 20px 20px 24px 20px;
+                margin-top: 50px;
             }
             
             .file-list a {
@@ -3511,14 +3514,16 @@ if ($isValidPath) {
             <?php endif; ?>
             
             .card {
-                padding: 50px 24px 28px 24px;
+                padding: 24px 24px 28px 24px;
+                margin-top: 50px;
             }
         }
         
         /* Large screens */
         @media (min-width: 1025px) {
             .card {
-                padding: 50px 40px 36px 40px;
+                padding: 40px 40px 36px 40px;
+                margin-top: 50px;
             }
             
             .file-list a:hover {
