@@ -4691,17 +4691,28 @@ if ($isValidPath) {
                 else if (type === 'success') iconClass = 'fa-circle-check';
                 else if (type === 'warning') iconClass = 'fa-triangle-exclamation';
 
-                // Build toast HTML
-                toast.innerHTML = `
-                    <i class="fa-solid ${iconClass} toast-icon"></i>
-                    <div class="toast-message">${htmlspecialchars(message)}</div>
-                    <button class="toast-close" aria-label="Close notification">
-                        <i class="fa-solid fa-xmark"></i>
-                    </button>
-                `;
+                // Build toast using DOM manipulation (safer than innerHTML)
+                const icon = document.createElement('i');
+                icon.className = `fa-solid ${iconClass} toast-icon`;
+                
+                const messageDiv = document.createElement('div');
+                messageDiv.className = 'toast-message';
+                messageDiv.textContent = message; // textContent automatically escapes
+                
+                const closeBtn = document.createElement('button');
+                closeBtn.className = 'toast-close';
+                closeBtn.setAttribute('aria-label', 'Close notification');
+                
+                const closeIcon = document.createElement('i');
+                closeIcon.className = 'fa-solid fa-xmark';
+                closeBtn.appendChild(closeIcon);
+                
+                // Assemble toast
+                toast.appendChild(icon);
+                toast.appendChild(messageDiv);
+                toast.appendChild(closeBtn);
 
                 // Add close button handler
-                const closeBtn = toast.querySelector('.toast-close');
                 closeBtn.addEventListener('click', function() {
                     removeToast(toast);
                 });
