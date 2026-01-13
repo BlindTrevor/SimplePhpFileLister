@@ -5447,9 +5447,24 @@ if ($isValidPath) {
                     video.setAttribute('aria-label', 'Video player for ' + fileName);
                     
                     // Handle errors
-                    video.addEventListener('error', function() {
+                    video.addEventListener('error', function(e) {
                         console.error('[Video Player] Video failed to load:', filePath);
-                        wrapper.innerHTML = '<div class="video-player-error">❌ Unable to load video. The file may be corrupted or unsupported by your browser.</div>';
+                        
+                        // Get file extension to provide better error message
+                        const fileExt = fileName.toLowerCase().split('.').pop();
+                        let errorMessage = '❌ Unable to load video. ';
+                        
+                        // Provide specific guidance for known problematic formats
+                        if (fileExt === 'mpg' || fileExt === 'mpeg') {
+                            errorMessage += 'MPEG files (.mpg/.mpeg) have limited browser support. ' +
+                                          'For best compatibility, consider converting to MP4, WebM, or OGV format. ' +
+                                          'You can try downloading the file to play it with a dedicated video player like VLC.';
+                        } else {
+                            errorMessage += 'The file may be corrupted or use a codec unsupported by your browser. ' +
+                                          'Try downloading the file or use a different browser.';
+                        }
+                        
+                        wrapper.innerHTML = '<div class="video-player-error">' + errorMessage + '</div>';
                     });
                     
                     // Build preview URL and set source
