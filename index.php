@@ -36,8 +36,8 @@ $enableDelete = false;             // Enable/disable delete functionality
 $enableDownloadAll = true;         // Enable/disable "Download All as ZIP" button
 $enableBatchDownload = true;       // Enable/disable batch download of selected items as ZIP
 $enableIndividualDownload = true;  // Enable/disable individual file downloads
-$enableUpload = true;              // Enable/disable file upload functionality
-$enableCreateDirectory = true;     // Enable/disable create directory functionality
+$enableUpload = false;              // Enable/disable file upload functionality
+$enableCreateDirectory = false;     // Enable/disable create directory functionality
 
 // --- Display Options ---
 $showFileSize = true;           // Show/hide file sizes in file listings
