@@ -3440,6 +3440,7 @@ if ($isValidPath) {
             font-size: 0.95rem;
             line-height: 1.4;
             word-wrap: break-word;
+            white-space: pre-line;
         }
         
         .toast-close {
@@ -4748,17 +4749,6 @@ if ($isValidPath) {
                         toast.remove();
                     }
                 }, 300);
-            }
-
-            /**
-             * HTML escape helper function for toast messages
-             * @param {string} text - The text to escape
-             * @returns {string} - The escaped text
-             */
-            function htmlspecialchars(text) {
-                const div = document.createElement('div');
-                div.textContent = text;
-                return div.innerHTML;
             }
 
             document.addEventListener('DOMContentLoaded', hideOverlay);
