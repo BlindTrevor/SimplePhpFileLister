@@ -5185,6 +5185,12 @@ if ($isValidPath) {
                             updateProgress();
                         });
                         
+                        // Handle duration change (fires when duration changes from Infinity to actual value)
+                        currentAudio.addEventListener('durationchange', function() {
+                            console.log('[Music Player] Duration changed, duration:', currentAudio.duration);
+                            updateProgress();
+                        });
+                        
                         // Start progress tracking
                         currentAudio.addEventListener('timeupdate', updateProgress);
                     }
