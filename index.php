@@ -59,7 +59,7 @@ $uploadAllowedExtensions = [];                // Optional: Array of allowed exte
                                               // Example: ['jpg', 'png', 'pdf', 'txt'] to only allow these types
 
 // --- Authentication Settings ---
-$usersFilePath = './SPFL-Users';              // Path to users file (if exists, login required)
+$usersFilePath = './SPFL-Users.json';              // Path to users file (if exists, login required)
 $sessionTimeout = 3600;                        // Session timeout in seconds (default: 1 hour)
 $enableReadOnlyMode = false;                   // When true, unauthenticated users can view files read-only
 
@@ -96,7 +96,7 @@ define('BLOCKED_EXTENSIONS', [
 // Reserved filesystem names that cannot be used for directories
 // Includes special files and paths that should never be created/modified
 define('RESERVED_NAMES', [
-    'index.php', '.', '..', '.htaccess', '.gitignore', '.env', 'SPFL-Users'
+    'index.php', '.', '..', '.htaccess', '.gitignore', '.env', 'SPFL-Users.json'
 ]);
 
 // Authentication: Check if users file exists (determines if login is required)

@@ -91,13 +91,13 @@ SimplePhpFileLister now supports optional user authentication with per-user perm
 
 ### Enabling Authentication
 
-1. Create a file named `SPFL-Users` in the same directory as `index.php`
+1. Create a file named `SPFL-Users.json` in the same directory as `index.php`
 2. The file should contain JSON with user definitions (see example below)
 3. When the file exists, login will be required to access the file lister
 
 ### Users File Format
 
-Create `SPFL-Users` with the following JSON structure:
+Create `SPFL-Users.json` with the following JSON structure:
 
 ```json
 {
@@ -144,7 +144,7 @@ php -r "echo password_hash('your_password', PASSWORD_BCRYPT);"
 Configure authentication in `index.php`:
 
 ```php
-$usersFilePath = './SPFL-Users';      // Path to users file
+$usersFilePath = './SPFL-Users.json';      // Path to users file
 $sessionTimeout = 3600;                // Session timeout in seconds (1 hour)
 $enableReadOnlyMode = false;           // Allow unauthenticated users to view files read-only
 ```
@@ -170,7 +170,7 @@ Admin users can manage users through the **User Management** button (floating bu
 
 ### Disabling Authentication
 
-To disable authentication, simply remove or rename the `SPFL-Users` file. The application will immediately return to standalone mode with all features accessible.
+To disable authentication, simply remove or rename the `SPFL-Users.json` file. The application will immediately return to standalone mode with all features accessible.
 
 ## Security
 
