@@ -5272,14 +5272,14 @@ if ($isValidPath) {
                     const progress = Math.min(100, Math.max(0, (currentAudio.currentTime / currentAudio.duration) * 100));
                     
                     // Update progress using CSS custom property on the link element
-                    currentLink.style.setProperty('--audio-progress', progress + '%');
+                    currentLink.style.setProperty('--audio-progress', `${progress}%`);
                     
                     // Update time counter
                     const timeCounter = currentLink.querySelector('.audio-time-counter');
                     if (timeCounter) {
                         const currentTime = formatTime(currentAudio.currentTime);
                         const duration = formatTime(currentAudio.duration);
-                        timeCounter.textContent = currentTime + ' / ' + duration;
+                        timeCounter.textContent = `${currentTime} / ${duration}`;
                     }
                 }
                 
@@ -5291,10 +5291,13 @@ if ($isValidPath) {
                     const minutes = Math.floor((seconds % 3600) / 60);
                     const secs = Math.floor(seconds % 60);
                     
+                    // Helper to pad numbers with leading zero
+                    const pad = (num) => String(num).padStart(2, '0');
+                    
                     if (hours > 0) {
-                        return `${hours}:${String(minutes).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
+                        return `${hours}:${pad(minutes)}:${pad(secs)}`;
                     } else {
-                        return `${minutes}:${String(secs).padStart(2, '0')}`;
+                        return `${minutes}:${pad(secs)}`;
                     }
                 }
                 
