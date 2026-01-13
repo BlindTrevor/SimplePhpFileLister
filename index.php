@@ -5408,21 +5408,31 @@ if ($isValidPath) {
                             <label style="display: flex; align-items: center; gap: 5px; font-size: 13px; cursor: pointer;">
                                 <input type="checkbox" class="permission-checkbox" value="view" style="cursor: pointer;"> View
                             </label>
+                            <?php if ($enableIndividualDownload || $enableDownloadAll || $enableBatchDownload): ?>
                             <label style="display: flex; align-items: center; gap: 5px; font-size: 13px; cursor: pointer;">
                                 <input type="checkbox" class="permission-checkbox" value="download" style="cursor: pointer;"> Download
                             </label>
+                            <?php endif; ?>
+                            <?php if ($enableUpload): ?>
                             <label style="display: flex; align-items: center; gap: 5px; font-size: 13px; cursor: pointer;">
                                 <input type="checkbox" class="permission-checkbox" value="upload" style="cursor: pointer;"> Upload
                             </label>
+                            <?php endif; ?>
+                            <?php if ($enableDelete): ?>
                             <label style="display: flex; align-items: center; gap: 5px; font-size: 13px; cursor: pointer;">
                                 <input type="checkbox" class="permission-checkbox" value="delete" style="cursor: pointer;"> Delete
                             </label>
+                            <?php endif; ?>
+                            <?php if ($enableRename): ?>
                             <label style="display: flex; align-items: center; gap: 5px; font-size: 13px; cursor: pointer;">
                                 <input type="checkbox" class="permission-checkbox" value="rename" style="cursor: pointer;"> Rename
                             </label>
+                            <?php endif; ?>
+                            <?php if ($enableCreateDirectory): ?>
                             <label style="display: flex; align-items: center; gap: 5px; font-size: 13px; cursor: pointer;">
                                 <input type="checkbox" class="permission-checkbox" value="create_directory" style="cursor: pointer;"> Create Directory
                             </label>
+                            <?php endif; ?>
                         </div>
                     </div>
                     <div class="rename-modal-buttons">
