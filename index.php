@@ -5179,6 +5179,12 @@ if ($isValidPath) {
                             showToast('Failed to load audio file', 'error');
                         });
                         
+                        // Wait for metadata to load before showing duration
+                        currentAudio.addEventListener('loadedmetadata', function() {
+                            console.log('[Music Player] Metadata loaded, duration:', currentAudio.duration);
+                            updateProgress();
+                        });
+                        
                         // Start progress tracking
                         currentAudio.addEventListener('timeupdate', updateProgress);
                     }
@@ -5265,8 +5271,8 @@ if ($isValidPath) {
                 function updateProgress() {
                     if (!currentAudio || !currentLink) return;
                     
-                    // Guard against invalid duration or currentTime
-                    if (!currentAudio.duration || currentAudio.duration <= 0 || isNaN(currentAudio.duration)) return;
+                    // Guard against invalid duration or currentTime (Infinity occurs before metadata loads)
+                    if (!currentAudio.duration || currentAudio.duration <= 0 || !isFinite(currentAudio.duration)) return;
                     if (isNaN(currentAudio.currentTime)) return;
                     
                     const progress = Math.min(100, Math.max(0, (currentAudio.currentTime / currentAudio.duration) * 100));
