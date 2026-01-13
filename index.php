@@ -976,8 +976,8 @@ if (isset($_POST['setup_auth'])) {
     }
     
     $username = isset($_POST['username']) ? trim((string)$_POST['username']) : '';
-    $password = isset($_POST['password']) ? (string)$_POST['password']) : '';
-    $confirmPassword = isset($_POST['confirm_password']) ? (string)$_POST['confirm_password']) : '';
+    $password = isset($_POST['password']) ? (string)$_POST['password'] : '';
+    $confirmPassword = isset($_POST['confirm_password']) ? (string)$_POST['confirm_password'] : '';
     
     if (empty($username) || empty($password)) {
         echo json_encode(['success' => false, 'message' => 'Username and password are required']);
