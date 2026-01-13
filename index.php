@@ -2399,17 +2399,10 @@ if ($isValidPath) {
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; 
             background: var(--bg); 
             color: var(--text); 
-            padding: 20px 16px;
+            padding: 0;
             min-height: 100vh;
             line-height: 1.6;
         }
-        
-        /* Remove all body padding when auth bar is present */
-        <?php if ($authEnabled && isAuthenticated()): ?>
-        body {
-            padding: 0;
-        }
-        <?php endif; ?>
         
         /* ================================================================
            LAYOUT COMPONENTS
@@ -2431,17 +2424,10 @@ if ($isValidPath) {
             background: var(--card); 
             border-radius: 16px; 
             box-shadow: var(--shadow); 
-            padding: 32px;
+            padding: 50px 32px 32px 32px;
             margin-bottom: 24px;
             animation: fadeIn 0.5s ease-in;
         }
-        
-        /* Add top padding to card when auth bar is present */
-        <?php if ($authEnabled && isAuthenticated()): ?>
-        .card {
-            padding-top: 50px;
-        }
-        <?php endif; ?>
         
         @keyframes fadeIn {
             from { opacity: 0; transform: translateY(20px); }
@@ -3286,23 +3272,15 @@ if ($isValidPath) {
                 font-size: 16px;
             }
             
-            body {
-                padding: 12px 12px;
-            }
-            
-            /* Remove all body padding on mobile when auth bar present */
+            /* Add top margin to container when auth bar present */
             <?php if ($authEnabled && isAuthenticated()): ?>
-            body {
-                padding: 0;
-            }
-            
             .container {
                 margin-top: 20px;
             }
             <?php endif; ?>
             
             .card {
-                padding: 20px 16px;
+                padding: 50px 16px 20px 16px;
                 border-radius: 12px;
             }
             
@@ -3473,23 +3451,15 @@ if ($isValidPath) {
         
         /* Mobile phones (landscape) and small tablets */
         @media (min-width: 481px) and (max-width: 768px) {
-            body {
-                padding: 16px;
-            }
-            
-            /* Remove all body padding when auth bar present */
+            /* Add top margin to container when auth bar present */
             <?php if ($authEnabled && isAuthenticated()): ?>
-            body {
-                padding: 0;
-            }
-            
             .container {
                 margin-top: 24px;
             }
             <?php endif; ?>
             
             .card {
-                padding: 24px 20px;
+                padding: 50px 20px 24px 20px;
             }
             
             .file-list a {
@@ -3533,41 +3503,22 @@ if ($isValidPath) {
                 padding: 0 20px;
             }
             
-            body {
-                padding: 24px 20px;
-            }
-            
-            /* Remove all body padding when auth bar present */
+            /* Add top margin to container when auth bar present */
             <?php if ($authEnabled && isAuthenticated()): ?>
-            body {
-                padding: 0;
-            }
-            
             .container {
                 margin-top: 28px;
             }
             <?php endif; ?>
             
             .card {
-                padding: 28px 24px;
+                padding: 50px 24px 28px 24px;
             }
         }
         
         /* Large screens */
         @media (min-width: 1025px) {
-            body {
-                padding: 40px 24px;
-            }
-            
-            /* Remove all body padding when auth bar present */
-            <?php if ($authEnabled && isAuthenticated()): ?>
-            body {
-                padding: 0;
-            }
-            <?php endif; ?>
-            
             .card {
-                padding: 36px 40px;
+                padding: 50px 40px 36px 40px;
             }
             
             .file-list a:hover {
@@ -4695,11 +4646,14 @@ if ($isValidPath) {
         @media print {
             body {
                 background: white;
-                padding: 20px;
+                padding: 0;
             }
             
             .card {
                 box-shadow: none;
+                border: 1px solid #ddd;
+                padding: 20px;
+            }
                 border: 1px solid #ddd;
             }
             
