@@ -2423,7 +2423,7 @@ if ($isValidPath) {
         <?php endif; ?>
         
         .container { 
-            max-width: 900px; 
+            max-width: 85%; 
             margin: 0 auto; 
         }
         
@@ -3543,11 +3543,6 @@ if ($isValidPath) {
             
             .card {
                 padding: 28px 24px;
-            }
-            
-            /* Use 85% width for better readability on tablet screens */
-            .container {
-                max-width: 85%;
             }
         }
         
