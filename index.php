@@ -938,6 +938,9 @@ if (isset($_POST['login'])) {
             }
         }
         
+        // Ensure session is written before sending response
+        session_write_close();
+        
         echo json_encode([
             'success' => true, 
             'message' => 'Login successful',
