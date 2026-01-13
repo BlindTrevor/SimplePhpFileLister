@@ -9,6 +9,16 @@
  */
 
 // ============================================================================
+// SECURITY: Prevent direct access to configuration files
+// ============================================================================
+$requestUri = isset($_SERVER['REQUEST_URI']) ? parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH) : '';
+$requestedFile = basename($requestUri);
+if (in_array($requestedFile, ['SPFL-Config.json', 'SPFL-Users.json'], true)) {
+    http_response_code(403);
+    die('403 Forbidden: Direct access to configuration files is not allowed.');
+}
+
+// ============================================================================
 // VERSION INFORMATION
 // ============================================================================
 // Version is automatically updated by GitHub Actions on merge to main branch
@@ -711,12 +721,15 @@ function saveUsers(array $users): bool {
 function authenticateUser(string $username, string $password): ?array {
     $users = loadUsers();
     
+    // Convert username to lowercase for case-insensitive comparison
+    $usernameLower = strtolower($username);
+    
     foreach ($users as $user) {
         if (!isset($user['username']) || !isset($user['password'])) {
             continue;
         }
         
-        if ($user['username'] === $username) {
+        if (strtolower($user['username']) === $usernameLower) {
             // Verify password using password_verify for bcrypt hashes
             if (password_verify($password, $user['password'])) {
                 return $user;
@@ -1359,8 +1372,8 @@ if (isset($_POST['rename'])) {
         exit;
     }
     
-    // Check if rename is enabled (admins can bypass this when auth is enabled)
-    if (!$enableRename && !($authEnabled && isAdmin())) {
+    // Check if rename is enabled (admins and users with permission can bypass this when auth is enabled)
+    if (!$enableRename && !($authEnabled && (isAdmin() || hasPermission('rename')))) {
         http_response_code(403);
         echo json_encode(['success' => false, 'error' => 'Rename functionality is disabled']);
         exit;
@@ -1467,8 +1480,8 @@ if (isset($_POST['delete'])) {
         exit;
     }
     
-    // Check if delete is enabled (admins can bypass this when auth is enabled)
-    if (!$enableDelete && !($authEnabled && isAdmin())) {
+    // Check if delete is enabled (admins and users with permission can bypass this when auth is enabled)
+    if (!$enableDelete && !($authEnabled && (isAdmin() || hasPermission('delete')))) {
         http_response_code(403);
         echo json_encode(['success' => false, 'error' => 'Delete functionality is disabled']);
         exit;
@@ -1524,8 +1537,8 @@ if (isset($_POST['delete_batch'])) {
         exit;
     }
     
-    // Check if delete is enabled (admins can bypass this when auth is enabled)
-    if (!$enableDelete && !($authEnabled && isAdmin())) {
+    // Check if delete is enabled (admins and users with permission can bypass this when auth is enabled)
+    if (!$enableDelete && !($authEnabled && (isAdmin() || hasPermission('delete')))) {
         http_response_code(403);
         echo json_encode(['success' => false, 'error' => 'Delete functionality is disabled']);
         exit;
@@ -5222,8 +5235,8 @@ if ($isValidPath) {
 
                     if ($handle = opendir($basePath)) {
                         while (($entry = readdir($handle)) !== false) {
-                            // Skip hidden files based on configuration
-                            if (in_array($entry, ['.', '..', 'index.php'], true) || (!$includeHiddenFiles && $entry[0] === '.')) {
+                            // Skip hidden files, index.php, and config files
+                            if (in_array($entry, ['.', '..', 'index.php', 'SPFL-Config.json', 'SPFL-Users.json'], true) || (!$includeHiddenFiles && $entry[0] === '.')) {
                                 continue;
                             }
 
