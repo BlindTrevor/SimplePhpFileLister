@@ -95,6 +95,13 @@ SimplePhpFileLister now supports optional user authentication with per-user perm
 2. The file should contain JSON with user definitions (see example below)
 3. When the file exists, login will be required to access the file lister
 
+**Quick Start:** Use the provided `SPFL-Users.json.example` file as a template. It includes three pre-configured users with default passwords:
+- **admin** / password: `admin` (full administrator access)
+- **user** / password: `user` (view and download only)
+- **editor** / password: `editor` (all file operations except user management)
+
+⚠️ **Security Warning:** Change these default passwords immediately in production environments!
+
 ### Users File Format
 
 Create `SPFL-Users.json` with the following JSON structure:

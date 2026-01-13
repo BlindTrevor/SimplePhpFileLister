@@ -1,14 +1,15 @@
 {
+  "_comment": "Default passwords: admin='admin', user='user', editor='editor'. CHANGE THESE BEFORE PRODUCTION USE!",
   "users": [
     {
       "username": "admin",
-      "password": "$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi",
+      "password": "$2y$10$QVPYlTkYNgjUAHIKV2TAyOCi1xQNUSzHmBYia.A51.EiIq41qTwhq",
       "admin": true,
       "permissions": []
     },
     {
       "username": "user",
-      "password": "$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi",
+      "password": "$2y$10$pjOp8sxWNgeQ3LU3Ie2ouel/I2L0Lr0U/XeMq2MtNwd8As5kfmNgq",
       "admin": false,
       "permissions": [
         "view",
@@ -17,7 +18,7 @@
     },
     {
       "username": "editor",
-      "password": "$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi",
+      "password": "$2y$10$5HS0S/wyW6yjEFMEDa7yGOjXi5p5ltObBOEK14a/yK6IeuG8g/P7m",
       "admin": false,
       "permissions": [
         "view",
