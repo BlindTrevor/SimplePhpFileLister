@@ -5346,6 +5346,44 @@ if ($isValidPath) {
             </div>
         </div>
     </div>
+    <?php elseif (!$authEnabled && !file_exists($configFilePath)): ?>
+    <!-- Setup Authentication Option -->
+    <div class="container">
+        <div class="card" style="max-width: 450px; margin: 100px auto; text-align: center;">
+            <div class="header-container">
+                <div class="header-left">
+                    <h1><?php echo htmlspecialchars($title); ?></h1>
+                    <div class="subtitle">Welcome!</div>
+                </div>
+            </div>
+            <div style="padding: 30px;">
+                <p style="margin-bottom: 20px; color: var(--muted);">
+                    This file lister is currently running without authentication. 
+                    You can optionally set up user authentication for enhanced security.
+                </p>
+                <button id="setupAuthBtn" 
+                        style="width: 100%; padding: 14px; background: linear-gradient(135deg, var(--accent) 0%, var(--accent-hover) 100%); color: white; border: none; border-radius: 8px; font-size: 16px; font-weight: 600; cursor: pointer; transition: all 0.3s ease; margin-bottom: 10px;">
+                    <i class="fas fa-shield-alt" style="margin-right: 8px;"></i>Setup Authentication
+                </button>
+                <button onclick="window.location.reload()" 
+                        style="width: 100%; padding: 12px; background: transparent; color: var(--text); border: 1px solid var(--border); border-radius: 8px; font-size: 14px; font-weight: 500; cursor: pointer; transition: all 0.3s ease;">
+                    Continue Without Authentication
+                </button>
+            </div>
+        </div>
+    </div>
+    <script nonce="<?php echo htmlspecialchars($cspNonce, ENT_QUOTES, 'UTF-8'); ?>">
+        (function() {
+            const setupAuthBtn = document.getElementById('setupAuthBtn');
+            const setupWizardModal = document.getElementById('setupWizardModal');
+            
+            if (setupAuthBtn && setupWizardModal) {
+                setupAuthBtn.addEventListener('click', function() {
+                    setupWizardModal.classList.add('active');
+                });
+            }
+        })();
+    </script>
     <?php else: ?>
     <div class="container">
         <div class="card">
@@ -5998,6 +6036,64 @@ if ($isValidPath) {
                 <div class="rename-modal-buttons">
                     <button type="button" class="rename-modal-btn rename-modal-btn-cancel" id="settingsCancel">Cancel</button>
                     <button type="submit" class="rename-modal-btn rename-modal-btn-confirm" id="settingsSave">Save Settings</button>
+                </div>
+            </form>
+        </div>
+    </div>
+    
+    <!-- Password Change Modal (for default passwords) -->
+    <div class="rename-modal" id="passwordChangeModal" role="dialog" aria-labelledby="passwordChangeModalTitle" aria-modal="true">
+        <div class="rename-modal-content" style="max-width: 500px;">
+            <h2 class="rename-modal-title" id="passwordChangeModalTitle">Password Change Required</h2>
+            <p style="margin-bottom: 20px; color: var(--muted); font-size: 14px;">
+                You are using a default password. For security reasons, please change your password before continuing.
+            </p>
+            <div class="rename-modal-error" id="passwordChangeError"></div>
+            
+            <form id="passwordChangeForm" style="display: flex; flex-direction: column; gap: 15px;">
+                <div>
+                    <label style="display: block; margin-bottom: 5px; font-weight: 500; color: var(--text);">New Password</label>
+                    <input type="password" id="newPassword" required style="width: 100%; padding: 10px; border: 1px solid var(--border); border-radius: 6px; background: var(--surface); color: var(--text); box-sizing: border-box;">
+                    <div style="font-size: 12px; color: var(--muted); margin-top: 4px;">Minimum 6 characters</div>
+                </div>
+                <div>
+                    <label style="display: block; margin-bottom: 5px; font-weight: 500; color: var(--text);">Confirm Password</label>
+                    <input type="password" id="confirmPasswordChange" required style="width: 100%; padding: 10px; border: 1px solid var(--border); border-radius: 6px; background: var(--surface); color: var(--text); box-sizing: border-box;">
+                </div>
+                <div class="rename-modal-buttons">
+                    <button type="submit" class="rename-modal-btn rename-modal-btn-confirm" id="submitPasswordChange" style="width: 100%;">Change Password</button>
+                </div>
+            </form>
+        </div>
+    </div>
+    
+    <!-- Setup Authentication Wizard Modal -->
+    <div class="rename-modal" id="setupWizardModal" role="dialog" aria-labelledby="setupWizardModalTitle" aria-modal="true">
+        <div class="rename-modal-content" style="max-width: 500px;">
+            <h2 class="rename-modal-title" id="setupWizardModalTitle">Setup Authentication</h2>
+            <p style="margin-bottom: 20px; color: var(--muted); font-size: 14px;">
+                Create the first administrator account to enable authentication.
+            </p>
+            <div class="rename-modal-error" id="setupWizardError"></div>
+            
+            <form id="setupWizardForm" style="display: flex; flex-direction: column; gap: 15px;">
+                <div>
+                    <label style="display: block; margin-bottom: 5px; font-weight: 500; color: var(--text);">Admin Username</label>
+                    <input type="text" id="setupUsername" required style="width: 100%; padding: 10px; border: 1px solid var(--border); border-radius: 6px; background: var(--surface); color: var(--text); box-sizing: border-box;">
+                    <div style="font-size: 12px; color: var(--muted); margin-top: 4px;">Letters, numbers, and underscores only</div>
+                </div>
+                <div>
+                    <label style="display: block; margin-bottom: 5px; font-weight: 500; color: var(--text);">Password</label>
+                    <input type="password" id="setupPassword" required style="width: 100%; padding: 10px; border: 1px solid var(--border); border-radius: 6px; background: var(--surface); color: var(--text); box-sizing: border-box;">
+                    <div style="font-size: 12px; color: var(--muted); margin-top: 4px;">Minimum 6 characters</div>
+                </div>
+                <div>
+                    <label style="display: block; margin-bottom: 5px; font-weight: 500; color: var(--text);">Confirm Password</label>
+                    <input type="password" id="setupConfirmPassword" required style="width: 100%; padding: 10px; border: 1px solid var(--border); border-radius: 6px; background: var(--surface); color: var(--text); box-sizing: border-box;">
+                </div>
+                <div class="rename-modal-buttons">
+                    <button type="button" class="rename-modal-btn rename-modal-btn-cancel" id="setupWizardCancel">Cancel</button>
+                    <button type="submit" class="rename-modal-btn rename-modal-btn-confirm" id="submitSetupWizard">Create Admin Account</button>
                 </div>
             </form>
         </div>
@@ -8250,7 +8346,12 @@ if ($isValidPath) {
                         const data = await response.json();
                         
                         if (data.success) {
-                            window.location.reload();
+                            if (data.requirePasswordChange) {
+                                // Show password change modal instead of reloading
+                                showPasswordChangeModal();
+                            } else {
+                                window.location.reload();
+                            }
                         } else {
                             loginError.textContent = data.message || 'Login failed';
                             loginError.style.display = 'block';
@@ -8264,6 +8365,14 @@ if ($isValidPath) {
                         loginBtn.textContent = 'Login';
                     }
                 });
+                
+                // Password change modal handler
+                function showPasswordChangeModal() {
+                    const modal = document.getElementById('passwordChangeModal');
+                    if (modal) {
+                        modal.classList.add('active');
+                    }
+                }
             })();
             <?php endif; ?>
             
@@ -8614,6 +8723,147 @@ if ($isValidPath) {
                 }
             })();
             <?php endif; ?>
+            
+            // ================================================================
+            // PASSWORD CHANGE MODAL (for default passwords)
+            // ================================================================
+            (function() {
+                const passwordChangeModal = document.getElementById('passwordChangeModal');
+                const passwordChangeForm = document.getElementById('passwordChangeForm');
+                const passwordChangeError = document.getElementById('passwordChangeError');
+                
+                if (!passwordChangeForm) return;
+                
+                passwordChangeForm.addEventListener('submit', async function(e) {
+                    e.preventDefault();
+                    
+                    const newPassword = document.getElementById('newPassword').value;
+                    const confirmPassword = document.getElementById('confirmPasswordChange').value;
+                    
+                    if (newPassword !== confirmPassword) {
+                        showPasswordError('Passwords do not match');
+                        return;
+                    }
+                    
+                    if (newPassword.length < 6) {
+                        showPasswordError('Password must be at least 6 characters');
+                        return;
+                    }
+                    
+                    try {
+                        const formData = new FormData();
+                        formData.append('change_default_password', '1');
+                        formData.append('new_password', newPassword);
+                        formData.append('confirm_password', confirmPassword);
+                        
+                        const response = await fetch('', {
+                            method: 'POST',
+                            body: formData
+                        });
+                        
+                        const data = await response.json();
+                        
+                        if (data.success) {
+                            if (typeof window.showToast === 'function') {
+                                window.showToast('Password changed successfully!', 'success');
+                            }
+                            setTimeout(() => {
+                                window.location.reload();
+                            }, 1000);
+                        } else {
+                            showPasswordError(data.message || 'Failed to change password');
+                        }
+                    } catch (err) {
+                        showPasswordError('An error occurred. Please try again.');
+                    }
+                });
+                
+                function showPasswordError(message) {
+                    passwordChangeError.textContent = message;
+                    passwordChangeError.style.display = 'block';
+                    passwordChangeError.style.background = '#fee';
+                    passwordChangeError.style.color = '#ef4444';
+                    passwordChangeError.style.padding = '12px';
+                    passwordChangeError.style.borderRadius = '8px';
+                    passwordChangeError.style.marginBottom = '15px';
+                }
+            })();
+            
+            // ================================================================
+            // SETUP WIZARD MODAL
+            // ================================================================
+            (function() {
+                const setupWizardModal = document.getElementById('setupWizardModal');
+                const setupWizardForm = document.getElementById('setupWizardForm');
+                const setupWizardError = document.getElementById('setupWizardError');
+                const setupWizardCancel = document.getElementById('setupWizardCancel');
+                
+                if (!setupWizardForm) return;
+                
+                // Handle cancel button
+                if (setupWizardCancel) {
+                    setupWizardCancel.addEventListener('click', function() {
+                        setupWizardModal.classList.remove('active');
+                    });
+                }
+                
+                // Handle form submission
+                setupWizardForm.addEventListener('submit', async function(e) {
+                    e.preventDefault();
+                    
+                    const username = document.getElementById('setupUsername').value;
+                    const password = document.getElementById('setupPassword').value;
+                    const confirmPassword = document.getElementById('setupConfirmPassword').value;
+                    
+                    if (password !== confirmPassword) {
+                        showSetupError('Passwords do not match');
+                        return;
+                    }
+                    
+                    if (password.length < 6) {
+                        showSetupError('Password must be at least 6 characters');
+                        return;
+                    }
+                    
+                    try {
+                        const formData = new FormData();
+                        formData.append('setup_auth', '1');
+                        formData.append('username', username);
+                        formData.append('password', password);
+                        formData.append('confirm_password', confirmPassword);
+                        
+                        const response = await fetch('', {
+                            method: 'POST',
+                            body: formData
+                        });
+                        
+                        const data = await response.json();
+                        
+                        if (data.success) {
+                            if (typeof window.showToast === 'function') {
+                                window.showToast('Authentication setup complete!', 'success');
+                            }
+                            setTimeout(() => {
+                                window.location.reload();
+                            }, 1000);
+                        } else {
+                            showSetupError(data.message || 'Failed to setup authentication');
+                        }
+                    } catch (err) {
+                        showSetupError('An error occurred. Please try again.');
+                    }
+                });
+                
+                function showSetupError(message) {
+                    setupWizardError.textContent = message;
+                    setupWizardError.style.display = 'block';
+                    setupWizardError.style.background = '#fee';
+                    setupWizardError.style.color = '#ef4444';
+                    setupWizardError.style.padding = '12px';
+                    setupWizardError.style.borderRadius = '8px';
+                    setupWizardError.style.marginBottom = '15px';
+                }
+            })();
         })();
     </script>
 </body>
