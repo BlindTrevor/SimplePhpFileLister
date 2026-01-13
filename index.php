@@ -60,6 +60,7 @@ $uploadAllowedExtensions = [];                // Optional: Array of allowed exte
 
 // --- Authentication Settings ---
 $usersFilePath = './SPFL-Users.json';              // Path to users file (if exists, login required)
+$settingsFilePath = './SPFL-Settings.json';        // Path to settings file (optional, for admin-controlled feature toggles)
 $sessionTimeout = 3600;                        // Session timeout in seconds (default: 1 hour)
 $enableReadOnlyMode = false;                   // When true, unauthenticated users can view files read-only
 
@@ -96,11 +97,29 @@ define('BLOCKED_EXTENSIONS', [
 // Reserved filesystem names that cannot be used for directories
 // Includes special files and paths that should never be created/modified
 define('RESERVED_NAMES', [
-    'index.php', '.', '..', '.htaccess', '.gitignore', '.env', 'SPFL-Users.json'
+    'index.php', '.', '..', '.htaccess', '.gitignore', '.env', 'SPFL-Users.json', 'SPFL-Settings.json'
 ]);
 
 // Authentication: Check if users file exists (determines if login is required)
 $authEnabled = file_exists($usersFilePath) && is_readable($usersFilePath);
+
+// Load admin-controlled settings if auth is enabled and settings file exists
+if ($authEnabled && file_exists($settingsFilePath) && is_readable($settingsFilePath)) {
+    $settingsContent = file_get_contents($settingsFilePath);
+    if ($settingsContent !== false) {
+        $settings = json_decode($settingsContent, true);
+        if (is_array($settings)) {
+            // Override feature toggles with admin-controlled settings
+            if (isset($settings['enableRename'])) $enableRename = (bool)$settings['enableRename'];
+            if (isset($settings['enableDelete'])) $enableDelete = (bool)$settings['enableDelete'];
+            if (isset($settings['enableDownloadAll'])) $enableDownloadAll = (bool)$settings['enableDownloadAll'];
+            if (isset($settings['enableBatchDownload'])) $enableBatchDownload = (bool)$settings['enableBatchDownload'];
+            if (isset($settings['enableIndividualDownload'])) $enableIndividualDownload = (bool)$settings['enableIndividualDownload'];
+            if (isset($settings['enableUpload'])) $enableUpload = (bool)$settings['enableUpload'];
+            if (isset($settings['enableCreateDirectory'])) $enableCreateDirectory = (bool)$settings['enableCreateDirectory'];
+        }
+    }
+}
 
 // ============================================================================
 // HELPER FUNCTIONS
@@ -1074,6 +1093,74 @@ if (isset($_POST['user_management'])) {
             echo json_encode(['success' => true, 'message' => 'User deleted successfully']);
         } else {
             echo json_encode(['success' => false, 'message' => 'Failed to save users']);
+        }
+        exit;
+    }
+    
+    echo json_encode(['success' => false, 'message' => 'Invalid action']);
+    exit;
+}
+
+/**
+ * Settings management handler (admin only, auth enabled only)
+ */
+if (isset($_POST['settings_management'])) {
+    header('Content-Type: application/json');
+    
+    if (!$authEnabled) {
+        echo json_encode(['success' => false, 'message' => 'Authentication is not enabled']);
+        exit;
+    }
+    
+    if (!isAdmin()) {
+        echo json_encode(['success' => false, 'message' => 'Unauthorized: Admin access required']);
+        exit;
+    }
+    
+    $action = isset($_POST['action']) ? (string)$_POST['action'] : '';
+    
+    if ($action === 'get') {
+        // Get current settings
+        global $settingsFilePath, $enableRename, $enableDelete, $enableDownloadAll, $enableBatchDownload, $enableIndividualDownload, $enableUpload, $enableCreateDirectory;
+        
+        $settings = [
+            'enableRename' => $enableRename,
+            'enableDelete' => $enableDelete,
+            'enableDownloadAll' => $enableDownloadAll,
+            'enableBatchDownload' => $enableBatchDownload,
+            'enableIndividualDownload' => $enableIndividualDownload,
+            'enableUpload' => $enableUpload,
+            'enableCreateDirectory' => $enableCreateDirectory
+        ];
+        
+        echo json_encode(['success' => true, 'settings' => $settings]);
+        exit;
+    }
+    
+    if ($action === 'save') {
+        global $settingsFilePath;
+        
+        // Get settings from POST
+        $settings = [
+            'enableRename' => isset($_POST['enableRename']) && $_POST['enableRename'] === 'true',
+            'enableDelete' => isset($_POST['enableDelete']) && $_POST['enableDelete'] === 'true',
+            'enableDownloadAll' => isset($_POST['enableDownloadAll']) && $_POST['enableDownloadAll'] === 'true',
+            'enableBatchDownload' => isset($_POST['enableBatchDownload']) && $_POST['enableBatchDownload'] === 'true',
+            'enableIndividualDownload' => isset($_POST['enableIndividualDownload']) && $_POST['enableIndividualDownload'] === 'true',
+            'enableUpload' => isset($_POST['enableUpload']) && $_POST['enableUpload'] === 'true',
+            'enableCreateDirectory' => isset($_POST['enableCreateDirectory']) && $_POST['enableCreateDirectory'] === 'true'
+        ];
+        
+        $json = json_encode($settings, JSON_PRETTY_PRINT);
+        if ($json === false) {
+            echo json_encode(['success' => false, 'message' => 'Failed to encode settings']);
+            exit;
+        }
+        
+        if (file_put_contents($settingsFilePath, $json, LOCK_EX) !== false) {
+            echo json_encode(['success' => true, 'message' => 'Settings saved successfully']);
+        } else {
+            echo json_encode(['success' => false, 'message' => 'Failed to save settings file']);
         }
         exit;
     }
@@ -2986,6 +3073,18 @@ if ($isValidPath) {
             filter: brightness(0.95);
         }
         
+        /* Settings button hover */
+        #settingsBtn:hover {
+            filter: brightness(1.1);
+            transform: translateY(-1px);
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+        }
+        
+        #settingsBtn:active {
+            transform: translateY(0);
+            filter: brightness(0.95);
+        }
+        
         /* ================================================================
            RESPONSIVE DESIGN - MEDIA QUERIES
            ================================================================ */
@@ -4864,6 +4963,10 @@ if ($isValidPath) {
                         <i class="fa-solid fa-users"></i>
                         <span>Manage Users</span>
                     </button>
+                    <button id="settingsBtn" title="Feature Settings" style="padding: 6px 12px; background: var(--accent); color: white; border: none; border-radius: 6px; font-size: 13px; cursor: pointer; display: flex; align-items: center; gap: 6px; transition: all 0.2s ease;">
+                        <i class="fa-solid fa-sliders"></i>
+                        <span>Settings</span>
+                    </button>
                     <?php endif; ?>
                     <a href="?logout=1" style="padding: 6px 12px; background: var(--surface); color: var(--text); text-decoration: none; border-radius: 6px; font-size: 13px; border: 1px solid var(--border);">Logout</a>
                 </div>
@@ -5441,6 +5544,78 @@ if ($isValidPath) {
                     </div>
                 </form>
             </div>
+        </div>
+    </div>
+    
+    <!-- Settings Modal -->
+    <div class="rename-modal" id="settingsModal" role="dialog" aria-labelledby="settingsModalTitle" aria-modal="true">
+        <div class="rename-modal-content" style="max-width: 600px;">
+            <h2 class="rename-modal-title" id="settingsModalTitle">Feature Settings</h2>
+            <p style="margin-bottom: 20px; color: var(--muted); font-size: 14px;">Control which features are available to users with appropriate permissions.</p>
+            <div class="rename-modal-error" id="settingsError"></div>
+            
+            <form id="settingsForm" style="display: flex; flex-direction: column; gap: 15px;">
+                <label style="display: flex; align-items: center; gap: 10px; cursor: pointer; padding: 10px; background: var(--surface); border-radius: 6px;">
+                    <input type="checkbox" id="enableRename" style="width: 18px; height: 18px; cursor: pointer;">
+                    <div>
+                        <div style="font-weight: 500; color: var(--text);">Enable Rename</div>
+                        <div style="font-size: 12px; color: var(--muted);">Allow users to rename files and directories</div>
+                    </div>
+                </label>
+                
+                <label style="display: flex; align-items: center; gap: 10px; cursor: pointer; padding: 10px; background: var(--surface); border-radius: 6px;">
+                    <input type="checkbox" id="enableDelete" style="width: 18px; height: 18px; cursor: pointer;">
+                    <div>
+                        <div style="font-weight: 500; color: var(--text);">Enable Delete</div>
+                        <div style="font-size: 12px; color: var(--muted);">Allow users to delete files and directories</div>
+                    </div>
+                </label>
+                
+                <label style="display: flex; align-items: center; gap: 10px; cursor: pointer; padding: 10px; background: var(--surface); border-radius: 6px;">
+                    <input type="checkbox" id="enableUpload" style="width: 18px; height: 18px; cursor: pointer;">
+                    <div>
+                        <div style="font-weight: 500; color: var(--text);">Enable Upload</div>
+                        <div style="font-size: 12px; color: var(--muted);">Allow users to upload files</div>
+                    </div>
+                </label>
+                
+                <label style="display: flex; align-items: center; gap: 10px; cursor: pointer; padding: 10px; background: var(--surface); border-radius: 6px;">
+                    <input type="checkbox" id="enableCreateDirectory" style="width: 18px; height: 18px; cursor: pointer;">
+                    <div>
+                        <div style="font-weight: 500; color: var(--text);">Enable Create Directory</div>
+                        <div style="font-size: 12px; color: var(--muted);">Allow users to create new directories</div>
+                    </div>
+                </label>
+                
+                <label style="display: flex; align-items: center; gap: 10px; cursor: pointer; padding: 10px; background: var(--surface); border-radius: 6px;">
+                    <input type="checkbox" id="enableDownloadAll" style="width: 18px; height: 18px; cursor: pointer;">
+                    <div>
+                        <div style="font-weight: 500; color: var(--text);">Enable Download All</div>
+                        <div style="font-size: 12px; color: var(--muted);">Allow downloading entire directories as ZIP</div>
+                    </div>
+                </label>
+                
+                <label style="display: flex; align-items: center; gap: 10px; cursor: pointer; padding: 10px; background: var(--surface); border-radius: 6px;">
+                    <input type="checkbox" id="enableBatchDownload" style="width: 18px; height: 18px; cursor: pointer;">
+                    <div>
+                        <div style="font-weight: 500; color: var(--text);">Enable Batch Download</div>
+                        <div style="font-size: 12px; color: var(--muted);">Allow downloading selected items as ZIP</div>
+                    </div>
+                </label>
+                
+                <label style="display: flex; align-items: center; gap: 10px; cursor: pointer; padding: 10px; background: var(--surface); border-radius: 6px;">
+                    <input type="checkbox" id="enableIndividualDownload" style="width: 18px; height: 18px; cursor: pointer;">
+                    <div>
+                        <div style="font-weight: 500; color: var(--text);">Enable Individual Download</div>
+                        <div style="font-size: 12px; color: var(--muted);">Allow downloading individual files</div>
+                    </div>
+                </label>
+                
+                <div class="rename-modal-buttons">
+                    <button type="button" class="rename-modal-btn rename-modal-btn-cancel" id="settingsCancel">Cancel</button>
+                    <button type="submit" class="rename-modal-btn rename-modal-btn-confirm" id="settingsSave">Save Settings</button>
+                </div>
+            </form>
         </div>
     </div>
     <?php endif; ?>
@@ -7932,6 +8107,120 @@ if ($isValidPath) {
                     const div = document.createElement('div');
                     div.textContent = text;
                     return div.innerHTML;
+                }
+            })();
+            
+            // ================================================================
+            // SETTINGS MANAGEMENT FUNCTIONALITY
+            // ================================================================
+            (function() {
+                const settingsBtn = document.getElementById('settingsBtn');
+                const settingsModal = document.getElementById('settingsModal');
+                const settingsForm = document.getElementById('settingsForm');
+                const settingsCancel = document.getElementById('settingsCancel');
+                const settingsError = document.getElementById('settingsError');
+                
+                if (!settingsBtn || !settingsModal) return;
+                
+                // Show modal
+                settingsBtn.addEventListener('click', function() {
+                    settingsModal.classList.add('active');
+                    loadSettings();
+                });
+                
+                // Close modal
+                settingsCancel.addEventListener('click', function() {
+                    settingsModal.classList.remove('active');
+                });
+                
+                // Click outside to close
+                settingsModal.addEventListener('click', function(e) {
+                    if (e.target === settingsModal) {
+                        settingsModal.classList.remove('active');
+                    }
+                });
+                
+                // Load current settings
+                async function loadSettings() {
+                    try {
+                        const formData = new FormData();
+                        formData.append('settings_management', '1');
+                        formData.append('action', 'get');
+                        
+                        const response = await fetch('', {
+                            method: 'POST',
+                            body: formData
+                        });
+                        
+                        const data = await response.json();
+                        
+                        if (data.success && data.settings) {
+                            document.getElementById('enableRename').checked = data.settings.enableRename || false;
+                            document.getElementById('enableDelete').checked = data.settings.enableDelete || false;
+                            document.getElementById('enableUpload').checked = data.settings.enableUpload || false;
+                            document.getElementById('enableCreateDirectory').checked = data.settings.enableCreateDirectory || false;
+                            document.getElementById('enableDownloadAll').checked = data.settings.enableDownloadAll || false;
+                            document.getElementById('enableBatchDownload').checked = data.settings.enableBatchDownload || false;
+                            document.getElementById('enableIndividualDownload').checked = data.settings.enableIndividualDownload || false;
+                        } else {
+                            showSettingsError(data.message || 'Failed to load settings');
+                        }
+                    } catch (err) {
+                        showSettingsError('Failed to load settings');
+                    }
+                }
+                
+                // Save settings
+                settingsForm.addEventListener('submit', async function(e) {
+                    e.preventDefault();
+                    
+                    try {
+                        const formData = new FormData();
+                        formData.append('settings_management', '1');
+                        formData.append('action', 'save');
+                        formData.append('enableRename', document.getElementById('enableRename').checked ? 'true' : 'false');
+                        formData.append('enableDelete', document.getElementById('enableDelete').checked ? 'true' : 'false');
+                        formData.append('enableUpload', document.getElementById('enableUpload').checked ? 'true' : 'false');
+                        formData.append('enableCreateDirectory', document.getElementById('enableCreateDirectory').checked ? 'true' : 'false');
+                        formData.append('enableDownloadAll', document.getElementById('enableDownloadAll').checked ? 'true' : 'false');
+                        formData.append('enableBatchDownload', document.getElementById('enableBatchDownload').checked ? 'true' : 'false');
+                        formData.append('enableIndividualDownload', document.getElementById('enableIndividualDownload').checked ? 'true' : 'false');
+                        
+                        const response = await fetch('', {
+                            method: 'POST',
+                            body: formData
+                        });
+                        
+                        const data = await response.json();
+                        
+                        if (data.success) {
+                            showSettingsError('Settings saved successfully! Reload the page to see changes.', 'success');
+                            setTimeout(() => {
+                                settingsModal.classList.remove('active');
+                            }, 2000);
+                        } else {
+                            showSettingsError(data.message || 'Failed to save settings');
+                        }
+                    } catch (err) {
+                        showSettingsError('Failed to save settings');
+                    }
+                });
+                
+                // Show error/success message
+                function showSettingsError(message, type = 'error') {
+                    settingsError.textContent = message;
+                    settingsError.style.display = 'block';
+                    settingsError.style.background = type === 'success' ? '#d1fae5' : '#fee';
+                    settingsError.style.color = type === 'success' ? '#065f46' : '#ef4444';
+                    settingsError.style.padding = '12px';
+                    settingsError.style.borderRadius = '8px';
+                    settingsError.style.marginBottom = '15px';
+                    
+                    if (type === 'success') {
+                        setTimeout(() => {
+                            settingsError.style.display = 'none';
+                        }, 3000);
+                    }
                 }
             })();
             <?php endif; ?>
