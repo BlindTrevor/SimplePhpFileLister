@@ -5,14 +5,14 @@
  * 
  * @author Blind Trevor
  * @link https://github.com/BlindTrevor/SimplePhpFileLister
- * @version 1.1.13
+ * @version 2.0.0
  */
 
 // ============================================================================
 // VERSION INFORMATION
 // ============================================================================
 // Version is automatically updated by GitHub Actions on merge to main branch
-define('APP_VERSION', '1.1.13');
+define('APP_VERSION', '2.0.0');
 
 // ============================================================================
 // CONFIGURATION
@@ -58,6 +58,11 @@ $uploadMaxTotalSize = 50 * 1024 * 1024;       // Maximum total size for multiple
 $uploadAllowedExtensions = [];                // Optional: Array of allowed extensions (empty = allow all except blocked)
                                               // Example: ['jpg', 'png', 'pdf', 'txt'] to only allow these types
 
+// --- Authentication Settings ---
+$usersFilePath = './SPFL-Users';              // Path to users file (if exists, login required)
+$sessionTimeout = 3600;                        // Session timeout in seconds (default: 1 hour)
+$enableReadOnlyMode = false;                   // When true, unauthenticated users can view files read-only
+
 // ============================================================================
 // CONFIGURATION VALIDATION
 // ============================================================================
@@ -91,8 +96,11 @@ define('BLOCKED_EXTENSIONS', [
 // Reserved filesystem names that cannot be used for directories
 // Includes special files and paths that should never be created/modified
 define('RESERVED_NAMES', [
-    'index.php', '.', '..', '.htaccess', '.gitignore', '.env'
+    'index.php', '.', '..', '.htaccess', '.gitignore', '.env', 'SPFL-Users'
 ]);
+
+// Authentication: Check if users file exists (determines if login is required)
+$authEnabled = file_exists($usersFilePath) && is_readable($usersFilePath);
 
 // ============================================================================
 // HELPER FUNCTIONS
@@ -578,8 +586,416 @@ function addToZip(ZipArchive $zip, string $dir, string $zipPath, int &$count, st
 }
 
 // ============================================================================
+// AUTHENTICATION FUNCTIONS
+// ============================================================================
+
+/**
+ * Load users from the users file
+ * @return array Array of users with their configuration
+ */
+function loadUsers(): array {
+    global $usersFilePath;
+    
+    if (!file_exists($usersFilePath) || !is_readable($usersFilePath)) {
+        return [];
+    }
+    
+    $content = file_get_contents($usersFilePath);
+    if ($content === false) {
+        return [];
+    }
+    
+    $data = json_decode($content, true);
+    if (!is_array($data) || !isset($data['users']) || !is_array($data['users'])) {
+        return [];
+    }
+    
+    return $data['users'];
+}
+
+/**
+ * Save users to the users file
+ * @param array $users Array of users to save
+ * @return bool True on success, false on failure
+ */
+function saveUsers(array $users): bool {
+    global $usersFilePath;
+    
+    $data = ['users' => $users];
+    $json = json_encode($data, JSON_PRETTY_PRINT);
+    
+    if ($json === false) {
+        return false;
+    }
+    
+    return file_put_contents($usersFilePath, $json, LOCK_EX) !== false;
+}
+
+/**
+ * Authenticate a user with username and password
+ * @param string $username Username to authenticate
+ * @param string $password Plain text password
+ * @return array|null User data if authenticated, null otherwise
+ */
+function authenticateUser(string $username, string $password): ?array {
+    $users = loadUsers();
+    
+    foreach ($users as $user) {
+        if (!isset($user['username']) || !isset($user['password'])) {
+            continue;
+        }
+        
+        if ($user['username'] === $username) {
+            // Verify password using password_verify for bcrypt hashes
+            if (password_verify($password, $user['password'])) {
+                return $user;
+            }
+        }
+    }
+    
+    return null;
+}
+
+/**
+ * Check if current user has a specific permission
+ * @param string $permission Permission to check
+ * @return bool True if user has permission, false otherwise
+ */
+function hasPermission(string $permission): bool {
+    global $authEnabled, $enableReadOnlyMode;
+    
+    // If authentication is disabled, all permissions are granted
+    if (!$authEnabled) {
+        return true;
+    }
+    
+    // Check if user is logged in
+    if (!isset($_SESSION['user'])) {
+        // If read-only mode is enabled and permission is read-only, allow
+        if ($enableReadOnlyMode && in_array($permission, ['view', 'download'], true)) {
+            return true;
+        }
+        return false;
+    }
+    
+    $user = $_SESSION['user'];
+    
+    // Admin users have all permissions
+    if (isset($user['admin']) && $user['admin'] === true) {
+        return true;
+    }
+    
+    // Check specific permission
+    if (isset($user['permissions']) && is_array($user['permissions'])) {
+        return in_array($permission, $user['permissions'], true);
+    }
+    
+    return false;
+}
+
+/**
+ * Check if current user is admin
+ * @return bool True if user is admin, false otherwise
+ */
+function isAdmin(): bool {
+    global $authEnabled;
+    
+    // If authentication is disabled, all users are considered admin
+    if (!$authEnabled) {
+        return true;
+    }
+    
+    if (!isset($_SESSION['user'])) {
+        return false;
+    }
+    
+    return isset($_SESSION['user']['admin']) && $_SESSION['user']['admin'] === true;
+}
+
+/**
+ * Check if user is logged in
+ * @return bool True if logged in, false otherwise
+ */
+function isLoggedIn(): bool {
+    global $authEnabled, $enableReadOnlyMode;
+    
+    // If authentication is disabled, always return true
+    if (!$authEnabled) {
+        return true;
+    }
+    
+    // If read-only mode enabled, unauthenticated users can "view"
+    if ($enableReadOnlyMode && !isset($_SESSION['user'])) {
+        return true; // For viewing purposes
+    }
+    
+    return isset($_SESSION['user']);
+}
+
+/**
+ * Get current logged in user
+ * @return array|null User data if logged in, null otherwise
+ */
+function getCurrentUser(): ?array {
+    return $_SESSION['user'] ?? null;
+}
+
+/**
+ * Start authentication session
+ */
+function initAuthSession(): void {
+    global $sessionTimeout;
+    
+    if (session_status() === PHP_SESSION_NONE) {
+        // Set secure session parameters
+        ini_set('session.cookie_httponly', '1');
+        ini_set('session.cookie_secure', isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off' ? '1' : '0');
+        ini_set('session.cookie_samesite', 'Strict');
+        ini_set('session.use_strict_mode', '1');
+        ini_set('session.gc_maxlifetime', (string)$sessionTimeout);
+        
+        session_start();
+        
+        // Regenerate session ID periodically for security
+        if (!isset($_SESSION['created'])) {
+            $_SESSION['created'] = time();
+        } else if (time() - $_SESSION['created'] > 1800) {
+            // Regenerate session every 30 minutes
+            session_regenerate_id(true);
+            $_SESSION['created'] = time();
+        }
+        
+        // Check session timeout
+        if (isset($_SESSION['last_activity']) && (time() - $_SESSION['last_activity'] > $sessionTimeout)) {
+            // Session expired
+            session_unset();
+            session_destroy();
+            session_start();
+        }
+        
+        $_SESSION['last_activity'] = time();
+    }
+}
+
+// ============================================================================
 // REQUEST HANDLERS
 // ============================================================================
+
+// Initialize authentication session if auth is enabled
+if ($authEnabled) {
+    initAuthSession();
+}
+
+/**
+ * Login handler
+ */
+if (isset($_POST['login'])) {
+    header('Content-Type: application/json');
+    
+    if (!$authEnabled) {
+        echo json_encode(['success' => false, 'message' => 'Authentication is not enabled']);
+        exit;
+    }
+    
+    $username = isset($_POST['username']) ? trim((string)$_POST['username']) : '';
+    $password = isset($_POST['password']) ? (string)$_POST['password'] : '';
+    
+    if (empty($username) || empty($password)) {
+        echo json_encode(['success' => false, 'message' => 'Username and password are required']);
+        exit;
+    }
+    
+    $user = authenticateUser($username, $password);
+    
+    if ($user !== null) {
+        // Regenerate session ID to prevent session fixation
+        session_regenerate_id(true);
+        
+        $_SESSION['user'] = $user;
+        $_SESSION['created'] = time();
+        $_SESSION['last_activity'] = time();
+        
+        echo json_encode(['success' => true, 'message' => 'Login successful']);
+    } else {
+        echo json_encode(['success' => false, 'message' => 'Invalid username or password']);
+    }
+    exit;
+}
+
+/**
+ * Logout handler
+ */
+if (isset($_GET['logout'])) {
+    if ($authEnabled) {
+        session_unset();
+        session_destroy();
+    }
+    
+    // Redirect to home
+    header('Location: ' . strtok($_SERVER['REQUEST_URI'], '?'));
+    exit;
+}
+
+/**
+ * User management handler (admin only)
+ */
+if (isset($_POST['user_management'])) {
+    header('Content-Type: application/json');
+    
+    if (!$authEnabled) {
+        echo json_encode(['success' => false, 'message' => 'Authentication is not enabled']);
+        exit;
+    }
+    
+    if (!isAdmin()) {
+        echo json_encode(['success' => false, 'message' => 'Unauthorized: Admin access required']);
+        exit;
+    }
+    
+    $action = isset($_POST['action']) ? (string)$_POST['action'] : '';
+    
+    if ($action === 'list') {
+        // List all users (without passwords)
+        $users = loadUsers();
+        $safeUsers = array_map(function($user) {
+            unset($user['password']);
+            return $user;
+        }, $users);
+        
+        echo json_encode(['success' => true, 'users' => array_values($safeUsers)]);
+        exit;
+    }
+    
+    if ($action === 'create') {
+        $username = isset($_POST['username']) ? trim((string)$_POST['username']) : '';
+        $password = isset($_POST['password']) ? (string)$_POST['password'] : '';
+        $admin = isset($_POST['admin']) && $_POST['admin'] === 'true';
+        $permissions = isset($_POST['permissions']) ? json_decode((string)$_POST['permissions'], true) : [];
+        
+        if (empty($username) || empty($password)) {
+            echo json_encode(['success' => false, 'message' => 'Username and password are required']);
+            exit;
+        }
+        
+        // Validate username (alphanumeric, underscore, dash only)
+        if (!preg_match('/^[a-zA-Z0-9_-]+$/', $username)) {
+            echo json_encode(['success' => false, 'message' => 'Username can only contain letters, numbers, underscores, and dashes']);
+            exit;
+        }
+        
+        $users = loadUsers();
+        
+        // Check if username already exists
+        foreach ($users as $user) {
+            if (isset($user['username']) && $user['username'] === $username) {
+                echo json_encode(['success' => false, 'message' => 'Username already exists']);
+                exit;
+            }
+        }
+        
+        // Create new user
+        $newUser = [
+            'username' => $username,
+            'password' => password_hash($password, PASSWORD_BCRYPT),
+            'admin' => $admin,
+            'permissions' => is_array($permissions) ? $permissions : []
+        ];
+        
+        $users[] = $newUser;
+        
+        if (saveUsers($users)) {
+            echo json_encode(['success' => true, 'message' => 'User created successfully']);
+        } else {
+            echo json_encode(['success' => false, 'message' => 'Failed to save user']);
+        }
+        exit;
+    }
+    
+    if ($action === 'update') {
+        $username = isset($_POST['username']) ? trim((string)$_POST['username']) : '';
+        $password = isset($_POST['password']) ? (string)$_POST['password'] : '';
+        $admin = isset($_POST['admin']) && $_POST['admin'] === 'true';
+        $permissions = isset($_POST['permissions']) ? json_decode((string)$_POST['permissions'], true) : [];
+        
+        if (empty($username)) {
+            echo json_encode(['success' => false, 'message' => 'Username is required']);
+            exit;
+        }
+        
+        $users = loadUsers();
+        $found = false;
+        
+        foreach ($users as $key => $user) {
+            if (isset($user['username']) && $user['username'] === $username) {
+                $users[$key]['admin'] = $admin;
+                $users[$key]['permissions'] = is_array($permissions) ? $permissions : [];
+                
+                // Only update password if provided
+                if (!empty($password)) {
+                    $users[$key]['password'] = password_hash($password, PASSWORD_BCRYPT);
+                }
+                
+                $found = true;
+                break;
+            }
+        }
+        
+        if (!$found) {
+            echo json_encode(['success' => false, 'message' => 'User not found']);
+            exit;
+        }
+        
+        if (saveUsers($users)) {
+            echo json_encode(['success' => true, 'message' => 'User updated successfully']);
+        } else {
+            echo json_encode(['success' => false, 'message' => 'Failed to save user']);
+        }
+        exit;
+    }
+    
+    if ($action === 'delete') {
+        $username = isset($_POST['username']) ? trim((string)$_POST['username']) : '';
+        
+        if (empty($username)) {
+            echo json_encode(['success' => false, 'message' => 'Username is required']);
+            exit;
+        }
+        
+        // Prevent deleting yourself
+        $currentUser = getCurrentUser();
+        if ($currentUser && isset($currentUser['username']) && $currentUser['username'] === $username) {
+            echo json_encode(['success' => false, 'message' => 'Cannot delete your own account']);
+            exit;
+        }
+        
+        $users = loadUsers();
+        $newUsers = [];
+        $found = false;
+        
+        foreach ($users as $user) {
+            if (isset($user['username']) && $user['username'] === $username) {
+                $found = true;
+                continue; // Skip this user (delete)
+            }
+            $newUsers[] = $user;
+        }
+        
+        if (!$found) {
+            echo json_encode(['success' => false, 'message' => 'User not found']);
+            exit;
+        }
+        
+        if (saveUsers($newUsers)) {
+            echo json_encode(['success' => true, 'message' => 'User deleted successfully']);
+        } else {
+            echo json_encode(['success' => false, 'message' => 'Failed to save users']);
+        }
+        exit;
+    }
+    
+    echo json_encode(['success' => false, 'message' => 'Invalid action']);
+    exit;
+}
 
 /**
  * FAST PATH: Secure preview handler (for inline display in browser)
@@ -727,6 +1143,13 @@ if (isset($_GET['preview'])) {
 if (isset($_POST['rename'])) {
     header('Content-Type: application/json');
     
+    // Check permissions
+    if (!hasPermission('rename')) {
+        http_response_code(403);
+        echo json_encode(['success' => false, 'error' => 'Permission denied: rename access required']);
+        exit;
+    }
+    
     // Check if rename is enabled
     if (!$enableRename) {
         http_response_code(403);
@@ -828,6 +1251,13 @@ if (isset($_POST['rename'])) {
 if (isset($_POST['delete'])) {
     header('Content-Type: application/json');
     
+    // Check permissions
+    if (!hasPermission('delete')) {
+        http_response_code(403);
+        echo json_encode(['success' => false, 'error' => 'Permission denied: delete access required']);
+        exit;
+    }
+    
     // Check if delete is enabled
     if (!$enableDelete) {
         http_response_code(403);
@@ -877,6 +1307,13 @@ if (isset($_POST['delete'])) {
  */
 if (isset($_POST['delete_batch'])) {
     header('Content-Type: application/json');
+    
+    // Check permissions
+    if (!hasPermission('delete')) {
+        http_response_code(403);
+        echo json_encode(['success' => false, 'error' => 'Permission denied: delete access required']);
+        exit;
+    }
     
     // Check if delete is enabled
     if (!$enableDelete) {
@@ -951,6 +1388,13 @@ if (isset($_POST['delete_batch'])) {
  */
 if (isset($_POST['upload'])) {
     header('Content-Type: application/json');
+    
+    // Check permissions
+    if (!hasPermission('upload')) {
+        http_response_code(403);
+        echo json_encode(['success' => false, 'error' => 'Permission denied: upload access required']);
+        exit;
+    }
     
     // Check if upload is enabled
     if (!$enableUpload) {
@@ -1144,6 +1588,13 @@ if (isset($_POST['upload'])) {
 if (isset($_POST['create_directory'])) {
     header('Content-Type: application/json');
     
+    // Check permissions
+    if (!hasPermission('create_directory')) {
+        http_response_code(403);
+        echo json_encode(['success' => false, 'error' => 'Permission denied: create directory access required']);
+        exit;
+    }
+    
     // Check if create directory is enabled
     if (!$enableCreateDirectory) {
         http_response_code(403);
@@ -1234,6 +1685,12 @@ if (isset($_POST['create_directory'])) {
  * Secure batch download as zip handler
  */
 if (isset($_GET['download_batch_zip'])) {
+    // Check permissions
+    if (!hasPermission('download')) {
+        http_response_code(403);
+        exit('Permission denied: download access required');
+    }
+    
     // Check if batch download is enabled
     if (!$enableBatchDownload) {
         http_response_code(403);
@@ -1374,6 +1831,12 @@ if (isset($_GET['download_batch_zip'])) {
  * Secure download all as zip handler
  */
 if (isset($_GET['download_all_zip'])) {
+    // Check permissions
+    if (!hasPermission('download')) {
+        http_response_code(403);
+        exit('Permission denied: download access required');
+    }
+    
     // Check if download all is enabled
     if (!$enableDownloadAll) {
         http_response_code(403);
@@ -1468,6 +1931,12 @@ if (isset($_GET['download_all_zip'])) {
  * Secure download handler for individual files
  */
 if (isset($_GET['download'])) {
+    // Check permissions
+    if (!hasPermission('download')) {
+        http_response_code(403);
+        exit('Permission denied: download access required');
+    }
+    
     // Check if individual download is enabled
     if (!$enableIndividualDownload) {
         http_response_code(403);
@@ -1547,6 +2016,9 @@ header('X-Frame-Options: DENY');
 header('Referrer-Policy: no-referrer');
 header('Permissions-Policy: geolocation=(), camera=(), microphone=()');
 header("Content-Security-Policy: default-src 'self'; style-src 'self' https://cdnjs.cloudflare.com 'nonce-{$cspNonce}'; script-src 'self' 'nonce-{$cspNonce}'; img-src 'self' https://img.shields.io data: blob:; font-src https://cdnjs.cloudflare.com; media-src 'self' blob:; object-src 'none'; base-uri 'self'; frame-ancestors 'none'");
+
+// Check if login is required
+$requireLogin = $authEnabled && !isLoggedIn() && !$enableReadOnlyMode;
 
 // Process current path
 $currentPath = isset($_GET['path']) ? rtrim((string)$_GET['path'], '/') : '';
@@ -2394,6 +2866,32 @@ if ($isValidPath) {
         
         .download-all-btn i { 
             font-size: 0.9rem; 
+        }
+        
+        /* ================================================================
+           AUTHENTICATION STYLES
+           ================================================================ */
+        
+        /* Login form button hover */
+        #loginBtn:hover {
+            filter: brightness(1.1);
+            transform: translateY(-1px);
+            box-shadow: 0 6px 16px rgba(0, 0, 0, 0.25);
+        }
+        
+        #loginBtn:active {
+            transform: translateY(0);
+        }
+        
+        /* User management button hover */
+        #userManagementBtn:hover {
+            filter: brightness(1.1);
+            transform: scale(1.05);
+            box-shadow: 0 6px 16px rgba(0, 0, 0, 0.3);
+        }
+        
+        #userManagementBtn:active {
+            transform: scale(0.95);
         }
         
         /* ================================================================
@@ -4220,6 +4718,40 @@ if ($isValidPath) {
 </head>
 
 <body>
+    <?php if ($requireLogin): ?>
+    <!-- Login Form -->
+    <div class="container">
+        <div class="card" style="max-width: 450px; margin: 100px auto;">
+            <div class="header-container">
+                <div class="header-left">
+                    <h1><?php echo htmlspecialchars($title); ?></h1>
+                    <div class="subtitle">Authentication Required</div>
+                </div>
+            </div>
+            <div style="padding: 30px;">
+                <form id="loginForm" style="display: flex; flex-direction: column; gap: 20px;">
+                    <div>
+                        <label for="username" style="display: block; margin-bottom: 8px; font-weight: 500; color: var(--text);">Username</label>
+                        <input type="text" id="username" name="username" required 
+                               style="width: 100%; padding: 12px; border: 1px solid var(--border); border-radius: 8px; background: var(--surface); color: var(--text); font-size: 14px; box-sizing: border-box;"
+                               autocomplete="username">
+                    </div>
+                    <div>
+                        <label for="password" style="display: block; margin-bottom: 8px; font-weight: 500; color: var(--text);">Password</label>
+                        <input type="password" id="password" name="password" required 
+                               style="width: 100%; padding: 12px; border: 1px solid var(--border); border-radius: 8px; background: var(--surface); color: var(--text); font-size: 14px; box-sizing: border-box;"
+                               autocomplete="current-password">
+                    </div>
+                    <div id="loginError" style="display: none; color: #ef4444; background: #fee; padding: 12px; border-radius: 8px; font-size: 14px;"></div>
+                    <button type="submit" id="loginBtn" 
+                            style="width: 100%; padding: 14px; background: linear-gradient(135deg, var(--accent) 0%, var(--accent-hover) 100%); color: white; border: none; border-radius: 8px; font-size: 16px; font-weight: 600; cursor: pointer; transition: all 0.3s ease;">
+                        Login
+                    </button>
+                </form>
+            </div>
+        </div>
+    </div>
+    <?php else: ?>
     <div class="container">
         <div class="card">
             <div class="header-container">
@@ -4227,7 +4759,17 @@ if ($isValidPath) {
                     <h1><?php echo htmlspecialchars($title); ?></h1>
                     <?php if (!empty($subtitle)): ?><div class="subtitle"><?php echo htmlspecialchars($subtitle); ?></div><?php endif; ?>
                 </div>
-                <?php if ($enablePaginationAmountSelector): ?>
+                <?php if ($authEnabled && isLoggedIn() && isset($_SESSION['user'])): ?>
+                <div class="header-right" style="display: flex; align-items: center; gap: 15px;">
+                    <div style="font-size: 14px; color: var(--muted);">
+                        Logged in as <strong style="color: var(--text);"><?php echo htmlspecialchars($_SESSION['user']['username']); ?></strong>
+                        <?php if (isAdmin()): ?>
+                        <span style="background: var(--accent); color: white; padding: 2px 8px; border-radius: 4px; font-size: 11px; margin-left: 5px;">ADMIN</span>
+                        <?php endif; ?>
+                    </div>
+                    <a href="?logout=1" style="padding: 6px 12px; background: var(--surface); color: var(--text); text-decoration: none; border-radius: 6px; font-size: 13px; border: 1px solid var(--border);">Logout</a>
+                </div>
+                <?php elseif ($enablePaginationAmountSelector): ?>
                 <div class="header-right">
                     <div class="pagination-amount-selector">
                         <label for="paginationAmount">Items per page:</label>
@@ -4722,6 +5264,77 @@ if ($isValidPath) {
 
     <!-- Toast Notification Container -->
     <div class="toast-container" id="toastContainer" aria-live="polite" aria-atomic="true"></div>
+
+    <?php if (isAdmin()): ?>
+    <!-- User Management Modal -->
+    <div class="rename-modal" id="userManagementModal" role="dialog" aria-labelledby="userManagementModalTitle" aria-modal="true">
+        <div class="rename-modal-content" style="max-width: 700px; max-height: 80vh; overflow-y: auto;">
+            <h2 class="rename-modal-title" id="userManagementModalTitle">User Management</h2>
+            <div class="rename-modal-error" id="userManagementError"></div>
+            
+            <!-- User List -->
+            <div id="userListContainer" style="margin-bottom: 20px;">
+                <h3 style="margin-bottom: 10px; font-size: 16px; color: var(--text);">Existing Users</h3>
+                <div id="userList" style="border: 1px solid var(--border); border-radius: 8px; overflow: hidden;"></div>
+            </div>
+            
+            <!-- Add/Edit User Form -->
+            <div style="border-top: 1px solid var(--border); padding-top: 20px;">
+                <h3 style="margin-bottom: 10px; font-size: 16px; color: var(--text);" id="userFormTitle">Add New User</h3>
+                <form id="userForm" style="display: flex; flex-direction: column; gap: 15px;">
+                    <input type="hidden" id="userFormAction" value="create">
+                    <div>
+                        <label style="display: block; margin-bottom: 5px; font-weight: 500; color: var(--text);">Username</label>
+                        <input type="text" id="userFormUsername" required style="width: 100%; padding: 8px; border: 1px solid var(--border); border-radius: 6px; background: var(--surface); color: var(--text); box-sizing: border-box;">
+                    </div>
+                    <div>
+                        <label style="display: block; margin-bottom: 5px; font-weight: 500; color: var(--text);">Password <span id="passwordHint" style="font-weight: normal; font-size: 12px; color: var(--muted);">(leave blank to keep current)</span></label>
+                        <input type="password" id="userFormPassword" style="width: 100%; padding: 8px; border: 1px solid var(--border); border-radius: 6px; background: var(--surface); color: var(--text); box-sizing: border-box;">
+                    </div>
+                    <div>
+                        <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
+                            <input type="checkbox" id="userFormAdmin" style="width: 18px; height: 18px; cursor: pointer;">
+                            <span style="font-weight: 500; color: var(--text);">Administrator</span>
+                        </label>
+                    </div>
+                    <div>
+                        <label style="display: block; margin-bottom: 5px; font-weight: 500; color: var(--text);">Permissions</label>
+                        <div style="display: flex; flex-wrap: wrap; gap: 10px; padding: 10px; background: var(--surface); border: 1px solid var(--border); border-radius: 6px;">
+                            <label style="display: flex; align-items: center; gap: 5px; font-size: 13px; cursor: pointer;">
+                                <input type="checkbox" class="permission-checkbox" value="view" style="cursor: pointer;"> View
+                            </label>
+                            <label style="display: flex; align-items: center; gap: 5px; font-size: 13px; cursor: pointer;">
+                                <input type="checkbox" class="permission-checkbox" value="download" style="cursor: pointer;"> Download
+                            </label>
+                            <label style="display: flex; align-items: center; gap: 5px; font-size: 13px; cursor: pointer;">
+                                <input type="checkbox" class="permission-checkbox" value="upload" style="cursor: pointer;"> Upload
+                            </label>
+                            <label style="display: flex; align-items: center; gap: 5px; font-size: 13px; cursor: pointer;">
+                                <input type="checkbox" class="permission-checkbox" value="delete" style="cursor: pointer;"> Delete
+                            </label>
+                            <label style="display: flex; align-items: center; gap: 5px; font-size: 13px; cursor: pointer;">
+                                <input type="checkbox" class="permission-checkbox" value="rename" style="cursor: pointer;"> Rename
+                            </label>
+                            <label style="display: flex; align-items: center; gap: 5px; font-size: 13px; cursor: pointer;">
+                                <input type="checkbox" class="permission-checkbox" value="create_directory" style="cursor: pointer;"> Create Directory
+                            </label>
+                        </div>
+                    </div>
+                    <div class="rename-modal-buttons">
+                        <button type="button" class="rename-modal-btn rename-modal-btn-cancel" id="userFormCancel">Cancel</button>
+                        <button type="submit" class="rename-modal-btn rename-modal-btn-confirm" id="userFormSubmit">Save User</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+    
+    <!-- User Management Button (floating) -->
+    <button id="userManagementBtn" title="User Management" style="position: fixed; bottom: 80px; right: 20px; width: 50px; height: 50px; border-radius: 50%; background: linear-gradient(135deg, var(--accent) 0%, var(--accent-hover) 100%); color: white; border: none; box-shadow: 0 4px 12px rgba(0,0,0,0.2); cursor: pointer; display: flex; align-items: center; justify-content: center; font-size: 20px; z-index: 999; transition: all 0.3s ease;">
+        <i class="fa-solid fa-users"></i>
+    </button>
+    <?php endif; ?>
+    <?php endif; // Close the else for requireLogin ?>
 
     <script nonce="<?php echo htmlspecialchars($cspNonce, ENT_QUOTES, 'UTF-8'); ?>">
         (function() {
@@ -6932,6 +7545,286 @@ if ($isValidPath) {
                     }
                 });
             })();
+            
+            // ================================================================
+            // LOGIN FUNCTIONALITY
+            // ================================================================
+            <?php if ($requireLogin): ?>
+            (function() {
+                const loginForm = document.getElementById('loginForm');
+                const loginBtn = document.getElementById('loginBtn');
+                const loginError = document.getElementById('loginError');
+                
+                if (!loginForm) return;
+                
+                loginForm.addEventListener('submit', async function(e) {
+                    e.preventDefault();
+                    
+                    const username = document.getElementById('username').value;
+                    const password = document.getElementById('password').value;
+                    
+                    loginBtn.disabled = true;
+                    loginBtn.textContent = 'Logging in...';
+                    loginError.style.display = 'none';
+                    
+                    try {
+                        const formData = new FormData();
+                        formData.append('login', '1');
+                        formData.append('username', username);
+                        formData.append('password', password);
+                        
+                        const response = await fetch('', {
+                            method: 'POST',
+                            body: formData
+                        });
+                        
+                        const data = await response.json();
+                        
+                        if (data.success) {
+                            window.location.reload();
+                        } else {
+                            loginError.textContent = data.message || 'Login failed';
+                            loginError.style.display = 'block';
+                            loginBtn.disabled = false;
+                            loginBtn.textContent = 'Login';
+                        }
+                    } catch (err) {
+                        loginError.textContent = 'An error occurred. Please try again.';
+                        loginError.style.display = 'block';
+                        loginBtn.disabled = false;
+                        loginBtn.textContent = 'Login';
+                    }
+                });
+            })();
+            <?php endif; ?>
+            
+            // ================================================================
+            // USER MANAGEMENT FUNCTIONALITY
+            // ================================================================
+            <?php if (isAdmin()): ?>
+            (function() {
+                const userManagementBtn = document.getElementById('userManagementBtn');
+                const userManagementModal = document.getElementById('userManagementModal');
+                const userForm = document.getElementById('userForm');
+                const userFormCancel = document.getElementById('userFormCancel');
+                const userManagementError = document.getElementById('userManagementError');
+                const userList = document.getElementById('userList');
+                
+                if (!userManagementBtn || !userManagementModal) return;
+                
+                // Show modal
+                userManagementBtn.addEventListener('click', function() {
+                    userManagementModal.classList.add('show');
+                    loadUsers();
+                });
+                
+                // Close modal
+                userFormCancel.addEventListener('click', function() {
+                    userManagementModal.classList.remove('show');
+                    resetForm();
+                });
+                
+                // Click outside to close
+                userManagementModal.addEventListener('click', function(e) {
+                    if (e.target === userManagementModal) {
+                        userManagementModal.classList.remove('show');
+                        resetForm();
+                    }
+                });
+                
+                // Load users list
+                async function loadUsers() {
+                    try {
+                        const formData = new FormData();
+                        formData.append('user_management', '1');
+                        formData.append('action', 'list');
+                        
+                        const response = await fetch('', {
+                            method: 'POST',
+                            body: formData
+                        });
+                        
+                        const data = await response.json();
+                        
+                        if (data.success && data.users) {
+                            renderUserList(data.users);
+                        } else {
+                            showUserError(data.message || 'Failed to load users');
+                        }
+                    } catch (err) {
+                        showUserError('Failed to load users');
+                    }
+                }
+                
+                // Render user list
+                function renderUserList(users) {
+                    if (!users || users.length === 0) {
+                        userList.innerHTML = '<div style="padding: 15px; text-align: center; color: var(--muted);">No users found</div>';
+                        return;
+                    }
+                    
+                    let html = '';
+                    users.forEach(user => {
+                        const permissionsStr = user.permissions && user.permissions.length > 0 
+                            ? user.permissions.join(', ') 
+                            : 'None';
+                        html += `
+                            <div style="display: flex; justify-content: space-between; align-items: center; padding: 12px 15px; border-bottom: 1px solid var(--border); background: var(--surface);">
+                                <div>
+                                    <strong style="color: var(--text);">${escapeHtml(user.username)}</strong>
+                                    ${user.admin ? '<span style="background: var(--accent); color: white; padding: 2px 6px; border-radius: 3px; font-size: 10px; margin-left: 8px;">ADMIN</span>' : ''}
+                                    <div style="font-size: 12px; color: var(--muted); margin-top: 4px;">Permissions: ${escapeHtml(permissionsStr)}</div>
+                                </div>
+                                <div style="display: flex; gap: 8px;">
+                                    <button onclick="editUser('${escapeHtml(user.username)}', ${user.admin}, ${JSON.stringify(user.permissions || [])})" style="padding: 6px 12px; background: var(--accent); color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 12px;">Edit</button>
+                                    <button onclick="deleteUser('${escapeHtml(user.username)}')" style="padding: 6px 12px; background: #ef4444; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 12px;">Delete</button>
+                                </div>
+                            </div>
+                        `;
+                    });
+                    userList.innerHTML = html;
+                }
+                
+                // Edit user
+                window.editUser = function(username, isAdmin, permissions) {
+                    document.getElementById('userFormAction').value = 'update';
+                    document.getElementById('userFormTitle').textContent = 'Edit User';
+                    document.getElementById('userFormUsername').value = username;
+                    document.getElementById('userFormUsername').readOnly = true;
+                    document.getElementById('userFormPassword').required = false;
+                    document.getElementById('passwordHint').style.display = 'inline';
+                    document.getElementById('userFormAdmin').checked = isAdmin;
+                    
+                    // Set permissions
+                    document.querySelectorAll('.permission-checkbox').forEach(cb => {
+                        cb.checked = permissions.includes(cb.value);
+                    });
+                    
+                    document.getElementById('userFormSubmit').textContent = 'Update User';
+                };
+                
+                // Delete user
+                window.deleteUser = async function(username) {
+                    if (!confirm(`Are you sure you want to delete user "${username}"?`)) {
+                        return;
+                    }
+                    
+                    try {
+                        const formData = new FormData();
+                        formData.append('user_management', '1');
+                        formData.append('action', 'delete');
+                        formData.append('username', username);
+                        
+                        const response = await fetch('', {
+                            method: 'POST',
+                            body: formData
+                        });
+                        
+                        const data = await response.json();
+                        
+                        if (data.success) {
+                            loadUsers();
+                            resetForm();
+                        } else {
+                            showUserError(data.message || 'Failed to delete user');
+                        }
+                    } catch (err) {
+                        showUserError('Failed to delete user');
+                    }
+                };
+                
+                // Submit form
+                userForm.addEventListener('submit', async function(e) {
+                    e.preventDefault();
+                    
+                    const action = document.getElementById('userFormAction').value;
+                    const username = document.getElementById('userFormUsername').value;
+                    const password = document.getElementById('userFormPassword').value;
+                    const isAdmin = document.getElementById('userFormAdmin').checked;
+                    
+                    // Get selected permissions
+                    const permissions = Array.from(document.querySelectorAll('.permission-checkbox:checked'))
+                        .map(cb => cb.value);
+                    
+                    // Validate
+                    if (!username) {
+                        showUserError('Username is required');
+                        return;
+                    }
+                    
+                    if (action === 'create' && !password) {
+                        showUserError('Password is required for new users');
+                        return;
+                    }
+                    
+                    try {
+                        const formData = new FormData();
+                        formData.append('user_management', '1');
+                        formData.append('action', action);
+                        formData.append('username', username);
+                        if (password) {
+                            formData.append('password', password);
+                        }
+                        formData.append('admin', isAdmin ? 'true' : 'false');
+                        formData.append('permissions', JSON.stringify(permissions));
+                        
+                        const response = await fetch('', {
+                            method: 'POST',
+                            body: formData
+                        });
+                        
+                        const data = await response.json();
+                        
+                        if (data.success) {
+                            loadUsers();
+                            resetForm();
+                            showUserError(data.message || 'User saved successfully', 'success');
+                        } else {
+                            showUserError(data.message || 'Failed to save user');
+                        }
+                    } catch (err) {
+                        showUserError('Failed to save user');
+                    }
+                });
+                
+                // Reset form
+                function resetForm() {
+                    document.getElementById('userFormAction').value = 'create';
+                    document.getElementById('userFormTitle').textContent = 'Add New User';
+                    document.getElementById('userFormUsername').value = '';
+                    document.getElementById('userFormUsername').readOnly = false;
+                    document.getElementById('userFormPassword').value = '';
+                    document.getElementById('userFormPassword').required = true;
+                    document.getElementById('passwordHint').style.display = 'none';
+                    document.getElementById('userFormAdmin').checked = false;
+                    document.querySelectorAll('.permission-checkbox').forEach(cb => {
+                        cb.checked = false;
+                    });
+                    document.getElementById('userFormSubmit').textContent = 'Save User';
+                    userManagementError.style.display = 'none';
+                }
+                
+                // Show error
+                function showUserError(message, type = 'error') {
+                    userManagementError.textContent = message;
+                    userManagementError.style.display = 'block';
+                    userManagementError.style.background = type === 'success' ? '#d1fae5' : '#fee';
+                    userManagementError.style.color = type === 'success' ? '#065f46' : '#ef4444';
+                    setTimeout(() => {
+                        if (type === 'success') {
+                            userManagementError.style.display = 'none';
+                        }
+                    }, 3000);
+                }
+                
+                // HTML escape utility
+                function escapeHtml(text) {
+                    const div = document.createElement('div');
+                    div.textContent = text;
+                    return div.innerHTML;
+                }
+            })();
+            <?php endif; ?>
         })();
     </script>
 </body>
