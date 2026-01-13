@@ -105,7 +105,7 @@ define('RESERVED_NAMES', [
 function getPreviewableFileTypes(): array {
     return [
         'image' => ['jpg', 'jpeg', 'png', 'gif', 'webp', 'svg', 'bmp', 'ico'],
-        'video' => ['mp4', 'webm', 'ogv'],
+        'video' => ['mp4', 'webm', 'ogv', 'mpg', 'mpeg'],
         'audio' => ['mp3', 'wav', 'ogg', 'm4a', 'flac', 'aac'],
     ];
 }
@@ -138,6 +138,8 @@ function getPreviewMimeType(string $ext): ?string {
         'mp4' => 'video/mp4',
         'webm' => 'video/webm',
         'ogv' => 'video/ogg',
+        'mpg' => 'video/mpeg',
+        'mpeg' => 'video/mpeg',
         // Audio
         'mp3' => 'audio/mpeg',
         'wav' => 'audio/wav',
@@ -229,6 +231,8 @@ function getFileIcon(string $path): array {
         'mkv' => ['fa-regular fa-file-video', 'icon-video'],
         'webm' => ['fa-regular fa-file-video', 'icon-video'],
         'ogv' => ['fa-regular fa-file-video', 'icon-video'],
+        'mpg' => ['fa-regular fa-file-video', 'icon-video'],
+        'mpeg' => ['fa-regular fa-file-video', 'icon-video'],
         
         // Code and markup formats
         'html' => ['fa-regular fa-file-code', 'icon-html'],
@@ -626,6 +630,8 @@ if (isset($_GET['preview'])) {
         'mp4' => 'video/mp4',
         'webm' => 'video/webm',
         'ogv' => 'video/ogg',
+        'mpg' => 'video/mpeg',
+        'mpeg' => 'video/mpeg',
         // Audio
         'mp3' => 'audio/mpeg',
         'wav' => 'audio/wav',
