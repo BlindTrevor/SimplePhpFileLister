@@ -938,12 +938,15 @@ if (isset($_POST['login'])) {
             }
         }
         
+        // Make absolutely sure we're sending proper headers
+        header('Content-Type: application/json');
         echo json_encode([
             'success' => true, 
             'message' => 'Login successful',
             'requirePasswordChange' => $requiresPasswordChange
         ]);
     } else {
+        header('Content-Type: application/json');
         echo json_encode(['success' => false, 'message' => 'Invalid username or password']);
     }
     exit;
@@ -8350,8 +8353,11 @@ if ($isValidPath) {
                                 // Show password change modal instead of reloading
                                 showPasswordChangeModal();
                             } else {
-                                // Force immediate navigation with fresh request - replace doesn't add to history
-                                window.location.replace(window.location.href);
+                                // Small delay to ensure session is fully saved before reload
+                                setTimeout(() => {
+                                    // Force immediate navigation with fresh request
+                                    window.location.replace(window.location.href);
+                                }, 100);
                             }
                         } else {
                             loginError.textContent = data.message || 'Login failed';
