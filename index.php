@@ -1241,8 +1241,8 @@ if (isset($_POST['rename'])) {
         exit;
     }
     
-    // Check if rename is enabled
-    if (!$enableRename) {
+    // Check if rename is enabled (admins can bypass this when auth is enabled)
+    if (!$enableRename && !($authEnabled && isAdmin())) {
         http_response_code(403);
         echo json_encode(['success' => false, 'error' => 'Rename functionality is disabled']);
         exit;
@@ -1349,8 +1349,8 @@ if (isset($_POST['delete'])) {
         exit;
     }
     
-    // Check if delete is enabled
-    if (!$enableDelete) {
+    // Check if delete is enabled (admins can bypass this when auth is enabled)
+    if (!$enableDelete && !($authEnabled && isAdmin())) {
         http_response_code(403);
         echo json_encode(['success' => false, 'error' => 'Delete functionality is disabled']);
         exit;
@@ -1406,8 +1406,8 @@ if (isset($_POST['delete_batch'])) {
         exit;
     }
     
-    // Check if delete is enabled
-    if (!$enableDelete) {
+    // Check if delete is enabled (admins can bypass this when auth is enabled)
+    if (!$enableDelete && !($authEnabled && isAdmin())) {
         http_response_code(403);
         echo json_encode(['success' => false, 'error' => 'Delete functionality is disabled']);
         exit;
@@ -1487,8 +1487,8 @@ if (isset($_POST['upload'])) {
         exit;
     }
     
-    // Check if upload is enabled
-    if (!$enableUpload) {
+    // Check if upload is enabled (admins can bypass this when auth is enabled)
+    if (!$enableUpload && !($authEnabled && isAdmin())) {
         http_response_code(403);
         echo json_encode(['success' => false, 'error' => 'Upload functionality is disabled']);
         exit;
@@ -1686,8 +1686,8 @@ if (isset($_POST['create_directory'])) {
         exit;
     }
     
-    // Check if create directory is enabled
-    if (!$enableCreateDirectory) {
+    // Check if create directory is enabled (admins can bypass this when auth is enabled)
+    if (!$enableCreateDirectory && !($authEnabled && isAdmin())) {
         http_response_code(403);
         echo json_encode(['success' => false, 'error' => 'Create directory functionality is disabled']);
         exit;
@@ -4996,10 +4996,11 @@ if ($isValidPath) {
                     $itemsToDisplay = array_slice($allItems, $offset, $itemsPerPage);
 
                     // Check user permissions for UI elements
-                    $canRename = $enableRename && hasPermission('rename');
-                    $canDelete = $enableDelete && hasPermission('delete');
-                    $canDownload = $enableIndividualDownload && hasPermission('download');
-                    $canShowCheckbox = ($enableBatchDownload && hasPermission('download')) || ($enableDelete && hasPermission('delete'));
+                    // Admins can bypass global feature toggles when auth is enabled
+                    $canRename = ($enableRename || ($authEnabled && isAdmin())) && hasPermission('rename');
+                    $canDelete = ($enableDelete || ($authEnabled && isAdmin())) && hasPermission('delete');
+                    $canDownload = ($enableIndividualDownload || ($authEnabled && isAdmin())) && hasPermission('download');
+                    $canShowCheckbox = (($enableBatchDownload || ($authEnabled && isAdmin())) && hasPermission('download')) || (($enableDelete || ($authEnabled && isAdmin())) && hasPermission('delete'));
 
                     foreach ($itemsToDisplay as $item) {
                         if ($item['type'] === 'dir') {
@@ -5115,8 +5116,8 @@ if ($isValidPath) {
                 
                 // Determine if stats container should be displayed
                 $hasStatsToShow = !empty($statsHtml);
-                $hasBatchActions = isset($hasItemsToSelect) && $hasItemsToSelect && (($enableBatchDownload && hasPermission('download')) || ($enableDelete && hasPermission('delete')));
-                $hasDownloadAll = $enableDownloadAll && hasPermission('download') && hasDownloadableContent($basePath, $realRoot, $includeHiddenFiles);
+                $hasBatchActions = isset($hasItemsToSelect) && $hasItemsToSelect && ((($enableBatchDownload || ($authEnabled && isAdmin())) && hasPermission('download')) || (($enableDelete || ($authEnabled && isAdmin())) && hasPermission('delete')));
+                $hasDownloadAll = ($enableDownloadAll || ($authEnabled && isAdmin())) && hasPermission('download') && hasDownloadableContent($basePath, $realRoot, $includeHiddenFiles);
                 $showStatsContainer = $hasStatsToShow || $hasBatchActions || $hasDownloadAll;
                 
                 if ($showStatsContainer) {
@@ -5129,7 +5130,7 @@ if ($isValidPath) {
                     }
                     
                     // Multi-select checkbox (when items are available and batch download or delete is enabled)
-                    if (isset($hasItemsToSelect) && $hasItemsToSelect && ($enableBatchDownload || $enableDelete)) {
+                    if (isset($hasItemsToSelect) && $hasItemsToSelect && (($enableBatchDownload || ($authEnabled && isAdmin())) || ($enableDelete || ($authEnabled && isAdmin())))) {
                         // Build list of all items (for select all across pagination)
                         $allItemsData = [];
                         foreach ($allItems as $item) {
@@ -5161,19 +5162,19 @@ if ($isValidPath) {
                     echo '<div class="batch-actions-container">';
                     
                     // Selection count display as first element in button group (when items are available and batch download or delete is enabled)
-                    if (isset($hasItemsToSelect) && $hasItemsToSelect && (($enableBatchDownload && hasPermission('download')) || ($enableDelete && hasPermission('delete')))) {
+                    if (isset($hasItemsToSelect) && $hasItemsToSelect && ((($enableBatchDownload || ($authEnabled && isAdmin())) && hasPermission('download')) || (($enableDelete || ($authEnabled && isAdmin())) && hasPermission('delete')))) {
                         echo '<span class="selected-count batch-btn-hidden" id="selectedCount">0 selected</span>';
                     }
                     
                     // Batch download button (hidden by default, shown when items selected)
-                    if (isset($hasItemsToSelect) && $hasItemsToSelect && $enableBatchDownload && hasPermission('download')) {
+                    if (isset($hasItemsToSelect) && $hasItemsToSelect && ($enableBatchDownload || ($authEnabled && isAdmin())) && hasPermission('download')) {
                         echo '<button class="batch-download-btn batch-btn-hidden" id="batchDownloadBtn" title="Download selected as ZIP">';
                         echo '<i class="fa-solid fa-download"></i> Download Selected';
                         echo '</button>';
                     }
                     
                     // Batch delete button (hidden by default, shown when items selected)
-                    if (isset($hasItemsToSelect) && $hasItemsToSelect && $enableDelete && hasPermission('delete')) {
+                    if (isset($hasItemsToSelect) && $hasItemsToSelect && ($enableDelete || ($authEnabled && isAdmin())) && hasPermission('delete')) {
                         echo '<button class="batch-delete-btn batch-btn-hidden" id="batchDeleteBtn" title="Delete selected items">';
                         echo '<i class="fa-solid fa-trash"></i> Delete Selected';
                         echo '</button>';
@@ -5193,16 +5194,16 @@ if ($isValidPath) {
                         echo '</a>';
                     }
                     
-                    // Show upload button if enabled and user has permission
-                    if ($enableUpload && hasPermission('upload')) {
+                    // Show upload button if enabled and user has permission (admins can bypass toggle when auth is enabled)
+                    if (($enableUpload || ($authEnabled && isAdmin())) && hasPermission('upload')) {
                         echo '<button class="upload-btn" id="uploadBtn" title="Upload files">';
                         echo '<i class="fa-solid fa-upload"></i>';
                         echo 'Upload Files';
                         echo '</button>';
                     }
                     
-                    // Show create directory button if enabled and user has permission
-                    if ($enableCreateDirectory && hasPermission('create_directory')) {
+                    // Show create directory button if enabled and user has permission (admins can bypass toggle when auth is enabled)
+                    if (($enableCreateDirectory || ($authEnabled && isAdmin())) && hasPermission('create_directory')) {
                         echo '<button class="create-dir-btn" id="createDirBtn" title="Create new folder">';
                         echo '<i class="fa-solid fa-folder-plus"></i>';
                         echo 'New Folder';
