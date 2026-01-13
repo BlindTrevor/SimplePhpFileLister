@@ -2418,7 +2418,7 @@ if ($isValidPath) {
         /* Add top margin to container when auth bar is present */
         <?php if ($authEnabled && isAuthenticated()): ?>
         .container {
-            margin-top: 20px;
+            margin-top: 32px;
         }
         <?php endif; ?>
         
@@ -3099,7 +3099,11 @@ if ($isValidPath) {
         /* Authentication Bar - Docked at top */
         .auth-bar {
             background: linear-gradient(135deg, var(--accent) 0%, var(--accent-hover) 100%);
-            border-bottom: 1px solid rgba(0, 0, 0, 0.1);
+            border-left: 1px solid var(--border);
+            border-right: 1px solid var(--border);
+            border-bottom: 1px solid var(--border);
+            border-bottom-left-radius: 12px;
+            border-bottom-right-radius: 12px;
             box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
             position: sticky;
             top: 0;
@@ -3286,7 +3290,7 @@ if ($isValidPath) {
             }
             
             .container {
-                margin-top: 12px;
+                margin-top: 20px;
             }
             <?php endif; ?>
             
@@ -3473,7 +3477,7 @@ if ($isValidPath) {
             }
             
             .container {
-                margin-top: 16px;
+                margin-top: 24px;
             }
             <?php endif; ?>
             
@@ -3533,11 +3537,9 @@ if ($isValidPath) {
             }
             
             .container {
-                margin-top: 24px;
+                margin-top: 28px;
             }
             <?php endif; ?>
-                padding: 24px 20px;
-            }
             
             .card {
                 padding: 28px 24px;
