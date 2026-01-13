@@ -4683,7 +4683,6 @@ if ($isValidPath) {
                 const toast = document.createElement('div');
                 toast.className = `toast ${type}`;
                 toast.setAttribute('role', 'alert');
-                toast.setAttribute('aria-live', 'assertive');
                 toast.id = `toast-${toastIdCounter++}`;
 
                 // Determine icon based on type
@@ -4735,7 +4734,7 @@ if ($isValidPath) {
                 
                 setTimeout(() => {
                     if (toast.parentElement) {
-                        toast.parentElement.removeChild(toast);
+                        toast.remove();
                     }
                 }, 300);
             }
