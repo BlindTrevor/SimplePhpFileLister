@@ -7,6 +7,7 @@ A lightweight, zero-configuration PHP directory lister with a modern interface. 
 ## Features
 
 - ✅ **Zero configuration** — works immediately
+- 🔐 **Optional authentication** — user management with per-user permissions (NEW in v2.0)
 - 📁 **Directory navigation** with breadcrumbs and pagination
 - ☑️ **Multi-select** — batch download or delete multiple files
 - 🔒 **Security-hardened** — protects against path traversal and code execution
@@ -84,10 +85,99 @@ $showFolderFileCount = true;        // Display folder/file counts
 **Blocked Extensions:**
 Edit the `BLOCKED_EXTENSIONS` constant to control which file types are hidden and blocked from download/upload (e.g., `.php`, `.exe`, `.sh`).
 
+## Authentication (NEW in v2.0)
+
+SimplePhpFileLister now supports optional user authentication with per-user permissions. The system operates in **standalone mode by default**—authentication is only enabled when a users file is present.
+
+### Enabling Authentication
+
+1. Create a file named `SPFL-Users` in the same directory as `index.php`
+2. The file should contain JSON with user definitions (see example below)
+3. When the file exists, login will be required to access the file lister
+
+### Users File Format
+
+Create `SPFL-Users` with the following JSON structure:
+
+```json
+{
+  "users": [
+    {
+      "username": "admin",
+      "password": "$2y$10$...", 
+      "admin": true,
+      "permissions": []
+    },
+    {
+      "username": "viewer",
+      "password": "$2y$10$...",
+      "admin": false,
+      "permissions": ["view", "download"]
+    },
+    {
+      "username": "editor",
+      "password": "$2y$10$...",
+      "admin": false,
+      "permissions": ["view", "download", "upload", "rename", "delete", "create_directory"]
+    }
+  ]
+}
+```
+
+**Password Hashing:** Passwords must be bcrypt hashes. Generate them with:
+```php
+php -r "echo password_hash('your_password', PASSWORD_BCRYPT);"
+```
+
+**Available Permissions:**
+- `view` — View file listings
+- `download` — Download files
+- `upload` — Upload files
+- `delete` — Delete files and directories
+- `rename` — Rename files and directories
+- `create_directory` — Create new directories
+
+**Admin Users:** Users with `"admin": true` have all permissions and can manage other users through the UI.
+
+### Authentication Settings
+
+Configure authentication in `index.php`:
+
+```php
+$usersFilePath = './SPFL-Users';      // Path to users file
+$sessionTimeout = 3600;                // Session timeout in seconds (1 hour)
+$enableReadOnlyMode = false;           // Allow unauthenticated users to view files read-only
+```
+
+### Read-Only Mode
+
+Enable `$enableReadOnlyMode = true` to allow unauthenticated users to view and download files without logging in, while restricting modification operations (upload, delete, rename) to authenticated users only.
+
+### User Management
+
+Admin users can manage users through the **User Management** button (floating button in the bottom-right corner):
+- Add new users with custom permissions
+- Edit existing users (change permissions, reset passwords)
+- Delete users (cannot delete yourself)
+
+### Security Notes
+
+- **Session Security:** Uses secure session settings (httponly, secure cookies when HTTPS, SameSite strict)
+- **Password Security:** Passwords are stored as bcrypt hashes (never plain text)
+- **Session Timeout:** Configurable automatic logout after inactivity
+- **Permission Enforcement:** All actions verify user permissions server-side
+- **Admin Protection:** Cannot delete your own admin account
+
+### Disabling Authentication
+
+To disable authentication, simply remove or rename the `SPFL-Users` file. The application will immediately return to standalone mode with all features accessible.
+
 ## Security
 
 SimplePhpFileLister prioritizes security:
 
+- **Optional Authentication** — User login with bcrypt password hashing and per-user permissions
+- **Session Security** — Secure session settings, automatic timeout, session regeneration
 - **Path Traversal Protection** — Uses `realpath()` validation, prevents `../` attacks
 - **Code Execution Prevention** — Blocks dangerous file extensions (`.php`, `.exe`, `.sh`, etc.)
 - **Input Sanitization** — All user inputs escaped with `htmlspecialchars()`
@@ -138,7 +228,7 @@ Users can switch themes via the floating palette icon (when `$allowThemeChange =
 
 ## Notes
 
-- No built-in authentication—use web server auth (`.htaccess`, HTTP Basic Auth)
+- Built-in authentication available (optional, v2.0+)—alternatively use web server auth (`.htaccess`, HTTP Basic Auth)
 - Hover previews work on desktop only (disabled on touch devices)
 - Delete operations are permanent—no trash/recycle bin
 - Upload requires proper PHP configuration (`upload_max_filesize`, `post_max_size`)
