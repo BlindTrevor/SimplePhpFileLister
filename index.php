@@ -3389,6 +3389,129 @@ if ($isValidPath) {
         }
         
         /* ================================================================
+           TOAST NOTIFICATION SYSTEM
+           ================================================================ */
+        .toast-container {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            z-index: 10001;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            pointer-events: none;
+        }
+        
+        .toast {
+            min-width: 300px;
+            max-width: 500px;
+            padding: 16px 20px;
+            background: white;
+            border-radius: 10px;
+            box-shadow: 0 6px 24px rgba(0, 0, 0, 0.15);
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            opacity: 0;
+            transform: translateX(400px);
+            transition: all 0.3s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+            pointer-events: all;
+            border-left: 4px solid;
+        }
+        
+        .toast.active {
+            opacity: 1;
+            transform: translateX(0);
+        }
+        
+        .toast.removing {
+            opacity: 0;
+            transform: translateX(400px);
+        }
+        
+        .toast-icon {
+            font-size: 1.5rem;
+            flex-shrink: 0;
+        }
+        
+        .toast-message {
+            flex: 1;
+            color: #333;
+            font-size: 0.95rem;
+            line-height: 1.4;
+            word-wrap: break-word;
+            white-space: pre-line;
+        }
+        
+        .toast-close {
+            background: none;
+            border: none;
+            cursor: pointer;
+            color: #999;
+            font-size: 1.2rem;
+            padding: 0;
+            width: 24px;
+            height: 24px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: color 0.2s;
+            flex-shrink: 0;
+        }
+        
+        .toast-close:hover {
+            color: #666;
+        }
+        
+        /* Toast types */
+        .toast.error {
+            border-left-color: #e74c3c;
+        }
+        
+        .toast.error .toast-icon {
+            color: #e74c3c;
+        }
+        
+        .toast.success {
+            border-left-color: #27ae60;
+        }
+        
+        .toast.success .toast-icon {
+            color: #27ae60;
+        }
+        
+        .toast.info {
+            border-left-color: #3498db;
+        }
+        
+        .toast.info .toast-icon {
+            color: #3498db;
+        }
+        
+        .toast.warning {
+            border-left-color: #f39c12;
+        }
+        
+        .toast.warning .toast-icon {
+            color: #f39c12;
+        }
+        
+        /* Mobile responsive adjustments */
+        @media (max-width: 768px) {
+            .toast-container {
+                top: 10px;
+                right: 10px;
+                left: 10px;
+                align-items: stretch;
+            }
+            
+            .toast {
+                min-width: auto;
+                max-width: none;
+            }
+        }
+        
+        /* ================================================================
            THEME SETTINGS BUTTON & MODAL
            ================================================================ */
         .theme-settings-btn {
@@ -4523,6 +4646,9 @@ if ($isValidPath) {
         </div>
     </div>
 
+    <!-- Toast Notification Container -->
+    <div class="toast-container" id="toastContainer" aria-live="polite" aria-atomic="true"></div>
+
     <script nonce="<?php echo htmlspecialchars($cspNonce, ENT_QUOTES, 'UTF-8'); ?>">
         (function() {
             const overlay = document.querySelector('.loading-overlay');
@@ -4537,6 +4663,92 @@ if ($isValidPath) {
                 if (!overlay) return;
                 overlay.classList.remove('is-active');
                 overlay.setAttribute('aria-hidden', 'true');
+            }
+
+            // ================================================================
+            // TOAST NOTIFICATION SYSTEM
+            // ================================================================
+            const toastContainer = document.getElementById('toastContainer');
+            let toastIdCounter = 0;
+
+            /**
+             * Show a toast notification
+             * @param {string} message - The message to display
+             * @param {string} type - Type of toast: 'error', 'success', 'info', 'warning'
+             * @param {number} duration - Duration in milliseconds (default: 5000, use 0 for no auto-dismiss)
+             */
+            window.showToast = function(message, type = 'info', duration = 5000) {
+                if (!toastContainer) return;
+
+                // Create toast element
+                const toast = document.createElement('div');
+                toast.className = `toast ${type}`;
+                toast.setAttribute('role', 'alert');
+                toast.id = `toast-${toastIdCounter++}`;
+
+                // Determine icon based on type
+                let iconClass = 'fa-circle-info';
+                if (type === 'error') iconClass = 'fa-circle-exclamation';
+                else if (type === 'success') iconClass = 'fa-circle-check';
+                else if (type === 'warning') iconClass = 'fa-triangle-exclamation';
+
+                // Build toast using DOM manipulation (safer than innerHTML)
+                const icon = document.createElement('i');
+                icon.className = `fa-solid ${iconClass} toast-icon`;
+                
+                const messageDiv = document.createElement('div');
+                messageDiv.className = 'toast-message';
+                messageDiv.textContent = message; // textContent automatically escapes
+                
+                const closeBtn = document.createElement('button');
+                closeBtn.className = 'toast-close';
+                closeBtn.setAttribute('aria-label', 'Close notification');
+                
+                const closeIcon = document.createElement('i');
+                closeIcon.className = 'fa-solid fa-xmark';
+                closeBtn.appendChild(closeIcon);
+                
+                // Assemble toast
+                toast.appendChild(icon);
+                toast.appendChild(messageDiv);
+                toast.appendChild(closeBtn);
+
+                // Add close button handler
+                closeBtn.addEventListener('click', function() {
+                    removeToast(toast);
+                });
+
+                // Add to container
+                toastContainer.appendChild(toast);
+
+                // Trigger animation
+                setTimeout(() => {
+                    toast.classList.add('active');
+                }, 10);
+
+                // Auto-remove after duration
+                if (duration > 0) {
+                    setTimeout(() => {
+                        removeToast(toast);
+                    }, duration);
+                }
+            };
+
+            /**
+             * Remove a toast notification
+             * @param {HTMLElement} toast - The toast element to remove
+             */
+            function removeToast(toast) {
+                if (!toast) return;
+                
+                toast.classList.add('removing');
+                toast.classList.remove('active');
+                
+                setTimeout(() => {
+                    if (toast.parentElement) {
+                        toast.remove();
+                    }
+                }, 300);
             }
 
             document.addEventListener('DOMContentLoaded', hideOverlay);
@@ -4929,7 +5141,7 @@ if ($isValidPath) {
                         currentAudio.addEventListener('error', function() {
                             console.error('[Music Player] Audio load error');
                             stopAudio();
-                            alert('Failed to load audio file');
+                            showToast('Failed to load audio file', 'error');
                         });
                         
                         // Start progress tracking
@@ -4939,7 +5151,7 @@ if ($isValidPath) {
                     // Play audio
                     currentAudio.play().catch(err => {
                         console.error('[Music Player] Playback error:', err);
-                        alert('Failed to play audio file');
+                        showToast('Failed to play audio file', 'error');
                         stopAudio();
                     });
                     
@@ -5503,7 +5715,7 @@ if ($isValidPath) {
                         const paths = getSelectedPaths();
                         
                         if (paths.length === 0) {
-                            alert('Please select at least one item');
+                            showToast('Please select at least one item', 'warning');
                             return;
                         }
                         
@@ -5522,7 +5734,7 @@ if ($isValidPath) {
                         const paths = getSelectedPaths();
                         
                         if (paths.length === 0) {
-                            alert('Please select at least one item');
+                            showToast('Please select at least one item', 'warning');
                             return;
                         }
                         
@@ -5560,7 +5772,7 @@ if ($isValidPath) {
                             if (data.success) {
                                 // Show success message if some items failed
                                 if (data.failed && data.failed.length > 0) {
-                                    alert(data.message + '\\n\\nFailed items:\\n' + data.failed.join('\\n'));
+                                    showToast(data.message + '\n\nFailed items:\n' + data.failed.join('\n'), 'warning', 7000);
                                 }
                                 
                                 // Reload page to show updated list
@@ -5568,15 +5780,15 @@ if ($isValidPath) {
                             } else {
                                 let errorMsg = data.error || 'Failed to delete items';
                                 if (data.failed && data.failed.length > 0) {
-                                    errorMsg += '\\n\\nFailed items:\\n' + data.failed.join('\\n');
+                                    errorMsg += '\n\nFailed items:\n' + data.failed.join('\n');
                                 }
-                                alert(errorMsg);
+                                showToast(errorMsg, 'error', 7000);
                                 batchDeleteBtn.disabled = false;
                                 batchDeleteBtn.innerHTML = '<i class="fa-solid fa-trash"></i> Delete Selected';
                             }
                         })
                         .catch(err => {
-                            alert(err.message || 'An error occurred. Please try again.');
+                            showToast(err.message || 'An error occurred. Please try again.', 'error');
                             batchDeleteBtn.disabled = false;
                             batchDeleteBtn.innerHTML = '<i class="fa-solid fa-trash"></i> Delete Selected';
                             console.error('Batch delete error:', err);
@@ -5950,7 +6162,7 @@ if ($isValidPath) {
                                 let message = data.uploaded + ' file' + (data.uploaded > 1 ? 's' : '') + ' uploaded successfully';
                                 if (data.failed && data.failed.length > 0) {
                                     message += '\n\nFailed:\n' + data.failed.join('\n');
-                                    alert(message);
+                                    showToast(message, 'warning', 7000);
                                 }
                                 
                                 // Reload page to show uploaded files
@@ -5960,7 +6172,7 @@ if ($isValidPath) {
                                 if (data.failed && data.failed.length > 0) {
                                     errorMsg += '\n\nFailed:\n' + data.failed.join('\n');
                                 }
-                                alert(errorMsg);
+                                showToast(errorMsg, 'error', 7000);
                             }
                         })
                         .catch(err => {
@@ -5976,7 +6188,7 @@ if ($isValidPath) {
                                 errorMsg = 'Upload failed: Network error occurred. Please check your connection';
                             }
                             
-                            alert(errorMsg);
+                            showToast(errorMsg, 'error');
                             console.error('Upload error:', err);
                         });
                     } catch (err) {
@@ -5985,7 +6197,7 @@ if ($isValidPath) {
                         if (loadingOverlay) {
                             loadingOverlay.classList.remove('active');
                         }
-                        alert('Failed to prepare upload: ' + err.message);
+                        showToast('Failed to prepare upload: ' + err.message, 'error');
                     }
                 }
                 
@@ -6323,7 +6535,7 @@ if ($isValidPath) {
                         
                         // Show error if folders were detected
                         if (hasFolders) {
-                            alert('Folders cannot be uploaded. Please drop individual files only.');
+                            showToast('Folders cannot be uploaded. Please drop individual files only.', 'warning');
                         }
                         
                         // Upload valid files immediately
