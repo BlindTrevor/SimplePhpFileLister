@@ -610,7 +610,40 @@ function loadUsers(): array {
         return [];
     }
     
-    return $data['users'];
+    // Validate user structure
+    $validUsers = [];
+    $validPermissions = ['view', 'download', 'upload', 'delete', 'rename', 'create_directory'];
+    
+    foreach ($data['users'] as $user) {
+        // Validate required fields
+        if (!is_array($user) || 
+            !isset($user['username']) || !is_string($user['username']) ||
+            !isset($user['password']) || !is_string($user['password'])) {
+            continue; // Skip invalid users
+        }
+        
+        // Validate admin flag
+        $admin = isset($user['admin']) && $user['admin'] === true;
+        
+        // Validate permissions array
+        $permissions = [];
+        if (isset($user['permissions']) && is_array($user['permissions'])) {
+            foreach ($user['permissions'] as $perm) {
+                if (is_string($perm) && in_array($perm, $validPermissions, true)) {
+                    $permissions[] = $perm;
+                }
+            }
+        }
+        
+        $validUsers[] = [
+            'username' => $user['username'],
+            'password' => $user['password'],
+            'admin' => $admin,
+            'permissions' => array_unique($permissions)
+        ];
+    }
+    
+    return $validUsers;
 }
 
 /**
@@ -713,23 +746,45 @@ function isAdmin(): bool {
 }
 
 /**
- * Check if user is logged in
- * @return bool True if logged in, false otherwise
+ * Check if user is authenticated (actually logged in with credentials)
+ * @return bool True if authenticated, false otherwise
  */
-function isLoggedIn(): bool {
+function isAuthenticated(): bool {
+    return isset($_SESSION['user']);
+}
+
+/**
+ * Check if user can access the file lister
+ * @return bool True if can access (authenticated or read-only mode), false otherwise
+ */
+function canAccessFileLister(): bool {
     global $authEnabled, $enableReadOnlyMode;
     
-    // If authentication is disabled, always return true
+    // If authentication is disabled, always allow access
     if (!$authEnabled) {
         return true;
     }
     
-    // If read-only mode enabled, unauthenticated users can "view"
-    if ($enableReadOnlyMode && !isset($_SESSION['user'])) {
-        return true; // For viewing purposes
+    // If user is authenticated, allow access
+    if (isAuthenticated()) {
+        return true;
     }
     
-    return isset($_SESSION['user']);
+    // If read-only mode is enabled, allow unauthenticated access
+    if ($enableReadOnlyMode) {
+        return true;
+    }
+    
+    return false;
+}
+
+/**
+ * Check if user is logged in (deprecated, use isAuthenticated() or canAccessFileLister())
+ * @return bool True if logged in, false otherwise
+ * @deprecated Use isAuthenticated() to check if user is logged in, or canAccessFileLister() to check if user can access
+ */
+function isLoggedIn(): bool {
+    return isAuthenticated();
 }
 
 /**
@@ -883,6 +938,21 @@ if (isset($_POST['user_management'])) {
             exit;
         }
         
+        // Validate permissions array
+        if (!is_array($permissions)) {
+            echo json_encode(['success' => false, 'message' => 'Invalid permissions format']);
+            exit;
+        }
+        
+        $validPermissions = ['view', 'download', 'upload', 'delete', 'rename', 'create_directory'];
+        $sanitizedPermissions = [];
+        foreach ($permissions as $perm) {
+            if (is_string($perm) && in_array($perm, $validPermissions, true)) {
+                $sanitizedPermissions[] = $perm;
+            }
+        }
+        $permissions = array_unique($sanitizedPermissions);
+        
         $users = loadUsers();
         
         // Check if username already exists
@@ -922,13 +992,28 @@ if (isset($_POST['user_management'])) {
             exit;
         }
         
+        // Validate permissions array
+        if (!is_array($permissions)) {
+            echo json_encode(['success' => false, 'message' => 'Invalid permissions format']);
+            exit;
+        }
+        
+        $validPermissions = ['view', 'download', 'upload', 'delete', 'rename', 'create_directory'];
+        $sanitizedPermissions = [];
+        foreach ($permissions as $perm) {
+            if (is_string($perm) && in_array($perm, $validPermissions, true)) {
+                $sanitizedPermissions[] = $perm;
+            }
+        }
+        $permissions = array_unique($sanitizedPermissions);
+        
         $users = loadUsers();
         $found = false;
         
         foreach ($users as $key => $user) {
             if (isset($user['username']) && $user['username'] === $username) {
                 $users[$key]['admin'] = $admin;
-                $users[$key]['permissions'] = is_array($permissions) ? $permissions : [];
+                $users[$key]['permissions'] = $permissions;
                 
                 // Only update password if provided
                 if (!empty($password)) {
@@ -1005,6 +1090,12 @@ if (isset($_POST['user_management'])) {
  *       When updating supported file types, update BOTH locations.
  */
 if (isset($_GET['preview'])) {
+    // Check permissions for preview (requires view permission)
+    if (!hasPermission('view')) {
+        http_response_code(403);
+        exit('Permission denied: view access required');
+    }
+    
     $rel = (string)$_GET['preview'];
     $full = realpath($realRoot . $rel);
     
@@ -2018,7 +2109,7 @@ header('Permissions-Policy: geolocation=(), camera=(), microphone=()');
 header("Content-Security-Policy: default-src 'self'; style-src 'self' https://cdnjs.cloudflare.com 'nonce-{$cspNonce}'; script-src 'self' 'nonce-{$cspNonce}'; img-src 'self' https://img.shields.io data: blob:; font-src https://cdnjs.cloudflare.com; media-src 'self' blob:; object-src 'none'; base-uri 'self'; frame-ancestors 'none'");
 
 // Check if login is required
-$requireLogin = $authEnabled && !isLoggedIn() && !$enableReadOnlyMode;
+$requireLogin = $authEnabled && !canAccessFileLister();
 
 // Process current path
 $currentPath = isset($_GET['path']) ? rtrim((string)$_GET['path'], '/') : '';
@@ -4759,7 +4850,7 @@ if ($isValidPath) {
                     <h1><?php echo htmlspecialchars($title); ?></h1>
                     <?php if (!empty($subtitle)): ?><div class="subtitle"><?php echo htmlspecialchars($subtitle); ?></div><?php endif; ?>
                 </div>
-                <?php if ($authEnabled && isLoggedIn() && isset($_SESSION['user'])): ?>
+                <?php if ($authEnabled && isAuthenticated() && isset($_SESSION['user'])): ?>
                 <div class="header-right" style="display: flex; align-items: center; gap: 15px;">
                     <div style="font-size: 14px; color: var(--muted);">
                         Logged in as <strong style="color: var(--text);"><?php echo htmlspecialchars($_SESSION['user']['username']); ?></strong>
@@ -4897,11 +4988,17 @@ if ($isValidPath) {
                     // Get items for current page
                     $itemsToDisplay = array_slice($allItems, $offset, $itemsPerPage);
 
+                    // Check user permissions for UI elements
+                    $canRename = $enableRename && hasPermission('rename');
+                    $canDelete = $enableDelete && hasPermission('delete');
+                    $canDownload = $enableIndividualDownload && hasPermission('download');
+                    $canShowCheckbox = ($enableBatchDownload && hasPermission('download')) || ($enableDelete && hasPermission('delete'));
+
                     foreach ($itemsToDisplay as $item) {
                         if ($item['type'] === 'dir') {
-                            renderItem($item['name'], true, $currentPath, $item['size'], $enableRename, $enableDelete, ($enableBatchDownload || $enableDelete), $showFileSize, $enableIndividualDownload);
+                            renderItem($item['name'], true, $currentPath, $item['size'], $canRename, $canDelete, $canShowCheckbox, $showFileSize, $canDownload);
                         } else {
-                            renderItem($item['name'], false, $currentPath, $item['size'], $enableRename, $enableDelete, ($enableBatchDownload || $enableDelete), $showFileSize, $enableIndividualDownload);
+                            renderItem($item['name'], false, $currentPath, $item['size'], $canRename, $canDelete, $canShowCheckbox, $showFileSize, $canDownload);
                         }
                     }
                 }
@@ -5011,8 +5108,8 @@ if ($isValidPath) {
                 
                 // Determine if stats container should be displayed
                 $hasStatsToShow = !empty($statsHtml);
-                $hasBatchActions = isset($hasItemsToSelect) && $hasItemsToSelect && ($enableBatchDownload || $enableDelete);
-                $hasDownloadAll = $enableDownloadAll && hasDownloadableContent($basePath, $realRoot, $includeHiddenFiles);
+                $hasBatchActions = isset($hasItemsToSelect) && $hasItemsToSelect && (($enableBatchDownload && hasPermission('download')) || ($enableDelete && hasPermission('delete')));
+                $hasDownloadAll = $enableDownloadAll && hasPermission('download') && hasDownloadableContent($basePath, $realRoot, $includeHiddenFiles);
                 $showStatsContainer = $hasStatsToShow || $hasBatchActions || $hasDownloadAll;
                 
                 if ($showStatsContainer) {
@@ -5057,19 +5154,19 @@ if ($isValidPath) {
                     echo '<div class="batch-actions-container">';
                     
                     // Selection count display as first element in button group (when items are available and batch download or delete is enabled)
-                    if (isset($hasItemsToSelect) && $hasItemsToSelect && ($enableBatchDownload || $enableDelete)) {
+                    if (isset($hasItemsToSelect) && $hasItemsToSelect && (($enableBatchDownload && hasPermission('download')) || ($enableDelete && hasPermission('delete')))) {
                         echo '<span class="selected-count batch-btn-hidden" id="selectedCount">0 selected</span>';
                     }
                     
                     // Batch download button (hidden by default, shown when items selected)
-                    if (isset($hasItemsToSelect) && $hasItemsToSelect && $enableBatchDownload) {
+                    if (isset($hasItemsToSelect) && $hasItemsToSelect && $enableBatchDownload && hasPermission('download')) {
                         echo '<button class="batch-download-btn batch-btn-hidden" id="batchDownloadBtn" title="Download selected as ZIP">';
                         echo '<i class="fa-solid fa-download"></i> Download Selected';
                         echo '</button>';
                     }
                     
                     // Batch delete button (hidden by default, shown when items selected)
-                    if (isset($hasItemsToSelect) && $hasItemsToSelect && $enableDelete) {
+                    if (isset($hasItemsToSelect) && $hasItemsToSelect && $enableDelete && hasPermission('delete')) {
                         echo '<button class="batch-delete-btn batch-btn-hidden" id="batchDeleteBtn" title="Delete selected items">';
                         echo '<i class="fa-solid fa-trash"></i> Delete Selected';
                         echo '</button>';
@@ -5089,16 +5186,16 @@ if ($isValidPath) {
                         echo '</a>';
                     }
                     
-                    // Show upload button if enabled
-                    if ($enableUpload) {
+                    // Show upload button if enabled and user has permission
+                    if ($enableUpload && hasPermission('upload')) {
                         echo '<button class="upload-btn" id="uploadBtn" title="Upload files">';
                         echo '<i class="fa-solid fa-upload"></i>';
                         echo 'Upload Files';
                         echo '</button>';
                     }
                     
-                    // Show create directory button if enabled
-                    if ($enableCreateDirectory) {
+                    // Show create directory button if enabled and user has permission
+                    if ($enableCreateDirectory && hasPermission('create_directory')) {
                         echo '<button class="create-dir-btn" id="createDirBtn" title="Create new folder">';
                         echo '<i class="fa-solid fa-folder-plus"></i>';
                         echo 'New Folder';
